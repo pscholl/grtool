@@ -287,6 +287,9 @@ loadData(std::istream &file, std::string datatype="none", bool canBeUnlabelled=t
     blocks.back().push_back(sample);
   }
 
+  if (blocks.back().size() == 0) // was a trailing empty line
+    blocks.erase(blocks.end() - 1 );
+
   // now check wether we have a classifier, timeseries or regression set
   // regression if labels are numbers and data dimension is 1, blocks are
   // samples
