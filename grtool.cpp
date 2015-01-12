@@ -2,6 +2,8 @@
 #include <iostream>
 #include <string>
 #include <locale> // for isspace
+#include <functional>
+#include <math.h>
 #include "cmdline.h"
 
 using namespace GRT;
@@ -17,7 +19,7 @@ int main(int argc, char *argv[])
   cmdline::parser c;
   c.add<string>("model",   'm', "GRT model file", true);
   c.add<int>   ("verbose", 'v', "verbosity level: 0-4", 0);
-  c.add<bool>  ("help",    'h', "print this message", false);
+  c.add        ("help",    'h', "print this message");
 
   // second argument must be command
   const char* cmd = argc<2 ? "none" : argv[1];
@@ -27,8 +29,9 @@ int main(int argc, char *argv[])
   if (strcmp(cmd, "train")==0) {
     c.add<string>("data",     'd', "data file to load, opens up stdin if not given", false, "-");
     c.add<string>("datatype", 't', "force classification, regression or timeseries input", false);
-    c.add<int>("k-folds",     'k', "number of cross-validation folds, should be in the range of [1,numTrainingSamples-1], default it not to do any cross-validation", false, 1);
-    c.add<bool>("stratified", 's', "if samples should be stratified during cross-validation", false);
+    c.add<int>("k-folds",     'k', "number of cross-validation folds, should be in the range of [1,numTrainingSamples-1], default is no cross-validation", false, 1);
+    c.add("stratified",       's', "wether samples should be stratified during cross-validation");
+    c.add("report",           'r', "report cross-validation results if done");
 
     cmdhelp = "trains the model on the supplied data file.\n"
               "If a Regression, Classification or Timeseries Classfication is to be used is deduced from the file format"
@@ -72,13 +75,19 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+  DebugLog::enableLogging(false);
+  TrainingLog::enableLogging(false);
+  TestingLog::enableLogging(false);
+  InfoLog::enableLogging(false);
+  WarningLog::enableLogging(false);
+  ErrorLog::enableLogging(false);
   switch(c.get<int>("verbose")) {
       case 4: DebugLog::enableLogging(true);
-      case 3: TestingLog::enableLogging(true);
+      case 3: TestingLog::enableLogging(true); TrainingLog::enableLogging(true);
       case 2: InfoLog::enableLogging(true);
       case 1: WarningLog::enableLogging(true);
       case 0: ErrorLog::enableLogging(true);
-   }
+  }
 
   return action(c);
 }
@@ -180,7 +189,7 @@ int create(cmdline::parser &args) {
     }
   }
 
-  return pipeline.savePipelineToFile( arg_outputfile );
+  return pipeline.savePipelineToFile( arg_outputfile ) ? 0 : -1;
 }
 
 bool iscomment(std::string line) {
@@ -214,8 +223,16 @@ class loadData_ret {
   RegressionData r_data;
   ClassificationData c_data;
   TimeSeriesClassificationData t_data;
-  int classkey(std::string label) { return std::find(labels.begin(), labels.end(), label) == labels.end() ? -1 : std::find(labels.begin(), labels.end(), label) - labels.begin();}
-  std::vector<string> labels;
+  std::vector<string> labels = std::vector<string>(1, "NULL");
+  int classkey(std::string label) {
+    int i = std::find(labels.begin(), labels.end(), label) == labels.end() ? -1 :
+            std::find(labels.begin(), labels.end(), label) - labels.begin();
+    if (i==-1) {
+      labels.push_back(label);
+      return labels.size()-1;
+    }
+    return i;
+  }
 };
 loadData_ret
 loadData(std::istream &file, std::string datatype="none", bool canBeUnlabelled=true)
@@ -321,51 +338,46 @@ loadData(std::istream &file, std::string datatype="none", bool canBeUnlabelled=t
       return container;
     }
 
-  // extract the label set
-  std::vector< std::string > labels;
-  for (blocks_t::iterator block=blocks.begin(); block!=blocks.end(); ++block) {
-    std::string label = (block->back()).first;
-    int label_index = std::find(labels.begin(), labels.end(), label) == labels.end() ? -1 :
-                      std::find(labels.begin(), labels.end(), label) - labels.begin();
-
-    // insert into the label mapping
-    if (label_index == -1) {
-      label_index = labels.size();
-      labels.push_back(label);
-    }
-  }
-  container.labels = labels;
-
   // load into dataset
   if ( datatype=="regression" ) {
     std::cerr << "regression not implemented yet" << endl;
   } else if ( datatype=="classification") {
-    std::cerr << "classification not implemented yet" << endl;
     ClassificationData dataset( blocks.back().back().second.size() );
-    std::vector< std::string > labels;
+    dataset.setAllowNullGestureClass( true );
+
+    for (blocks_t::iterator block=blocks.begin(); block!=blocks.end(); ++block) {
+      for (block_t::iterator sample=block->begin(); sample!=block->end(); ++sample) {
+        std::string label = sample->first;
+        int label_index = container.classkey(label);
+
+        dataset.addSample(label_index, sample->second);
+        dataset.setClassNameForCorrespondingClassLabel(label, label_index);
+      }
+    }
+
+    info << dataset.getStatsAsString();
+
+    container.type = CLASSIFICATION;
+    container.c_data = dataset;
+    return container;
   } else if ( datatype=="timeseries" ) {
     TimeSeriesClassificationData dataset( blocks.back().back().second.size() );
+    dataset.setAllowNullGestureClass( true );
+    dataset.setClassNameForCorrespondingClassLabel("NULL", 0);
 
     for (blocks_t::iterator block=blocks.begin(); block!=blocks.end(); ++block) {
       // cols == sample.size()
-      MatrixDouble md(block->size(), block->back().second.size());
       std::vector< std::vector <double> > vals;
-      std::string label = (block->back()).first;
-      int label_index = std::find(labels.begin(), labels.end(), label) == labels.end() ? -1 :
-                        std::find(labels.begin(), labels.end(), label) - labels.begin();
-
-      // insert into the label mapping
-      if (label_index == -1) {
-        label_index = labels.size();
-        labels.push_back(label);
-      }
+      MatrixDouble md(block->size(), block->back().second.size());
+      std::string label = block->back().first;
+      int label_index = container.classkey(label);
 
       for (block_t::iterator sample=block->begin(); sample!=block->end(); ++sample)
         vals.push_back(sample->second);
 
       md = vals;
-      dataset.addSample(label_index+1, md);
-      dataset.setClassNameForCorrespondingClassLabel(label, label_index+1);
+      dataset.addSample(label_index,md);
+      dataset.setClassNameForCorrespondingClassLabel(label, label_index);
     }
 
     info << dataset.getStatsAsString();
@@ -378,12 +390,78 @@ loadData(std::istream &file, std::string datatype="none", bool canBeUnlabelled=t
   return container;
 }
 
+std::string report(std::vector< TestResult > ts, std::vector< string > labels)
+{
+  using namespace std::placeholders;
+  std::stringstream ss;
+  #define meanof(member, collection) (std::accumulate(collection.begin(),collection.end(), 0, [=](double result, TestResult t) -> double { return  result + t.member; }) / collection.size() )
+  #define stddev(member, collection) (sqrt(std::accumulate(collection.begin(),collection.end(), 0, std::bind([=](double result, TestResult t, double mean) -> double { return result + (mean - t.member); },_1,_2,meanof(member,collection))) / collection.size()) )
+  #define stat(member) meanof(member, ts) << "±" << stddev(member,ts)
+  #define stats(member) ""#member": " << meanof(member, ts) << "±" << stddev(member,ts)
+
+  ss << stats(numTrainingSamples) << endl;
+  ss << stats(numTestSamples) << endl;
+  ss << stats(accuracy) << endl;
+  ss << stats(rmsError) << endl;
+  ss << stats(totalSquaredError) << endl;
+  ss << stats(testTime) << endl;
+  ss << stats(trainingTime) << endl;
+  ss << stats(rejectionRecall) << endl;
+  ss << stats(rejectionPrecision) << endl;
+
+  ss << endl;
+  ss << "\tprecision\trecall\tF1" << endl;
+
+  bool HAS_NO_NULL_CLASS = ts[0].precision.size()!=labels.size();
+
+  for (int i=0; i<ts[0].precision.size(); i++) {
+    double mean_precision = meanof(precision[i], ts),
+           mean_recall = meanof(recall[i], ts);
+
+    ss << labels[i+HAS_NO_NULL_CLASS]
+       << "\t" << stat(precision[i])
+       << "\t" << stat(recall[i])
+       << "\t" << 2*((mean_precision*mean_recall)/(mean_recall+mean_precision))
+       << endl;
+  }
+
+  ss << endl;
+
+  MatrixDouble md = ts[0].confusionMatrix;
+  for (int i=1; i<ts.size(); i++)
+    md.add(ts[i].confusionMatrix);
+
+  for (int i=HAS_NO_NULL_CLASS; i<labels.size(); i++)
+    ss << "\t" << labels[i];
+  ss << endl;
+
+  for (int i=0; i<md.getNumRows(); i++) {
+    ss << labels[i+HAS_NO_NULL_CLASS];
+    for (int j=0; j<md.getNumRows(); j++)
+      ss << "\t" << md[i][j];
+    ss << endl;
+  }
+
+  return ss.str();
+
+}
+
 int train(cmdline::parser &args) {
   string model = args.get<string>("model"),
          datafilename = args.get<string>("data"),
          datatype = args.get<string>("datatype");
   bool stratitified = args.exist("stratified");
   int kfold = args.get<int>("k-folds");
+
+  if (args.exist("stratified") && !args.exist("k-folds")) {
+    std::cerr << "need both stratified and k-folds argument" << endl;
+    return -1;
+  }
+
+  if (args.exist("report") && !args.exist("k-folds")) {
+    std::cerr << "need both stratified and k-folds argument" << endl;
+    return -1;
+  }
 
   GestureRecognitionPipeline pipeline;
   if (!pipeline.load(model)) {
@@ -407,11 +485,25 @@ int train(cmdline::parser &args) {
            pipeline.train(container.t_data, args.get<int>("k-folds"), args.exist("stratified"));
       ok &= pipeline.save(model);
       break;
+    case CLASSIFICATION:
+      ok = !args.exist("k-folds") ? pipeline.train(container.c_data) :
+           pipeline.train(container.c_data, args.get<int>("k-folds"), args.exist("stratified"));
+      ok &= pipeline.save(model);
+      break;
     default:
+      std::cerr << "container type not supported" << endl;
       break;
   }
 
-  return ok ? -1 : 0;
+  if (!ok) {
+    std::cerr << "training failed" << endl;
+    return -1;
+  }
+
+  if (args.exist("report"))
+    std::cout << report( pipeline.getCrossValidationResults(), container.labels );
+
+  return 0;
 }
 
 int predict(cmdline::parser &args) {
@@ -438,7 +530,7 @@ int predict(cmdline::parser &args) {
       for (int i=0; i<container.t_data.getClassificationData().size(); i++)
       {
         int actual = container.t_data.getClassificationData()[i].getClassLabel(),
-            prediction = pipeline.predict( container.t_data.getClassificationData()[i].getData() );
+        prediction = pipeline.predict( container.t_data.getClassificationData()[i].getData() );
 
         std::cout << container.t_data.getClassNameForCorrespondingClassLabel(prediction)
                   << " "
@@ -446,8 +538,26 @@ int predict(cmdline::parser &args) {
                   << endl;
       }
       break;
+    case CLASSIFICATION:
+      for (int i=0; i<container.c_data.getClassificationData().size(); i++)
+      {
+        int actual = container.c_data.getClassificationData()[i].getClassLabel(),
+        prediction = pipeline.predict( container.c_data.getClassificationData()[i].getSample() );
+
+        std::cout << container.c_data.getClassNameForCorrespondingClassLabel(prediction)
+                  << " "
+                  << container.c_data.getClassNameForCorrespondingClassLabel(actual)
+                  << endl;
+      }
+      break;
+    case REGRESSION:
+      std::cerr << "regression not supported yet" << endl;
+      break;
+    case UNLABELLED:
+      std::cerr << "unlabelled not supported yet" << endl;
+      break;
     default:
-      std:cerr << "unable to load data" << endl;
+      std::cerr << "unable to load data" << endl;
   }
 
   return -1;
