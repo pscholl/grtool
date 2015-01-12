@@ -503,8 +503,15 @@ int train(cmdline::parser &args) {
     return -1;
   }
 
-  if (args.exist("report"))
-    std::cout << report( pipeline.getCrossValidationResults(), container.labels );
+  if (args.exist("report")) {
+    if (pipeline.getCrossValidationResults().size() != 0)
+      std::cout << report( pipeline.getCrossValidationResults(), container.labels );
+    else
+    {
+      std::vector < TestResult > v = std::vector<TestResult>(1, pipeline.getTestResults());
+      std::cout << report( v, container.labels );
+    }
+  }
 
   return 0;
 }
