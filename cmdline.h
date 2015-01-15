@@ -518,7 +518,7 @@ public:
 
     for (std::map<std::string, option_base*>::iterator p=options.begin();
          p!=options.end(); p++)
-      if (!p->second->valid())
+      if (!p->second->valid() && fail_on_unknown)
         errors.push_back("missing option: --"+std::string(p->first));
 
     return errors.size()==0;

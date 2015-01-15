@@ -8,6 +8,7 @@ int main(int argc, char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.add<string>("model",      'm', "file to store trained classifier", true);
+  c.footer     ("[filename]...");
 
   /* parse the classifier-common arguments */
   if (!c.parse(argc,argv,false)) {
