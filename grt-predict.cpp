@@ -9,8 +9,8 @@ int main(int argc, char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.add<string>("model",      'm', "file to store trained classifier", true);
-  c.add<string>("input",      'i', "data input file, defaults to stdin", false);
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
+  c.footer     ("[filename]...");
 
   /* parse the classifier-common arguments */
   if (!c.parse(argc,argv,false)) {
@@ -34,8 +34,15 @@ int main(int argc, char *argv[])
   /* start reading input */
   string data_type = c.get<string>("type");
   CsvIOSample io(data_type);
-  ifstream inf(c.get<string>("input"));
-  istream &in = c.exist("input") ? inf : cin;
+
+  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
+  ifstream inf(filename);
+  if (filename!="-" && !inf) {
+    cerr << "unable to open file: " << filename << endl;
+    return -1;
+  }
+  istream &in = filename != "-" ? inf : cin;
+
 
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;

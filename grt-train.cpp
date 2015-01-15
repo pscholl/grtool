@@ -21,7 +21,7 @@ int main(int argc, const char *argv[])
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add<string>("classifier", 'c', "classifier module", false);
   c.add<string>("model",      'm', "file to store trained classifier", true);
-  c.add<string>("input",      'i', "data input file, defaults to stdin", false);
+  c.footer     ("[filename]...");
 
   /* parse the classifier-common arguments */
   if (!c.parse(argc,argv,false)) {
@@ -62,8 +62,14 @@ int main(int argc, const char *argv[])
   string type = c.get<string>("type");
   CsvIOSample io(type);
   CollectDataset dataset;
-  ifstream inf(c.get<string>("input"));
-  istream &in = c.exist("input") ? inf : cin;
+
+  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
+  ifstream inf(filename);
+  if (filename!="-" && !inf) {
+    cerr << "unable to open file: " << filename << endl;
+    return -1;
+  }
+  istream &in = filename != "-" ? inf : cin;
 
   while (in >> io && is_running)
     csvio_dispatch(io, dataset.add, io.labelset);
