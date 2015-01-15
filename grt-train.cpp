@@ -95,6 +95,7 @@ void addClassifierArguments(cmdline::parser &c, string classifier)
     c.add<string>("hmmtype",      'k', "either 'discrete_ergodic', 'discrete_leftright', 'continuous_ergodic' or 'continuous_leftright'", false, "continuous_leftright", cmdline::oneof<string>("continuous_leftright", "continuous_ergodic", "discrete_leftright", "discrete_ergodic"));
     c.add<int>   ("comitteesize", 's', "number of models used for prediction, default: 10", false, 10);
     c.add<double>("delta",        'd', "learning delta, default: 1", false, 1);
+    c.add<int>   ("downsample",   'D', "downsample factor, default: 5", false, 5);
   } else if ( "KNN" == classifier ) {
     c.add<string>("distance",         'd', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
     c.add<double>("null_coefficient", 'n', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
@@ -121,6 +122,7 @@ bool applyClassifierArguments(cmdline::parser &c, Classifier *o, string classifi
 
     checkedarg(h->setCommitteeSize, int, "comitteesize");
     checkedarg(h->setDelta, double, "delta");
+    checkedarg(h->setDownsampleFactor, int, "downsample");
   } else if ( "KNN" == classifier ) {
     KNN *k = (KNN*) o;
 
