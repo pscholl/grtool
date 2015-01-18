@@ -21,6 +21,7 @@ int main(int argc, const char *argv[])
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add<string>("classifier", 'c', "classifier module", false);
   c.add<string>("model",      'm', "file to store trained classifier", true);
+  c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted as percentage of input data", false, 1.);
   c.footer     ("[filename]...");
 
   /* parse the classifier-common arguments */
@@ -59,10 +60,12 @@ int main(int argc, const char *argv[])
   /* and apply them to the classifier instance */
   applyClassifierArguments(c, classifier, arg_classifier);
 
+  /* now start to read input samples */
   string type = c.get<string>("type");
   CsvIOSample io(type);
   CollectDataset dataset;
 
+  /* do we read from a file or from stdin-? */
   string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
   ifstream inf(filename);
   if (filename!="-" && !inf) {
@@ -71,11 +74,37 @@ int main(int argc, const char *argv[])
   }
   istream &in = filename != "-" ? inf : cin;
 
-  while (in >> io && is_running)
+  /* check if the number of input is limited */
+  float input_limit   = c.get<float>("num-samples");
+    int input_limit_i = input_limit,
+        num_samples   = 0;
+
+  while (in >> io && is_running && (input_limit_i==0 || num_samples < input_limit_i) ) {
     csvio_dispatch(io, dataset.add, io.labelset);
+    num_samples++;
+  }
 
   info << dataset.getStatsAsString() << endl;
 
+  /* if we have percent input limit, we need to apply this now */
+  TimeSeriesClassificationData t_testdata;
+  ClassificationData c_testdata;
+
+  if (input_limit < 1.) {
+    switch(io.type) {
+    case TIMESERIES:
+      t_testdata = dataset.t_data.partition( input_limit * 100, true );
+      break;
+    case CLASSIFICATION:
+      c_testdata = dataset.c_data.partition( input_limit * 100, true );
+      break;
+    default:
+      err << "unknown data type" << endl;
+      return -1;
+    }
+  }
+
+  /* train and save classifier */
   bool ok; csvio_dispatch(dataset, ok=classifier->train);
   if (!ok) {
     err << "training failed" << endl;
@@ -85,6 +114,41 @@ int main(int argc, const char *argv[])
   if (!classifier->save(c.get<string>("model"))) {
     err << "saving to " << c.get<string>("model") << " failed" << endl;
     return -1;
+  }
+
+  /* if there is testdataset we need to print this now */
+  if (input_limit < 1.) {
+    switch(io.type) {
+    case TIMESERIES:
+      for (auto sample : t_testdata.getClassificationData()) {
+        string label = t_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
+        MatrixDouble &matrix = sample.getData();
+        for (int i=0; i<matrix.getNumRows(); i++) {
+          cout << label;
+          for (int j=0; j<matrix.getNumCols(); j++)
+            cout << "\t" << matrix[i][j];
+          cout << endl;
+        }
+        cout << endl;
+      }
+      break;
+    case CLASSIFICATION:
+      for (auto sample : c_testdata.getClassificationData()) {
+        string label = c_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
+        cout << label;
+        for (auto val : sample.getSample())
+          cout << "\t" << val;
+        cout << endl;
+      }
+      break;
+    default:
+      err << "unknown data type" << endl;
+      return -1;
+    }
+  } else if (input_limit > 1.) {
+    string line;
+    while (getline(in, line))
+      cout << line << endl;
   } else
     return 0;
 }
@@ -98,7 +162,7 @@ void addClassifierArguments(cmdline::parser &c, string classifier)
     c.add<int>   ("downsample",   'D', "downsample factor, default: 5", false, 5);
   } else if ( "KNN" == classifier ) {
     c.add<string>("distance",         'd', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
-    c.add<double>("null_coefficient", 'n', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
+    c.add<double>("null_coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
     c.add<int>   ("k_neighbors",      'K', "number of neighbors used in classification", false, 5);
   }
 }
