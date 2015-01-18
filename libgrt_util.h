@@ -79,8 +79,6 @@ class CsvIOSample {
       for (o.linenum=0; getline(in,line); o.linenum++) {
         stringstream ss(line);
 
-        ss >> label;
-
         if (line == "") {
           if (data.size()!=0)
             break;
@@ -88,15 +86,15 @@ class CsvIOSample {
             continue;
         }
 
-        if (label[0] == '#') {
+        if (line[0] == '#') {
           if (o.type==UNKNOWN) o.settype(line);
-          in.ignore(INT_MAX, '\n');
           continue;
         }
 
         if (o.type==UNKNOWN)
-          throw new invalid_argument("dunno how to parse data");
+          o.type = CLASSIFICATION; // default to classificaion
 
+        ss >> label;
         vector<double> sample;
         while (ss >> d)
           sample.push_back(d);
@@ -199,15 +197,54 @@ class CollectDataset
   }
 };
 
+class CerrLogger : public Observer< GRT::TrainingLogMessage >,
+                   public Observer< GRT::TestingLogMessage >,
+                   public Observer< GRT::WarningLogMessage >,
+                   public Observer< GRT::DebugLogMessage >,
+                   public Observer< GRT::ErrorLogMessage >,
+                   public Observer< GRT::InfoLogMessage >
+{
+  void notify(TrainingLogMessage &msg) {
+    cerr << msg.getMessage() << endl;
+  }
+
+  void notify(TestingLogMessage &msg) {
+    cerr << msg.getMessage() << endl;
+  }
+
+  void notify(DebugLogMessage &msg) {
+    cerr << msg.getMessage() << endl;
+  }
+
+  void notify(InfoLogMessage &msg) {
+    cerr << msg.getMessage() << endl;
+  }
+
+  void notify(WarningLogMessage &msg) {
+    cerr << msg.getMessage() << endl;
+  }
+
+  void notify(ErrorLogMessage &msg) {
+    cerr << msg.getMessage() << endl;
+  }
+};
+
 static bool is_running = true;
   /* enable logging output */
 void set_verbosity(int level) {
+  static CerrLogger _cerr;
   DebugLog::enableLogging(false);
   TrainingLog::enableLogging(false);
   TestingLog::enableLogging(false);
   InfoLog::enableLogging(false);
   WarningLog::enableLogging(false);
   ErrorLog::enableLogging(false);
+  DebugLog::registerObserver( _cerr );
+  TrainingLog::registerObserver(_cerr);
+  TestingLog::registerObserver(_cerr);
+  InfoLog::registerObserver(_cerr);
+  WarningLog::registerObserver(_cerr);
+  ErrorLog::registerObserver(_cerr);
   switch(level) {
       case 4: DebugLog::enableLogging(true);
       case 3: TestingLog::enableLogging(true); TrainingLog::enableLogging(true);
