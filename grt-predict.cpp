@@ -13,8 +13,8 @@ int main(int argc, char *argv[])
   c.footer     ("[filename]...");
 
   /* parse the classifier-common arguments */
-  if (!c.parse(argc,argv,false)) {
-    cerr << c.usage() << "\n" << c.error() << "\n" ;
+  if (!c.parse(argc,argv,true) || c.exist("help")) {
+    cerr << c.usage() << "\n" << (c.exist("help") ? c.error() : "") << "\n" ;
     return -1;
   }
 
