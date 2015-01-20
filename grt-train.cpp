@@ -79,8 +79,12 @@ int main(int argc, const char *argv[])
     int input_limit_i = input_limit,
         num_samples   = 0;
 
-  while (in >> io && is_running && (input_limit_i==0 || num_samples < input_limit_i) ) {
-    csvio_dispatch(io, dataset.add, io.labelset);
+  while (in >> io && is_running && (input_limit_i==1 || num_samples < input_limit_i) ) {
+    bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
+    if (!ok) {
+      cerr << "error at line " << io.linenum << endl;
+      exit(-1);
+    }
     num_samples++;
   }
 

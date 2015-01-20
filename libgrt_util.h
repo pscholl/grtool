@@ -76,8 +76,9 @@ class CsvIOSample {
       vector<vector<double>> data;
       double d;
 
-      for (o.linenum=0; getline(in,line); o.linenum++) {
+      while (getline(in,line)) {
         stringstream ss(line);
+        o.linenum++;
 
         if (line == "") {
           if (data.size()!=0)

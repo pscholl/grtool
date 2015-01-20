@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  /* start reading input */
+  /* prepare input */
   string data_type = c.get<string>("type");
   CsvIOSample io(data_type);
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
   }
   istream &in = filename != "-" ? inf : cin;
 
-
+  /* read and predict on input */
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
 

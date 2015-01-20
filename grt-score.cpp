@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 
   while (in >> prediction >> label)
   {
-    uint64_t idxA = push_back_if_not_there(label, labelset),
+    int64_t idxA = push_back_if_not_there(prediction, labelset),
              idxB = push_back_if_not_there(label, labelset);
 
     if (confusion->getNumRows() != labelset.size())
