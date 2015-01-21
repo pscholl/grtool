@@ -43,7 +43,8 @@ int main(int argc, const char *argv[])
     cout << "available classifiers:" << endl;
     vector<string> names = Classifier::getRegisteredClassifiers();
     for(vector<string>::iterator it = names.begin(); it != names.end(); ++it) {
-      cout << *it << endl;
+      Classifier *c = Classifier::createInstanceFromString(*it);
+      cout << *it << (c->getTimeseriesCompatible() ? " (timeseries)" : "") << endl;
     }
     return -1;
   }

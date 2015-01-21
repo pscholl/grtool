@@ -1,6 +1,6 @@
 CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 # -O0
 LDFLAGS=`pkg-config --libs grt`
-ALL=grt grt-train grt-predict grt-info grt-score
+ALL=grt train predict info score preprocess
 
 all: $(ALL) *.h
 
@@ -15,12 +15,13 @@ bindir=$(PREFIX)/bin
 DESTDIR=
 INSTALL_PROGRAM=install
 
-install: grt grt-train grt-predict grt-info grt-score
+install: $(ALL)
 	$(INSTALL_PROGRAM) -D grt "$(DESTDIR)$(bindir)/grt"
-	$(INSTALL_PROGRAM) -D grt-train "$(DESTDIR)$(bindir)/grt-train"
-	$(INSTALL_PROGRAM) -D grt-predict "$(DESTDIR)$(bindir)/grt-predict"
-	$(INSTALL_PROGRAM) -D grt-score "$(DESTDIR)$(bindir)/grt-score"
-	$(INSTALL_PROGRAM) -D grt-info "$(DESTDIR)$(bindir)/grt-info"
+	$(INSTALL_PROGRAM) -D train "$(DESTDIR)$(bindir)/grt-train"
+	$(INSTALL_PROGRAM) -D predict "$(DESTDIR)$(bindir)/grt-predict"
+	$(INSTALL_PROGRAM) -D preprocess "$(DESTDIR)$(bindir)/grt-preprocess"
+	$(INSTALL_PROGRAM) -D score "$(DESTDIR)$(bindir)/grt-score"
+	$(INSTALL_PROGRAM) -D info "$(DESTDIR)$(bindir)/grt-info"
 
 clean:
 	rm -f $(ALL)

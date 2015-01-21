@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
   }
 
   /* handling of TERM and INT signal and set verbosity */
-  set_running_indicator(&is_running);
+  //set_running_indicator(&is_running);
   set_verbosity(c.get<int>("verbose"));
 
   /* load a classification model */
