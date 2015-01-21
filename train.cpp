@@ -77,10 +77,10 @@ int main(int argc, const char *argv[])
 
   /* check if the number of input is limited */
   float input_limit   = c.get<float>("num-samples");
-    int input_limit_i = input_limit,
+    int input_limit_i = input_limit <= 1 ? 0 : input_limit,
         num_samples   = 0;
 
-  while (in >> io && is_running && (input_limit_i==1 || num_samples < input_limit_i) ) {
+  while (in >> io && is_running && (input_limit_i==0 || num_samples < input_limit_i) ) {
     bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
     if (!ok) {
       cerr << "error at line " << io.linenum << endl;
