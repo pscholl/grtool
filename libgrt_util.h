@@ -243,12 +243,12 @@ void set_verbosity(int level) {
   InfoLog::enableLogging(false);
   WarningLog::enableLogging(false);
   ErrorLog::enableLogging(false);
-  DebugLog::registerObserver( _cerr );
-  TrainingLog::registerObserver(_cerr);
-  TestingLog::registerObserver(_cerr);
-  InfoLog::registerObserver(_cerr);
-  WarningLog::registerObserver(_cerr);
-  ErrorLog::registerObserver(_cerr);
+  //DebugLog::registerObserver( _cerr );
+  //TrainingLog::registerObserver(_cerr);
+  //TestingLog::registerObserver(_cerr);
+  //InfoLog::registerObserver(_cerr);
+  //WarningLog::registerObserver(_cerr);
+  //ErrorLog::registerObserver(_cerr);
   switch(level) {
       case 4: DebugLog::enableLogging(true);
       case 3: TestingLog::enableLogging(true); TrainingLog::enableLogging(true);
@@ -296,15 +296,17 @@ Classifier *loadFromFile(string &file)
   return classifier;
 }
 
-istream& grt_fileinput(cmdline::parser &c) {
+istream&
+grt_fileinput(cmdline::parser &c) {
+  static ifstream inf;
   string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
-  ifstream inf(filename);
-  if (filename!="-" && !inf) {
-    cerr << "unable to open file: " << filename << endl;
-    exit(-1);
+
+  if (filename=="-")
     return cin;
-  }
-  return filename != "-" ? inf : cin;
+
+  inf.open(filename);
+  if(!inf) cerr << "unable to open file: " << filename << endl;
+  return inf;
 }
 
 

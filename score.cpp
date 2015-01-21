@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 
   /* parse the classifier-common arguments */
   if (!c.parse(argc,argv)) {
-    cerr << c.usage() << "\n" << c.error() << "\n" ;
+    cerr << c.usage() << endl << c.error() << endl;
     return -1;
   }
 
@@ -37,17 +37,17 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  /* handling of TERM and INT signal and set verbosity */
+  if (!(c.exist("confusion") || c.exist("precision") || c.exist("recall") || c.exist("F-score"))) {
+    cerr << c.usage() << endl << "error: need at least one reporting option" << endl;
+    return -1;
+  }
+
+  /* handling of TERM and INT signal */
   set_running_indicator(&is_running);
 
   /* open standard input or file argument */
-  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
-  ifstream inf(filename);
-  if (filename!="-" && !inf) {
-    cerr << "unable to open file: " << filename << endl;
-    return -1;
-  }
-  istream &in = filename != "-" ? inf : cin;
+  istream &in = grt_fileinput(c);
+
   string prediction, label;
 
   /* prepare the labelset and build confusion matrix */
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
   while (in >> prediction >> label)
   {
     int64_t idxA = push_back_if_not_there(prediction, labelset),
-             idxB = push_back_if_not_there(label, labelset);
+            idxB = push_back_if_not_there(label, labelset);
 
     if (confusion->getNumRows() != labelset.size())
       confusion = resize_martix(confusion, labelset.size());
