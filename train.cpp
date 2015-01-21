@@ -67,13 +67,7 @@ int main(int argc, const char *argv[])
   CollectDataset dataset;
 
   /* do we read from a file or from stdin-? */
-  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
-  ifstream inf(filename);
-  if (filename!="-" && !inf) {
-    cerr << "unable to open file: " << filename << endl;
-    return -1;
-  }
-  istream &in = filename != "-" ? inf : cin;
+  istream &in = grt_fileinput(c);
 
   /* check if the number of input is limited */
   float input_limit   = c.get<float>("num-samples");

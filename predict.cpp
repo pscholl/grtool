@@ -34,14 +34,7 @@ int main(int argc, char *argv[])
   /* prepare input */
   string data_type = c.get<string>("type");
   CsvIOSample io(data_type);
-
-  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
-  ifstream inf(filename);
-  if (filename!="-" && !inf) {
-    cerr << "unable to open file: " << filename << endl;
-    return -1;
-  }
-  istream &in = filename != "-" ? inf : cin;
+  istream &in = grt_fileinput(c);
 
   /* read and predict on input */
   while( in >> io && is_running ) {

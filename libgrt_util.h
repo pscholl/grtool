@@ -1,6 +1,7 @@
 #ifndef _CSVIO_H_
 #define _CSVIO_H_
 
+#include "cmdline.h"
 #include <GRT.h>
 #include <iostream>
 #include <climits>
@@ -10,7 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+
 using namespace GRT;
+using namespace std;
 
 #define csvio_dispatch(io,func,args...) switch(io.type) {\
   case TIMESERIES:\
@@ -291,6 +294,17 @@ Classifier *loadFromFile(string &file)
 
   ErrorLog::enableLogging(true);
   return classifier;
+}
+
+istream& grt_fileinput(cmdline::parser &c) {
+  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
+  ifstream inf(filename);
+  if (filename!="-" && !inf) {
+    cerr << "unable to open file: " << filename << endl;
+    exit(-1);
+    return cin;
+  }
+  return filename != "-" ? inf : cin;
 }
 
 
