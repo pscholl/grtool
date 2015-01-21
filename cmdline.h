@@ -553,9 +553,9 @@ public:
     return oss.str();
   }
 
-  std::string usage() const {
+  std::string usage(std::string hdr="") const {
     std::ostringstream oss;
-    oss<<"usage: "<<prog_name<<" <cmd> ";
+    oss<<"usage: "<<prog_name<<" "<<hdr;
     for (size_t i=0; i<ordered.size(); i++){
       if (ordered[i]->must())
         oss<<ordered[i]->short_description()<<" ";

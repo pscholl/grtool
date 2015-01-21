@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 
   /* parse the classifier-common arguments */
   if (!c.parse(newargc,argv,false)) {
-    cerr << c.usage() << "\n" << c.error() << "\n" ;
+    cerr << c.usage( " <cmd> ") << "\n" << c.error() << "\n" ;
     return -1;
   }
 

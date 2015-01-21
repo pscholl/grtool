@@ -37,11 +37,13 @@ int main(int argc, const char *argv[]) {
   PreProcessing *pp = PreProcessing::createInstanceFromString( preproc_name );
 
   if (preproc_name == "list") {
+    cout << c.usage() << endl;
     cout << list_preprocessors();
     exit(0);
   }
 
   if (pp == NULL) {
+    cout << c.usage() << endl;
     cout << list_preprocessors() << endl;
     cerr << "unable to load preprocessor " << preproc_name << endl;
     exit(-1);
