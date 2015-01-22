@@ -367,7 +367,7 @@ public:
     return p->get();
   }
 
-  const std::vector<std::string> &rest() const {
+  std::vector<std::string> &rest() {
     return others;
   }
 
@@ -460,7 +460,8 @@ public:
         else{
           std::string name(argv[i]+2);
           if (options.count(name)==0){
-            errors.push_back("undefined option: --"+name);
+            if(fail_on_unknown) errors.push_back("undefined option: --"+name);
+            others.push_back(argv[i]);
             continue;
           }
           if (options[name]->has_value()){
@@ -496,6 +497,7 @@ public:
 
         if (lookup.count(last)==0){
           if (fail_on_unknown) errors.push_back(std::string("undefined short option: -")+last);
+          others.push_back(argv[i]);
           continue;
         }
         if (lookup[last]==""){
@@ -560,11 +562,33 @@ public:
       if (ordered[i]->must())
         oss<<ordered[i]->short_description()<<" ";
     }
-    
+
     oss<<"[options] ... "<<ftr<<std::endl;
     oss<<"options:"<<std::endl;
 
     size_t max_width=0;
+    for (size_t i=0; i<ordered.size(); i++){
+      max_width=std::max(max_width, ordered[i]->name().length());
+    }
+    for (size_t i=0; i<ordered.size(); i++){
+      if (ordered[i]->short_name()){
+        oss<<"  -"<<ordered[i]->short_name()<<", ";
+      }
+      else{
+        oss<<"      ";
+      }
+
+      oss<<"--"<<ordered[i]->name();
+      for (size_t j=ordered[i]->name().length(); j<max_width+4; j++)
+        oss<<' ';
+      oss<<ordered[i]->description()<<std::endl;
+    }
+    return oss.str();
+  }
+
+  std::string str_options() const {
+    std::stringstream oss;
+     size_t max_width=0;
     for (size_t i=0; i<ordered.size(); i++){
       max_width=std::max(max_width, ordered[i]->name().length());
     }
