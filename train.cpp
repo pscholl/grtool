@@ -31,7 +31,7 @@ int main(int argc, const char *argv[])
   }
 
   /* handling of TERM and INT signal and set verbosity */
-  set_running_indicator(&is_running);
+  //set_running_indicator(&is_running);
   set_verbosity(c.get<int>("verbose"));
 
   /* got a classifier, or need to list them all? */
@@ -74,7 +74,7 @@ int main(int argc, const char *argv[])
     int input_limit_i = input_limit <= 1 ? 0 : input_limit,
         num_samples   = 0;
 
-  while (in >> io && is_running && (input_limit_i==0 || num_samples < input_limit_i) ) {
+  while (in >> io && (input_limit_i==0 || num_samples < input_limit_i) ) {
     bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
     if (!ok) {
       cerr << "error at line " << io.linenum << endl;
@@ -119,6 +119,7 @@ int main(int argc, const char *argv[])
   if (input_limit < 1.) {
     switch(io.type) {
     case TIMESERIES:
+      cout << "# timeseries" << endl;
       for (auto sample : t_testdata.getClassificationData()) {
         string label = t_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         MatrixDouble &matrix = sample.getData();
@@ -132,6 +133,7 @@ int main(int argc, const char *argv[])
       }
       break;
     case CLASSIFICATION:
+      cout << "# classification" << endl;
       for (auto sample : c_testdata.getClassificationData()) {
         string label = c_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         cout << label;
@@ -145,6 +147,7 @@ int main(int argc, const char *argv[])
       return -1;
     }
   } else if (input_limit > 1.) {
+    cout << "# " << io.type << endl;
     string line;
     while (getline(in, line))
       cout << line << endl;
