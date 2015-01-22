@@ -102,6 +102,10 @@ class CsvIOSample {
         vector<double> sample;
         while (ss >> d)
           sample.push_back(d);
+
+        if (sample.size() == 0)
+          continue;
+
         data.push_back(sample);
 
         if (o.type!=TIMESERIES)
