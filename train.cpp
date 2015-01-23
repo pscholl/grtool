@@ -110,6 +110,10 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
+  /* propagate the classlabel names also */
+  for (int i=0; i<io.labelset.size(); i++)
+    classifier->setClassNameForLabel(i, io.labelset[i]);
+
   if (!classifier->save(c.get<string>("model"))) {
     err << "saving to " << c.get<string>("model") << " failed" << endl;
     return -1;

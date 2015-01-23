@@ -39,24 +39,32 @@ int main(int argc, char *argv[])
   /* read and predict on input */
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
+    string s_prediction, s_label;
 
     switch(io.type) {
     case TIMESERIES:
       classifier->predict(io.t_data.getData());
       label = io.t_data.getClassLabel();
+      s_label = classifier->getClassNameForLabel(label);
       prediction = classifier->getPredictedClassLabel();
+      s_prediction = classifier->getClassNameForLabel(prediction);
       break;
     case CLASSIFICATION:
       classifier->predict(io.c_data.getSample());
       label = io.c_data.getClassLabel();
-      prediction = classifier->getPredictedClassLabel();
+      s_label = classifier->getClassNameForLabel(label);
+      prediction   = classifier->getPredictedClassLabel();
+      s_prediction = classifier->getClassNameForLabel(prediction);
       break;
     default:
       cerr << "unknown input type" << endl;
       return -1;
     }
 
-    cout << label << "\t" << prediction << endl;
+    if (s_prediction != "" && s_label != "")
+      cout << s_label << "\t" << s_prediction << endl;
+    else
+      cout << label << "\t" << prediction << endl;
   }
 
   return 0;
