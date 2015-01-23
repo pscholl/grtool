@@ -166,6 +166,11 @@ void addClassifierArguments(cmdline::parser &c, string classifier)
     c.add<int>   ("comitteesize", 's', "number of models used for prediction, default: 10", false, 10);
     c.add<double>("delta",        'd', "learning delta, default: 1", false, 1);
     c.add<int>   ("downsample",   'D', "downsample factor, default: 5", false, 5);
+
+    c.add<int>   ("num-states",    'S', "number of states", false, 10);
+    c.add<int>   ("num-symbols",   'N', "number of symbols", false, 20);
+    c.add<int>   ("max-epochs",    'E', "maximum number of epochs during training", false, 1000);
+    c.add<float> ("min-change",    'M', "minimum change before abortion", false, 1.0e-5);
   } else if ( "KNN" == classifier ) {
     c.add<string>("distance",         'd', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
     c.add<double>("null_coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
@@ -193,6 +198,11 @@ bool applyClassifierArguments(cmdline::parser &c, Classifier *o, string classifi
     checkedarg(h->setCommitteeSize, int, "comitteesize");
     checkedarg(h->setDelta, double, "delta");
     checkedarg(h->setDownsampleFactor, int, "downsample");
+
+    checkedarg(h->setNumStates, int, "num-states");
+    checkedarg(h->setNumSymbols, int, "num-symbols");
+    checkedarg(h->setMaxNumEpochs, int, "max-epochs");
+    checkedarg(h->setMinChange, float, "min-change");
   } else if ( "KNN" == classifier ) {
     KNN *k = (KNN*) o;
 
