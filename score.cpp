@@ -1,6 +1,7 @@
 #include "libgrt_util.h"
 #include "cmdline.h"
 #include <stdint.h>
+#include <math.h>
 
 /* some helper functions */
 int               push_back_if_not_there(string &label, vector<string> &labelset);
@@ -65,21 +66,52 @@ int main(int argc, char *argv[])
     (*confusion)[idxA][idxB] += 1;
   }
 
-  /* calculate scores and matrix */
+  /* print confusion matrix */
   if (c.exist("confusion")) {
+    size_t tab_size = 0;
+
     for (auto label : labelset)
-      cout << "\t" << label;
+      tab_size = tab_size < label.size() ? label.size() : tab_size;
+
+    /* print the header */
+    cout << string(tab_size,' ');
+    for (auto label : labelset) {
+      cout << "  " << label << " ";
+    }
     cout << endl;
 
+    cout << string(tab_size,'-') << " ";
+    for (auto label : labelset)
+      cout << string(label.size()+2,'-') << " ";
+    cout << endl;
+
+    /* print the row */
     for (uint64_t i=0; i<labelset.size(); i++) {
       cout << labelset[i];
-      for(uint64_t j=0; j<labelset.size(); j++)
-        cout << "\t" << (*confusion)[i][j];
+      cout << string(tab_size - labelset[i].size(), ' ');
+
+      for(uint64_t j=0; j<labelset.size(); j++) {
+        string num = to_string( (*confusion)[i][j] );
+        int pre = (labelset[j].size() + 2 - num.size())/2,
+            post = labelset[j].size() + 2 - num.size() - pre;
+
+        if ((*confusion)[i][j] == 0) 
+          cout << " " << string(labelset[j].size() + 2, ' ');
+        else
+          cout << " " << string(pre, ' ') << num << string(post, ' ');
+      }
       cout << endl;
     }
+
+    cout << string(tab_size,'-') << " ";
+    for (auto label : labelset)
+      cout << string(label.size()+2,'-') << " ";
+    cout << endl;
+
     cout << endl;
   }
 
+  /* calculate scores and matrix */
   // see https://en.wikipedia.org/wiki/Precision_and_recall
   vector<uint64_t> TP = diag( *confusion );
   vector<uint64_t> FP = rowsum(*confusion) - TP;
