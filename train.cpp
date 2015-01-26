@@ -56,7 +56,7 @@ int main(int argc, const char *argv[])
   }
 
   /* do we read from a file or stdin? */
-  istream &in = grt_fileinput(c, 1);
+  istream &in = grt_fileinput(c);
 
   /* now start to read input samples */
   string type = c.get<string>("type");

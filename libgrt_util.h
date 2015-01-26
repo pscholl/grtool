@@ -282,6 +282,23 @@ static void set_running_indicator(bool *is_running_ind)
 }
 
 /* we just try to load with every avail classifier */
+FeatureExtraction *loadFeatureExtractionFromFile(string &file) {
+  FeatureExtraction *feature = NULL;
+  ErrorLog::enableLogging(false);
+  ErrorLog err;
+
+  for (string c : FeatureExtraction::getRegisteredFeatureExtractors()) {
+    feature = FeatureExtraction::createInstanceFromString(c);
+    if (feature->loadModelFromFile(file))
+      break;
+    if (feature != NULL) delete feature;
+    feature = NULL;
+  }
+
+  ErrorLog::enableLogging(true);
+  return feature;
+}
+
 Classifier *loadFromFile(string &file)
 {
   ErrorLog err;
@@ -293,6 +310,7 @@ Classifier *loadFromFile(string &file)
     classifier = Classifier::createInstanceFromString(c);
     if (classifier->loadModelFromFile(file))
       break;
+    if (classifier == NULL) delete classifier;
     classifier = NULL;
   }
 
@@ -301,9 +319,9 @@ Classifier *loadFromFile(string &file)
 }
 
 istream&
-grt_fileinput(cmdline::parser &c, int num=0) {
+grt_fileinput(cmdline::parser &c) {
   static ifstream inf;
-  string filename = c.rest().size() > num ? c.rest()[num] : "-";
+  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
 
   if (filename=="-")
     return cin;
