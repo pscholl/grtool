@@ -11,7 +11,6 @@ bool apply_cmdline_args(string, FeatureExtraction*, cmdline::parser&);
 void feature(FeatureExtraction *, std::string);
 
 InfoLog info;
-ErrorLog err;
 
 int main(int argc, const char *argv[]) {
   static bool is_running = true;
@@ -42,7 +41,7 @@ int main(int argc, const char *argv[]) {
   if (f == NULL) {
     cout << c.usage() << endl;
     cout << list_extractors() << endl;
-    err << "error: unable to load feature extractor" << str_extractor << endl;
+    cerr << "error: unable to load feature extractor" << str_extractor << endl;
     return -1;
   }
 
@@ -51,7 +50,7 @@ int main(int argc, const char *argv[]) {
     return -1;
 
   if (!parse_ok) {
-    err << c.usage() << endl << c.error() << endl;
+    cerr << c.usage() << endl << c.error() << endl;
     return -1;
   }
 
@@ -121,10 +120,10 @@ apply_cmdline_args(string type, FeatureExtraction* f, cmdline::parser &c) {
   if ( type == "RBMQuantizer" ||
        type == "SOMQuantizer" ||
        type == "KMeansQuantizer" )
-    p.add<int> ("num-clusters", 'k', "the number of clusters", true, 10);
+    p.add<int> ("num-clusters", 'K', "the number of clusters", true, 10);
 
   if (!p.parse(c.rest())) {
-    err << c.usage() << endl << "feature extraction options:" << endl << p.str_options() << endl << p.error() << endl;
+    cerr << c.usage() << endl << "feature extraction options:" << endl << p.str_options() << endl << p.error() << endl;
     return false;
   }
 

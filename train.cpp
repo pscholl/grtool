@@ -6,10 +6,10 @@
 using namespace GRT;
 using namespace std;
 
-void addClassifierArguments(cmdline::parser &c, string classifier);
-bool applyClassifierArguments(cmdline::parser &c, Classifier *o, string classifier);
+bool apply_cmdline_args(string, Classifier*, cmdline::parser&);
+string list_classifiers();
+
 InfoLog info;
-ErrorLog err;
 
 int main(int argc, const char *argv[])
 {
@@ -19,55 +19,49 @@ int main(int argc, const char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
-  c.add<string>("classifier", 'c', "classifier module", false);
-  c.add<string>("model",      'm', "file to store trained classifier", true);
-  c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted as percentage of input data", false, 1.);
-  c.footer     ("[filename]...");
 
-  /* parse the classifier-common arguments */
-  if (!c.parse(argc,argv,false)) {
-    cerr << c.usage() << "\n" << c.error() << "\n" ;
-    return -1;
+  c.add<string>("model",      'm', "file to store trained classifier", false);
+  c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
+
+  c.footer     ("<classifier> [input-data]...");
+
+  /* parse common arguments */
+  bool parse_ok = c.parse(argc, argv, false)  && !c.exist("help");
+  set_verbosity(c.get<int>("verbose"));
+  //set_running_indicator(&is_running);
+
+  /* got a trainable classifier? */
+  string str_classifier = c.rest().size() > 0 ? c.rest()[0] : "list";
+  if (str_classifier == "list") {
+    cout << c.usage() << endl;
+    cout << list_classifiers();
+    return 0;
   }
 
-  /* handling of TERM and INT signal and set verbosity */
-  //set_running_indicator(&is_running);
-  set_verbosity(c.get<int>("verbose"));
-
-  /* got a classifier, or need to list them all? */
-  string arg_classifier = c.get<string>("classifier");
-  Classifier *classifier = Classifier::createInstanceFromString(arg_classifier);
+  Classifier *classifier = Classifier::createInstanceFromString(str_classifier);
   if (classifier == NULL) {
-    cerr << c.usage() << endl;
-    cerr << "classifier: " << arg_classifier << " not found" << endl;
-    cout << "available classifiers:" << endl;
-    vector<string> names = Classifier::getRegisteredClassifiers();
-    for(vector<string>::iterator it = names.begin(); it != names.end(); ++it) {
-      Classifier *c = Classifier::createInstanceFromString(*it);
-      cout << *it << (c->getTimeseriesCompatible() ? " (timeseries)" : "") << endl;
-    }
+    cout << c.usage() << endl;
+    cout << list_classifiers() << endl;
+    cerr << "error: unable to load classifier: " << str_classifier << endl;
     return -1;
   }
 
   /* add the classifier specific arguments */
-  addClassifierArguments(c, arg_classifier);
+  if (!apply_cmdline_args(str_classifier, classifier, c))
+    return -1;
 
-  /* re-parse the classifier-specific arguments */
-  if (!c.parse(argc,argv) || c.exist("help")) {
-    cerr << c.usage() << "\n" << c.error() << "\n" ;
+  if (!parse_ok) {
+    cerr << c.usage() << endl << c.error() << endl;
     return -1;
   }
 
-  /* and apply them to the classifier instance */
-  applyClassifierArguments(c, classifier, arg_classifier);
+  /* do we read from a file or stdin? */
+  istream &in = grt_fileinput(c, 1);
 
   /* now start to read input samples */
   string type = c.get<string>("type");
   CsvIOSample io(type);
   CollectDataset dataset;
-
-  /* do we read from a file or from stdin-? */
-  istream &in = grt_fileinput(c);
 
   /* check if the number of input is limited */
   float input_limit   = c.get<float>("num-samples");
@@ -98,7 +92,7 @@ int main(int argc, const char *argv[])
       c_testdata = dataset.c_data.partition( input_limit * 100, true );
       break;
     default:
-      err << "unknown data type" << endl;
+      cerr << "unknown data type" << endl;
       return -1;
     }
   }
@@ -106,7 +100,7 @@ int main(int argc, const char *argv[])
   /* train and save classifier */
   bool ok; csvio_dispatch(dataset, ok=classifier->train);
   if (!ok) {
-    err << "training failed" << endl;
+    cerr << "training failed" << endl;
     return -1;
   }
 
@@ -114,8 +108,8 @@ int main(int argc, const char *argv[])
   for (int i=0; i<io.labelset.size(); i++)
     classifier->setClassNameForLabel(i, io.labelset[i]);
 
-  if (!classifier->save(c.get<string>("model"))) {
-    err << "saving to " << c.get<string>("model") << " failed" << endl;
+  if (c.exist("model") && !classifier->save(c.get<string>("model"))) {
+    cerr << "saving to " << c.get<string>("model") << " failed" << endl;
     return -1;
   }
 
@@ -147,7 +141,7 @@ int main(int argc, const char *argv[])
       }
       break;
     default:
-      err << "unknown data type" << endl;
+      cerr << "unknown data type" << endl;
       return -1;
     }
   } else if (input_limit > 1.) {
@@ -159,67 +153,139 @@ int main(int argc, const char *argv[])
     return 0;
 }
 
-void addClassifierArguments(cmdline::parser &c, string classifier)
-{
-  if ( "HMM" == classifier ) {
-    c.add<string>("hmmtype",      'k', "either 'discrete_ergodic', 'discrete_leftright', 'continuous_ergodic' or 'continuous_leftright'", false, "continuous_leftright", cmdline::oneof<string>("continuous_leftright", "continuous_ergodic", "discrete_leftright", "discrete_ergodic"));
-    c.add<int>   ("comitteesize", 's', "number of models used for prediction, default: 10", false, 10);
-    c.add<double>("delta",        'd', "learning delta, default: 1", false, 1);
-    c.add<int>   ("downsample",   'D', "downsample factor, default: 5", false, 5);
+string list_classifiers() {
+  vector<string> names = Classifier::getRegisteredClassifiers();
+  stringstream ss;
+  string name;
 
-    c.add<int>   ("num-states",    'S', "number of states", false, 10);
-    c.add<int>   ("num-symbols",   'N', "number of symbols", false, 20);
-    c.add<int>   ("max-epochs",    'E', "maximum number of epochs during training", false, 1000);
-    c.add<float> ("min-change",    'M', "minimum change before abortion", false, 1.0e-5);
-  } else if ( "KNN" == classifier ) {
-    c.add<string>("distance",         'd', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
-    c.add<double>("null_coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
-    c.add<int>   ("k_neighbors",      'K', "number of neighbors used in classification", false, 5);
+  for (auto name : names)  {
+    Classifier *c = Classifier::createInstanceFromString(name);
+    if (c->getTimeseriesCompatible())
+      ss << name << " (timeseries" << (c->getSupportsNullRejection() ? ",null rejection)" : ")") << endl;
   }
+
+  for (auto name : names)  {
+    Classifier *c = Classifier::createInstanceFromString(name);
+    if (!c->getTimeseriesCompatible())
+      ss << name << (c->getSupportsNullRejection() ? "(null rejection)" : "") << endl;
+  }
+
+  return ss.str();
 }
 
-#define checkedarg(func, type, name) if(!func(c.get<type>(name))) { cerr << "invalid value for" << name << " " << c.get<type>(name) << endl; return false; }
-
-bool applyClassifierArguments(cmdline::parser &c, Classifier *o, string classifier)
+#define checkedarg(func, type, name) if(!func(p.get<type>(name))) { cerr << "invalid value for" << name << " " << p.get<type>(name) << endl; return false; }
+bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
 {
-  if ( "HMM" == classifier ) {
+  cmdline::parser p;
+
+  // TODO
+  // ANBC
+  // AdaBoost
+  // BAG
+  // DecisionTree
+  // GMM
+  // MinDist
+  // RandomForests
+  // SVM
+  // Softmax
+  // SwipeDetector
+
+  if ( "HMM" == name ) {
+    p.add<string>("hmmtype",      'k', "either 'discrete_ergodic', 'discrete_leftright', 'continuous_ergodic' or 'continuous_leftright'", false, "continuous_leftright", cmdline::oneof<string>("continuous_leftright", "continuous_ergodic", "discrete_leftright", "discrete_ergodic"));
+    p.add<int>   ("comitteesize", 's', "number of models used for prediction, default: 10", false, 10);
+    p.add<double>("delta",        'd', "learning delta, default: 1", false, 1);
+    p.add<int>   ("downsample",   'D', "downsample factor, default: 5", false, 5);
+
+    p.add<int>   ("num-states",    'S', "number of states", false, 10);
+    p.add<int>   ("num-symbols",   'N', "number of symbols", false, 20);
+    p.add<int>   ("max-epochs",    'E', "maximum number of epochs during training", false, 1000);
+    p.add<float> ("min-change",    'M', "minimum change before abortion", false, 1.0e-5);
+  } else if ( "KNN" == name ) {
+    p.add<string>("distance",         'd', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
+    p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
+    p.add<int>   ("K-neighbors",      'K', "number of neighbors used in classification (if 0 search for optimum)", false, 0);
+    p.add<int>   ("min-K",              0, "only used during search", false, 2);
+    p.add<int>   ("max-K",              0, "only used during search", false, 20);
+  } else if ( "DTW" == name ) {
+    p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
+    p.add<string>("rejection-mode",   'R', "NULL-class rejection mode, one of 'template', 'likelihood' or 'template_and_likelihood'", false, "template", cmdline::oneof<string>("template", "likelihood", "template_and_likelihood"));
+    p.add<double>("warping-radius",   'W', "limit the warping to this radius (if 0, radius is unlimited)", false, 0, cmdline::range(0,1));
+    p.add        ("offset-by-first",  'O', "offset all samples by first sample, helps DTW when not using normalization");
+    p.add<int>   ("downsample",       'D', "downsample factor, default: 5", false, 5);
+  } else if ( "FinitStateMachine" == name ) {
+    p.add<int>   ("num-particles",        'N', "number of particles", false, 200);
+    p.add<int>   ("num-clusters",         'M', "number of clusters per state", false, 10);
+    p.add<double>("transition-smoothing", 'T', "state transition smoothing", false, 0);
+    p.add<double>("measurement-noise",    'S', "measurement noise", false, 10.);
+  } else if ( "ParticleClassifier" == name ) {
+    p.add<int>   ("num-particles",        'N', "number of particles", false, 200);
+    p.add<double>("measurement-noise",    'S', "measurement noise", false, 10.);
+    p.add<double>("transition-sigma",     'T', "transition sigma", false, 0.005);
+    p.add<double>("phase-sigma",          'P', "phase sigma", false, 0.1);
+    p.add<double>("velocity-sigma",       'V', "velocity sigma", false, 0.01);
+  }
+
+  if (!p.parse(c.rest()) || c.exist("help")) {
+    cerr << c.usage() << endl << name << " options:" << endl << p.str_options() << endl;
+    return false;
+  }
+
+  if ( "HMM" == name ) {
+    o = new HMM(
+      /* hmmtype */ p.get<string>("hmmtype").find("discrete") != string::npos,
+      /* hmmodel */ p.get<string>("hmmtype").find("ergodic") != string::npos,
+      /* delta */   p.get<double>("delta"),
+      /* scaling */ false,
+      /* useNull */ false);
     HMM *h = (HMM*) o;
 
-    string hmmtype = c.get<string>("hmmtype");
-    if ( hmmtype.find("discrete") != string::npos )
-      h->setHMMType( HMM_DISCRETE );
-    else
-      h->setHMMType( HMM_CONTINUOUS );
-    if ( hmmtype.find("ergodic") != string::npos )
-      h->setModelType( HMM_ERGODIC );
-    else
-      h->setModelType( HMM_LEFTRIGHT );
-
     checkedarg(h->setCommitteeSize, int, "comitteesize");
-    checkedarg(h->setDelta, double, "delta");
     checkedarg(h->setDownsampleFactor, int, "downsample");
 
     checkedarg(h->setNumStates, int, "num-states");
     checkedarg(h->setNumSymbols, int, "num-symbols");
     checkedarg(h->setMaxNumEpochs, int, "max-epochs");
     checkedarg(h->setMinChange, float, "min-change");
-  } else if ( "KNN" == classifier ) {
+  } else if ( "KNN" == name ) {
+    o = new KNN(
+      /* K */           p.get<int>("K-neighbors"),
+      /* useScaling */  false,
+      /* nullReject */  p.get<double>("null-coefficient") != 0,
+      /* coeff */       p.get<double>("null-coefficient"),
+      /* search */      p.get<int>("K-neighbors")==0,
+      /* minK */        p.get<int>("min-K"),
+      /* maxK */        p.get<int>("max-K"));
     KNN *k = (KNN*) o;
 
-    if (c.get<double>("null_coefficient") != 0.0 ) {
-      checkedarg(k->setNullRejectionCoeff, double, "null_coefficient");
-      k->enableNullRejection(true);
-    }
-
-    checkedarg(k->setK, int, "k_neighbors");
-
-    string distance = c.get<string>("distance");
-    if ( "euclidean" == distance )
-      k->setDistanceMethod(KNN::EUCLIDEAN_DISTANCE);
-    else if ( "cosine" == distance )
-      k->setDistanceMethod(KNN::COSINE_DISTANCE);
-    else if ( "manhattan" == distance )
-      k->setDistanceMethod(KNN::MANHATTAN_DISTANCE);
+    string distance = p.get<string>("distance");
+    if      ( "euclidean" == distance ) k->setDistanceMethod(KNN::EUCLIDEAN_DISTANCE);
+    else if ( "cosine" == distance )    k->setDistanceMethod(KNN::COSINE_DISTANCE);
+    else if ( "manhattan" == distance ) k->setDistanceMethod(KNN::MANHATTAN_DISTANCE);
+  } else if ( "DTW" == name ) {
+    vector<string> list = {"template","likelihoods","template_and_likelihood"};
+    o = new DTW(
+      /* useScaling */ false,
+      /* useNullRejection */ p.get<double>("null_coefficient")!=0,
+      /* nullRejectionCoeff */ p.get<double>("null_coefficient"),
+      /* rejectionMode */ find(list.begin(), list.end(), p.get<string>("rejectionMode")) - list.begin(),
+      /* constrainWarpingPath */ p.get<double>("warping-radius")!=0,
+      /* radius */ p.get<double>("warping-radius"),
+      /* offsetUsingFirstSample */ p.exist("offset-by-first"),
+      /* useSmoothing */ true,
+      /* smoothingFactor */ p.get<int>("smoothingFactor"));
+  } else if ( "FiniteStateMachine" == name ) {
+    o = new FiniteStateMachine(
+      p.get<int>("num-particles"),
+      p.get<int>("num-clusters"),
+      p.get<double>("transition-smoothing"),
+      p.get<double>("measurement-noise"));
+  } else if ( "ParticleClassifier" == name ) {
+    o = new ParticleClassifier(
+      p.get<int>("num-particles"),
+      p.get<double>("measurement-noise"),
+      p.get<double>("transition-sigma"),
+      p.get<double>("phase-sigma"),
+      p.get<double>("velocity-sigma"));
   }
 
   return true;
