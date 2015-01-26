@@ -212,7 +212,7 @@ bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
     p.add<double>("warping-radius",   'W', "limit the warping to this radius (if 0, radius is unlimited)", false, 0, cmdline::range(0,1));
     p.add        ("offset-by-first",  'O', "offset all samples by first sample, helps DTW when not using normalization");
     p.add<int>   ("downsample",       'D', "downsample factor, default: 5", false, 5);
-  } else if ( "FinitStateMachine" == name ) {
+  } else if ( "FiniteStateMachine" == name ) {
     p.add<int>   ("num-particles",        'N', "number of particles", false, 200);
     p.add<int>   ("num-clusters",         'M', "number of clusters per state", false, 10);
     p.add<double>("transition-smoothing", 'T', "state transition smoothing", false, 0);

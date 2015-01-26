@@ -36,17 +36,16 @@ int main(int argc, const char *argv[]) {
   }
 
   /* try and create an instance */
-  FeatureExtraction* f = apply_cmdline_args(str_extractor, c);
+  FeatureExtraction *f;
   ifstream maybefile( str_extractor );
-  if (f == NULL && maybefile.good())
-    f = loadFeatureExtractionFromFile( str_extractor );
 
-  if (f == NULL) {
-    cout << c.usage() << endl;
-    cout << list_extractors() << endl;
-    cerr << "error: unable to load feature extractor: " << str_extractor << endl;
+  if (maybefile.good())
+    f = loadFeatureExtractionFromFile( str_extractor );
+  else
+    f = apply_cmdline_args(str_extractor, c);
+
+  if (f == NULL)
     return -1;
-  }
 
   /* create and apply extractor specific parameters */
   if (f == NULL) return -1;
@@ -177,6 +176,11 @@ apply_cmdline_args(string type, cmdline::parser &c) {
     p.add<int>   ("window",      'W', "size of search window in samples", false, 20);
     p.add<double>("deadzone",    'D', "deadzone threshold", false, 0.01);
     p.add        ("combined",    'C', "wether zero-crossing are calculated independently");
+  }
+
+  else {
+    cerr << c.usage() << endl << "extractor not found: " << type << endl;
+    return NULL;
   }
 
   if (!p.parse(c.rest()) || c.exist("help")) {
