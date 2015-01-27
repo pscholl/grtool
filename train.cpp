@@ -20,7 +20,7 @@ int main(int argc, const char *argv[])
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
 
-  c.add<string>("model",      'm', "file to store trained classifier", false);
+  c.add<string>("output",     'o', "store trained classifier in file, default is to print it on stdout", false);
   c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
 
   c.footer     ("<classifier> [input-data]...");
@@ -108,9 +108,11 @@ int main(int argc, const char *argv[])
   for (int i=0; i<io.labelset.size(); i++)
     classifier->setClassNameForLabel(i, io.labelset[i]);
 
-  if (c.exist("model") && !classifier->save(c.get<string>("model"))) {
-    cerr << "saving to " << c.get<string>("model") << " failed" << endl;
+  if (c.exist("output") && !classifier->save(c.get<string>("output"))) {
+    cerr << "saving to " << c.get<string>("output") << " failed" << endl;
     return -1;
+  } else if (!c.exist("output")) {
+    //TODO classifier->saveModelToFile(cout);
   }
 
   /* if there is testdataset we need to print this now */
