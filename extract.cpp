@@ -42,6 +42,8 @@ int main(int argc, const char *argv[]) {
   f = loadFeatureExtractionFromFile( str_extractor );
   if (f == NULL)
     f = apply_cmdline_args(str_extractor, c);
+  else
+    c.rest().erase(c.rest().begin());
   if (f == NULL)
     return -1;
 
