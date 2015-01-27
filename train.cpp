@@ -112,7 +112,7 @@ int main(int argc, const char *argv[])
     cerr << "saving to " << c.get<string>("output") << " failed" << endl;
     return -1;
   } else if (!c.exist("output")) {
-    //TODO classifier->saveModelToFile(cout);
+    // TODO classifier->saveModelToFile(o);
   }
 
   /* if there is testdataset we need to print this now */
@@ -211,7 +211,7 @@ Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
   } else if ( "DTW" == name ) {
     p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
     p.add<string>("rejection-mode",   'R', "NULL-class rejection mode, one of 'template', 'likelihood' or 'template_and_likelihood'", false, "template", cmdline::oneof<string>("template", "likelihood", "template_and_likelihood"));
-    p.add<double>("warping-radius",   'W', "limit the warping to this radius (if 0, radius is unlimited)", false, 0, cmdline::range(0,1));
+    p.add<double>("warping-radius",   'W', "limit the warping to this radius (0 means disabled, 1 is maximum)", false, 0, cmdline::range(0.,1.));
     p.add        ("offset-by-first",  'O', "offset all samples by first sample, helps DTW when not using normalization");
     p.add<int>   ("downsample",       'D', "downsample factor, default: 5", false, 5);
   } else if ( "FiniteStateMachine" == name ) {
@@ -269,14 +269,14 @@ Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
     vector<string> list = {"template","likelihoods","template_and_likelihood"};
     o = new DTW(
       /* useScaling */ false,
-      /* useNullRejection */ p.get<double>("null_coefficient")!=0,
-      /* nullRejectionCoeff */ p.get<double>("null_coefficient"),
-      /* rejectionMode */ find(list.begin(), list.end(), p.get<string>("rejectionMode")) - list.begin(),
+      /* useNullRejection */ p.get<double>("null-coefficient")!=0,
+      /* nullRejectionCoeff */ p.get<double>("null-coefficient"),
+      /* rejectionMode */ find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
       /* constrainWarpingPath */ p.get<double>("warping-radius")!=0,
       /* radius */ p.get<double>("warping-radius"),
       /* offsetUsingFirstSample */ p.exist("offset-by-first"),
       /* useSmoothing */ true,
-      /* smoothingFactor */ p.get<int>("smoothingFactor"));
+      /* smoothingFactor */ p.get<int>("downsample"));
   } else if ( "FiniteStateMachine" == name ) {
     o = new FiniteStateMachine(
       p.get<int>("num-particles"),

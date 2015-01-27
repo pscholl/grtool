@@ -56,12 +56,7 @@ int main(int argc, const char *argv[]) {
   }
 
   /* do we read from a file or from stdin? */
-  istream &in = grt_fileinput(c,1);
-
-  /* check if the number of input is limited */
-  int num_training_samples = c.get<int>("num-samples"), num_lines = 0;
-  vector<string> lines; string line;
-  MatrixDouble dataset;
+  istream &in = grt_fileinput(c);
 
   if (f->getTrained() && c.exist("model")) {
     cerr << "refusing to load and store already trained model" << endl;
@@ -73,8 +68,15 @@ int main(int argc, const char *argv[]) {
     return -1;
   }
 
+  string line;
+
   /* read the number of training samples */
   if (!f->getTrained()) {
+    /* check if the number of input is limited */
+    int num_training_samples = c.get<int>("num-samples"), num_lines = 0;
+    vector<string> lines;
+    vector<vector<double>> set;
+
     while (getline(in, line) && (num_training_samples==0 || num_lines < num_training_samples)) {
       stringstream ss(line);
       vector<double> data; double value;
@@ -85,16 +87,22 @@ int main(int argc, const char *argv[]) {
       if (line=="" || line[0]=='#')
         ;
 
-      num_lines++;
 
       ss >> label;
       while (ss >> value)
         data.push_back(value);
 
-      dataset.push_back(data);
+      if (data.size() == 0)
+        continue;
+
+      num_lines++;
+      set.push_back(data);
     }
 
-    f->train(dataset);
+    MatrixDouble dataset(set);
+
+    if (!f->train(dataset))
+      cerr << "training the quantizer failed" << endl;
 
     /* if there is a model file store it */
     if (c.exist("model"))
