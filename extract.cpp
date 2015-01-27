@@ -39,11 +39,9 @@ int main(int argc, const char *argv[]) {
   FeatureExtraction *f;
   ifstream maybefile( str_extractor );
 
-  if (maybefile.good())
-    f = loadFeatureExtractionFromFile( str_extractor );
-  else
+  f = loadFeatureExtractionFromFile( str_extractor );
+  if (f == NULL)
     f = apply_cmdline_args(str_extractor, c);
-
   if (f == NULL)
     return -1;
 
