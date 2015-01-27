@@ -56,7 +56,7 @@ int main(int argc, const char *argv[]) {
   }
 
   /* do we read from a file or from stdin? */
-  istream &in = grt_fileinput(c);
+  istream &in = grt_fileinput(c,1);
 
   /* check if the number of input is limited */
   int num_training_samples = c.get<int>("num-samples"), num_lines = 0;

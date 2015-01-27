@@ -6,7 +6,7 @@
 using namespace GRT;
 using namespace std;
 
-bool apply_cmdline_args(string, Classifier*, cmdline::parser&);
+Classifier *apply_cmdline_args(string, Classifier*, cmdline::parser&);
 string list_classifiers();
 
 InfoLog info;
@@ -47,8 +47,8 @@ int main(int argc, const char *argv[])
   }
 
   /* add the classifier specific arguments */
-  if (!apply_cmdline_args(str_classifier, classifier, c))
-    return -1;
+  classifier = apply_cmdline_args(str_classifier, classifier, c);
+  if (classifier == NULL) return -1;
 
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
@@ -173,8 +173,8 @@ string list_classifiers() {
   return ss.str();
 }
 
-#define checkedarg(func, type, name) if(!func(p.get<type>(name))) { cerr << "invalid value for" << name << " " << p.get<type>(name) << endl; return false; }
-bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
+#define checkedarg(func, type, name) if(!func(p.get<type>(name))) { cerr << "invalid value for" << name << " " << p.get<type>(name) << endl; return NULL; }
+Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
 {
   cmdline::parser p;
 
@@ -226,18 +226,17 @@ bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
   }
 
   if (!p.parse(c.rest()) || c.exist("help")) {
-    cerr << c.usage() << endl << name << " options:" << endl << p.str_options() << endl;
-    return false;
+    cerr << c.usage() << endl << name << " options:" << endl << p.str_options() << p.error() << endl;
+    return NULL;
   }
 
   if ( "HMM" == name ) {
-    o = new HMM(
-      /* hmmtype */ p.get<string>("hmmtype").find("discrete") != string::npos,
-      /* hmmodel */ p.get<string>("hmmtype").find("ergodic") != string::npos,
+    HMM *h = new HMM(
+      /* hmmtype */ p.get<string>("hmmtype").find("discrete") == string::npos,
+      /* hmmodel */ p.get<string>("hmmtype").find("ergodic")  == string::npos,
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
       /* useNull */ false);
-    HMM *h = (HMM*) o;
 
     checkedarg(h->setCommitteeSize, int, "comitteesize");
     checkedarg(h->setDownsampleFactor, int, "downsample");
@@ -246,8 +245,10 @@ bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
     checkedarg(h->setNumSymbols, int, "num-symbols");
     checkedarg(h->setMaxNumEpochs, int, "max-epochs");
     checkedarg(h->setMinChange, float, "min-change");
+
+    o = h;
   } else if ( "KNN" == name ) {
-    o = new KNN(
+    KNN *k = new KNN(
       /* K */           p.get<int>("K-neighbors"),
       /* useScaling */  false,
       /* nullReject */  p.get<double>("null-coefficient") != 0,
@@ -255,12 +256,13 @@ bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
       /* search */      p.get<int>("K-neighbors")==0,
       /* minK */        p.get<int>("min-K"),
       /* maxK */        p.get<int>("max-K"));
-    KNN *k = (KNN*) o;
 
     string distance = p.get<string>("distance");
     if      ( "euclidean" == distance ) k->setDistanceMethod(KNN::EUCLIDEAN_DISTANCE);
     else if ( "cosine" == distance )    k->setDistanceMethod(KNN::COSINE_DISTANCE);
     else if ( "manhattan" == distance ) k->setDistanceMethod(KNN::MANHATTAN_DISTANCE);
+
+    o = k;
   } else if ( "DTW" == name ) {
     vector<string> list = {"template","likelihoods","template_and_likelihood"};
     o = new DTW(
@@ -288,5 +290,6 @@ bool apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
       p.get<double>("velocity-sigma"));
   }
 
-  return true;
+  c.rest() = p.rest();
+  return o;
 }

@@ -319,9 +319,9 @@ Classifier *loadFromFile(string &file)
 }
 
 istream&
-grt_fileinput(cmdline::parser &c) {
+grt_fileinput(cmdline::parser &c, int num=0) {
   static ifstream inf;
-  string filename = c.rest().size() > 0 ? c.rest()[0] : "-";
+  string filename = c.rest().size() > num ? c.rest()[num] : "-";
 
   if (filename=="-")
     return cin;
