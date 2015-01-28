@@ -39,17 +39,7 @@ int main(int argc, const char *argv[])
   }
 
   /* got an output file */
-  if (!c.exist("output")) {
-    cerr << c.usage() << endl << "please provide an output file" << endl;
-    return -1;
-  }
-  fstream test(c.get<string>("output"), ios_base::out);
-  if (!test.good()) {
-    cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" provided via -o" << endl;
-    return -1;
-  }
-
-  Classifier *classifier = Classifier::createInstanceFromString(str_classifier);
+    Classifier *classifier = Classifier::createInstanceFromString(str_classifier);
   if (classifier == NULL) {
     cout << c.usage() << endl;
     cout << list_classifiers() << endl;
@@ -59,10 +49,21 @@ int main(int argc, const char *argv[])
 
   /* add the classifier specific arguments */
   classifier = apply_cmdline_args(str_classifier, classifier, c);
-  if (classifier == NULL) return -1;
+  if (classifier == NULL)
+    return -1;
 
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
+    return -1;
+  }
+
+  if (!c.exist("output")) {
+    cerr << c.usage() << endl << "please provide an output file" << endl;
+    return -1;
+  }
+  fstream test(c.get<string>("output"), ios_base::out);
+  if (!test.good()) {
+    cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" provided via -o" << endl;
     return -1;
   }
 
