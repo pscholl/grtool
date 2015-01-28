@@ -20,7 +20,7 @@ int main(int argc, const char *argv[])
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
 
-  c.add<string>("output",     'o', "store trained classifier in file, default is to print it on stdout", true);
+  c.add<string>("output",     'o', "store trained classifier in file", true);
   c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
 
   c.footer     ("<classifier> [input-data]...");
@@ -36,6 +36,17 @@ int main(int argc, const char *argv[])
     cout << c.usage() << endl;
     cout << list_classifiers();
     return 0;
+  }
+
+  /* got an output file */
+  if (!c.exist("output")) {
+    cerr << c.usage() << endl << "please provide an output file" << endl;
+    return -1;
+  }
+  fstream test(c.get<string>("output"), ios_base::out);
+  if (!test.good()) {
+    cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" provided via -o" << endl;
+    return -1;
   }
 
   Classifier *classifier = Classifier::createInstanceFromString(str_classifier);
