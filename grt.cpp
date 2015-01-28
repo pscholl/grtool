@@ -5,7 +5,8 @@
 #include "libgrt_util.h"
 
 vector<vector<const char*>> cmds = {
-  {"help",       "h", "prints this message or the help for the specified command"},
+  {"help",       "h",  "prints this message or the help for the specified command"},
+  {"info",       "i",  "print stats about a dataset file"},
   {"train",      "tr", "trains a prediction model"},
   {"predict",    "pr", "predict from unseen data"},
   {"score",      "s",  "calculate classifcation score for prediction"},

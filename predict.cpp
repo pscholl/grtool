@@ -8,9 +8,8 @@ int main(int argc, char *argv[])
 
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
-  c.add<string>("model",      'm', "file to store trained classifier", true);
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
-  c.footer     ("[filename]...");
+  c.footer     ("<classifier-model-file> [filename]...");
 
   /* parse the classifier-common arguments */
   if (!c.parse(argc,argv,true) || c.exist("help")) {
@@ -23,7 +22,7 @@ int main(int argc, char *argv[])
   set_verbosity(c.get<int>("verbose"));
 
   /* load a classification model */
-  string model_file = c.get<string>("model");
+  string model_file = c.rest().size() > 0 ? c.rest()[0] : "";
   Classifier *classifier = loadFromFile(model_file);
 
   if (classifier == NULL) {
@@ -34,7 +33,7 @@ int main(int argc, char *argv[])
   /* prepare input */
   string data_type = c.get<string>("type");
   CsvIOSample io(data_type);
-  istream &in = grt_fileinput(c);
+  istream &in = grt_fileinput(c,1);
 
   /* read and predict on input */
   while( in >> io && is_running ) {
