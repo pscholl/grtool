@@ -19,7 +19,7 @@ int main(int argc, const char *argv[]) {
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add<int>   ("num-samples",'n', "number of input samples to use for training", true, 0);
-  c.add<string>("model",      'o', "if given store the model in file, for later usage", false);
+  c.add<string>("output",     'o', "if given store the model in file, for later usage", false);
   c.footer     ("<feature-extractor or input file name> [<filename>] ");
 
   bool parse_ok = !c.parse(argc,argv) || c.exist("help");
