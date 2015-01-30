@@ -58,7 +58,7 @@ int main(int argc, const char *argv[]) {
   /* do we read from a file or from stdin? */
   istream &in = grt_fileinput(c);
 
-  if (f->getTrained() && c.exist("model")) {
+  if (f->getTrained() && c.exist("output")) {
     cerr << "refusing to load and store already trained model" << endl;
     return -1;
   }
@@ -105,8 +105,8 @@ int main(int argc, const char *argv[]) {
       cerr << "training the quantizer failed" << endl;
 
     /* if there is a model file store it */
-    if (c.exist("model"))
-      f->save(c.get<string>("model"));
+    if (c.exist("output"))
+      f->save(c.get<string>("output"));
 
     /* and print what we already consumed */
     for (auto line : lines)
