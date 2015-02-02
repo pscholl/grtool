@@ -119,7 +119,7 @@ PreProcessing *apply_cmdline_args(string type, cmdline::parser &c) {
     p.add<double>("cutoff",        'C', "set the cutoff frequency in Hz", false, 50),
     p.add<double>("sample-rate",   'R', "set the sample rate of your data, as 1/SR", true);
   } else if (type == "LeakyIntegrator") {
-    p.add<double>("leak-rate",     'L', "leak rate", false, 0.99, cmdline::range(0,1));
+    p.add<double>("leak-rate",     'L', "leak rate", false, 0.99, cmdline::range<double>(0,1.));
   } else if (type == "LowPassFilter") {
     p.add<double>("gain",          'G', "multiplies filtered values by this value", false, 1);
     p.add<double>("cutoff",        'C', "set the cutoff frequency in Hz", false, 50),
