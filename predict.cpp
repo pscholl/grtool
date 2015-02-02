@@ -23,12 +23,6 @@ int main(int argc, char *argv[])
 
   /* load a classification model */
   string model_file = c.rest().size() > 0 ? c.rest()[0] : "";
-  Classifier *classifier = loadFromFile(model_file);
-
-  if (classifier == NULL) {
-    cerr << "unable to load classification model " << model_file << " giving up" << endl;
-    return -1;
-  }
 
   /* prepare input */
   string data_type = c.get<string>("type");
@@ -39,6 +33,15 @@ int main(int argc, char *argv[])
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
     string s_prediction, s_label;
+
+    /* load the classifier only after the first data has arrived, so
+     * we give the preceding command (when used in a pipe) enough time
+     * to write the classifier to disk */
+    Classifier *classifier = loadFromFile(model_file);
+    if (classifier == NULL) {
+      cerr << "unable to load classification model " << model_file << " giving up" << endl;
+      return -1;
+    }
 
     switch(io.type) {
     case TIMESERIES:
