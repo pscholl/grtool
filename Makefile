@@ -1,5 +1,6 @@
 CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 # -O0
-LDFLAGS=`pkg-config --libs grt` -lprofiler
+#LDFLAGS=`pkg-config --libs grt` -lprofiler
+LDFLAGS=`pkg-config --libs grt`
 ALL=grt train predict info score preprocess extract
 
 all: $(ALL) *.h
