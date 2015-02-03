@@ -69,5 +69,6 @@ int main(int argc, char *argv[])
       cout << label << "\t" << prediction << endl;
   }
 
+  cout << endl;
   return 0;
 }
