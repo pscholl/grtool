@@ -3,7 +3,20 @@
 #include <stdint.h>
 #include <math.h>
 
-// TODO add sorted input
+class Group {
+  public:
+  Matrix<uint64_t> *confusion;
+  vector<string> labelset;
+  vector<string> lines;
+
+  void calculate_score(double beta);
+  double get_meanscore(string);
+
+  vector< uint64_t > TP,TN,FP,FN;
+  vector< double >   Fbeta,recall,precision;
+
+  string to_string(cmdline::parser &c);
+};
 
 /* some helper functions */
 int    push_back_if_not_there(string &label, vector<string> &labelset);
@@ -17,7 +30,7 @@ template< class T> vector<T>  abs(vector<T> m);
 template< class T> vector<T>  pow(vector<T> m, double pow);
 template< class T> vector<T>  rowsum(Matrix<T> &m);
 template< class T> vector<T>  colsum(Matrix<T> &m);
-template< class T> Matrix<T>* resize_martix(Matrix<T> *old, T newsize);
+template< class T> Matrix<T>* resize_matrix(Matrix<T> *old, T newsize);
 template< class T> vector<T>  operator-(const std::vector<T> &a, const std::vector<T> &b);
 template< class T> vector<T>  operator*(T a, const std::vector<T> &b);
 template< class T> vector<T>  operator-(T a, const std::vector<T> &b);
@@ -29,10 +42,12 @@ int main(int argc, char *argv[])
   static bool is_running = true;
   cmdline::parser c;
   c.add         ("help",          'h', "print this message");
-  c.add         ("no-confusion",  'c', "report confusion martix");
+  c.add         ("no-confusion",  'c', "report confusion matrix");
   c.add         ("no-precision",  'p', "report precision, per class and overall");
   c.add         ("no-recall",     'r', "report recall, per class and overall");
   c.add<double> ("F-score",       'F', "report F-beta score, beta defaults to 1, 0 to disable", false, 1);
+  c.add<int>    ("group",         'g', "assemble N repetitions (divided by empty lines) into one result (default is to assemble all)", false, 0);
+  c.add<string> ("select-by",     's', "select output by ascending mean [F1,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("F1","recall","precision","disabled"));
   c.footer      ("[filename] ...");
 
   /* parse the classifier-common arguments */
@@ -51,27 +66,49 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  /* handling of TERM and INT signal */
-  set_running_indicator(&is_running);
-
   /* open standard input or file argument */
   istream &in = grt_fileinput(c);
   if (!in) return -1;
 
-  /* read the whole input to sort it */
-  vector<string> lines; string line;
-  while (getline(in, line))
-    lines.push_back(line);
-  sort(lines.begin(), lines.end());
+  /* we read in N-groups divided by empty lines */
+  Group *g = new Group(); string line; double selector_score=0; uint64_t num_groups=0;
+  while(getline(in,line)) {
+    if (line=="") {
+      if (g->lines.size() == 0)
+        continue;
+      else if (c.get<int>("group") == 0 || num_groups < c.get<int>("group"))
+        continue;
+      else {
+        g->calculate_score(c.get<double>("F-score"));
+        double score = g->get_meanscore(c.get<string>("select-by"));
 
-  if (lines.size() == 0) {
-    cerr << "empty input" << endl;
-    return -1;
+        if (selector_score <= score) {
+          selector_score = score;
+          cout << g->to_string(c);
+        }
+      }
+    } else {
+      num_groups += g->lines.size() == 0;
+      g->lines.push_back(line);
+    }
   }
 
-  /* prepare the labelset and build confusion matrix */
-  vector<string> labelset;
-  Matrix<uint64_t> *confusion = new Matrix<uint64_t>();
+  if (g->lines.size() > 0) {
+    g->calculate_score(c.get<double>("F-score"));
+    double score = g->get_meanscore(c.get<string>("select-by"));
+
+    if (selector_score <= score) {
+      selector_score = score;
+      cout << g->to_string(c);
+    }
+  }
+
+  return 0;
+}
+
+void Group::calculate_score(double beta)
+{
+  confusion = new Matrix<uint64_t>();
 
   for (auto line : lines)
   {
@@ -79,13 +116,46 @@ int main(int argc, char *argv[])
     ss >> prediction >> label;
 
     int64_t idxA = push_back_if_not_there(prediction, labelset),
-            idxB = push_back_if_not_there(label, labelset);
+            idxB = push_back_if_not_there(label,      labelset);
 
     if (confusion->getNumRows() != labelset.size())
-      confusion = resize_martix(confusion, labelset.size());
+      confusion = resize_matrix(confusion, labelset.size());
 
     (*confusion)[idxA][idxB] += 1;
   }
+
+  // see https://en.wikipedia.org/wiki/Precision_and_recall
+  vector<uint64_t> TP = diag( *confusion );
+  vector<uint64_t> FP = rowsum(*confusion) - TP;
+  vector<uint64_t> TN = sum(*confusion) - colsum(*confusion);
+  vector<uint64_t> FN = colsum(*confusion) - TP;
+
+  for (size_t i=0; i<labelset.size(); i++) {
+    recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
+    precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
+    Fbeta.push_back( (1+beta*beta) * TP[i] / ((1+beta*beta) * TP[i] + beta*beta * FN[i] + FN[i]) );
+  }
+}
+
+double Group::get_meanscore(string which)
+{
+  vector<double> *score, nonan;
+
+  if (which.find("none") != string::npos)           return 0;
+  else if (which.find("F1") != string::npos)        score = &Fbeta;
+  else if (which.find("recall") != string::npos)    score = &recall;
+  else if (which.find("precision") != string::npos) score = &precision;
+  else return 0;
+
+  for (auto val : *score)
+    if (!std::isnan(val))
+      nonan.push_back(val);
+
+  return sum(nonan)/nonan.size();
+}
+
+string Group::to_string(cmdline::parser &c) {
+  stringstream cout;
 
   /* print confusion matrix */
   if (!c.exist("no-confusion")) {
@@ -111,7 +181,7 @@ int main(int argc, char *argv[])
       cout << string(tab_size - labelset[i].size(), ' ');
 
       for(uint64_t j=0; j<labelset.size(); j++) {
-        string num = to_string( (*confusion)[i][j] );
+        string num = std::to_string( (*confusion)[i][j] );
         int pre = (labelset[j].size() + 2 - num.size())/2,
             post = labelset[j].size() + 2 - num.size() - pre;
 
@@ -131,21 +201,13 @@ int main(int argc, char *argv[])
     cout << endl;
   }
 
-  /* calculate scores and matrix */
-  // see https://en.wikipedia.org/wiki/Precision_and_recall
-  vector<uint64_t> TP = diag( *confusion );
-  vector<uint64_t> FP = rowsum(*confusion) - TP;
-  vector<uint64_t> TN = sum(*confusion) - colsum(*confusion);
-  vector<uint64_t> FN = colsum(*confusion) - TP;
   double beta = c.get<double>("F-score");
-
   if (!c.exist("no-recall") || !c.exist("no-precision") || beta>0) {
     size_t tab_size = 2;
     for (auto label : labelset)
       tab_size = tab_size < label.size() ? label.size() : tab_size;
     tab_size += 1;
 
-    vector<double> recall, precision, Fbeta;
     uint64_t TAB_SIZE = 18;
 
     cout << "  " << string(tab_size - 2 + 1, ' ');
@@ -161,14 +223,10 @@ int main(int argc, char *argv[])
     cout << endl;
 
     for (size_t i=0; i<labelset.size(); i++) {
-      recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
-      precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
-      Fbeta.push_back( (1+beta*beta) * TP[i] / ((1+beta*beta) * TP[i] + beta*beta * FN[i] + FN[i]) );
-
       cout << labelset[i] << string(tab_size - labelset[i].size() + 1,' ');
-      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall.back())     ? "" : to_string(recall.back()));
-      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision.back()) ? "" : to_string(precision.back()));
-      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta.back())     ? "" : to_string(Fbeta.back()));
+      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall.back())     ? "" : std::to_string(recall.back()));
+      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision.back()) ? "" : std::to_string(precision.back()));
+      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta.back())     ? "" : std::to_string(Fbeta.back()));
       cout << endl;
     }
 
@@ -179,7 +237,8 @@ int main(int argc, char *argv[])
     cout << endl;
   }
 
-  return 0;
+  cout << endl;
+  return cout.str();
 }
 
 string centered(int tab_size, string val) {
@@ -224,7 +283,7 @@ T sum(Matrix<T> &m) {
 }
 
 template< class T>
-Matrix<T>* resize_martix(Matrix<T> *old, T newsize) {
+Matrix<T>* resize_matrix(Matrix<T> *old, T newsize) {
   Matrix<T> *confusion = new Matrix<T>(newsize, newsize);
   confusion->setAllValues(0);
 
