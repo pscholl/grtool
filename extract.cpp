@@ -7,7 +7,7 @@ using namespace GRT;
 using namespace std;
 
 string list_extractors();
-FeatureExtraction* apply_cmdline_args(string, cmdline::parser&);
+FeatureExtraction* apply_cmdline_args(string, cmdline::parser&, int);
 void feature(FeatureExtraction *, std::string);
 
 InfoLog info;
@@ -40,16 +40,11 @@ int main(int argc, const char *argv[]) {
   ifstream maybefile( str_extractor );
 
   f = loadFeatureExtractionFromFile( str_extractor );
-  if (f == NULL)
-    f = apply_cmdline_args(str_extractor, c);
-  else
-    c.rest().erase(c.rest().begin());
-  if (f == NULL)
-    return -1;
+  if (f != NULL) c.rest().erase(c.rest().begin());
 
   /* create and apply extractor specific parameters */
-  if (f == NULL) return -1;
-
+  // do a dummy init to get all parameters listed
+  apply_cmdline_args(str_extractor, c, 1);
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
     return -1;
@@ -58,12 +53,12 @@ int main(int argc, const char *argv[]) {
   /* do we read from a file or from stdin? */
   istream &in = grt_fileinput(c);
 
-  if (f->getTrained() && c.exist("output")) {
+  if (f!=NULL && f->getTrained() && c.exist("output")) {
     cerr << "refusing to load and store already trained model" << endl;
     return -1;
   }
 
-  if (f->getTrained() && c.exist("num-samples")) {
+  if (f!=NULL && f->getTrained() && c.exist("num-samples")) {
     cerr << "limiting the number of training samples on already trained exrtactor makes no sense" << endl;
     return -1;
   }
@@ -71,7 +66,7 @@ int main(int argc, const char *argv[]) {
   string line;
 
   /* read the number of training samples */
-  if (!f->getTrained()) {
+  if (f==NULL || !f->getTrained()) {
     /* check if the number of input is limited */
     int num_training_samples = c.get<int>("num-samples"), num_lines = 0;
     vector<string> lines;
@@ -87,13 +82,22 @@ int main(int argc, const char *argv[]) {
       if (line=="" || line[0]=='#')
         ;
 
-
       ss >> label;
       while (ss >> value)
         data.push_back(value);
 
       if (data.size() == 0)
         continue;
+
+      if (num_lines == 0 && f == NULL)
+        // initialization needs to be delayed until we know the number of input
+        // dimensions, since they need to be known beforehand
+        f = apply_cmdline_args(str_extractor, c, data.size());
+
+      if (f == NULL) {
+        cerr << "unable to load extractor" << endl;
+        return -1;
+      }
 
       num_lines++;
       set.push_back(data);
@@ -102,7 +106,7 @@ int main(int argc, const char *argv[]) {
     MatrixDouble dataset(set);
 
     if (!f->train(dataset))
-      cerr << "training the quantizer failed" << endl;
+      cerr << "WARNING: training the extractor failed, not of all them can be trained!" << endl;
 
     /* if there is a model file store it */
     if (c.exist("output"))
@@ -128,7 +132,7 @@ string list_extractors() {
 }
 
 FeatureExtraction*
-apply_cmdline_args(string type, cmdline::parser &c) {
+apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions) {
   FeatureExtraction *f;
   cmdline::parser p;
 
@@ -210,6 +214,7 @@ apply_cmdline_args(string type, cmdline::parser &c) {
     f = new FFT(
         p.get<int>("window"),
         p.get<int>("hop"),
+        num_dimensions,
         find(list.begin(),list.end(),p.get<string>("func")) - list.begin(),
         !p.exist("no-magnitude"),
         !p.exist("no-phase"));
@@ -217,7 +222,7 @@ apply_cmdline_args(string type, cmdline::parser &c) {
   } else if ( type == "FFTFeatures" ) {
     f = new FFTFeatures(
         p.get<int>("window"),
-        1,
+        num_dimensions,
         !p.exist("no-max-freq"),
         !p.exist("no-max-freq-spec"),
         !p.exist("no-centroid"),
@@ -242,7 +247,7 @@ apply_cmdline_args(string type, cmdline::parser &c) {
         p.get<int>("centroids"),
         find(list.begin(), list.end(), p.get<string>("feature-mode")) - list.begin(),
         p.get<int>("histograms"),
-        1,
+        num_dimensions,
         p.exist("start-end"),
         p.exist("no-weighted-magnitude"));
   
@@ -250,6 +255,7 @@ apply_cmdline_args(string type, cmdline::parser &c) {
     f = new TimeDomainFeatures(
         p.get<int>("samples"),
         p.get<int>("frames"),
+        3,
         p.exist("offset"),
         !p.exist("no-mean"),
         !p.exist("no-stddev"),
@@ -264,6 +270,7 @@ apply_cmdline_args(string type, cmdline::parser &c) {
     f = new ZeroCrossingCounter(
         p.get<int>("window"),
         p.get<double>("deadzone"),
+        num_dimensions,
         p.exist("combined"));
   }
 

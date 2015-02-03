@@ -124,7 +124,8 @@ int main(int argc, const char *argv[])
     cerr << "saving to " << c.get<string>("output") << " failed" << endl;
     return -1;
   } else if (!c.exist("output")) {
-    // TODO classifier->saveModelToFile(o);
+    // TODO classifier->saveModelToFile(o); to output stream so it can be picked
+    // by pipe
   }
 
   /* if there is testdataset we need to print this now */
