@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
      * we give the preceding command (when used in a pipe) enough time
      * to write the classifier to disk */
     Classifier *classifier; // TODO this needs to be loaded from stdin for piped cases!
-    for (int i=0; i<255 && classifier==NULL; i++, usleep(10))
+    for (int i=0; i<255 && classifier==NULL; i++, usleep(10*100))
       classifier = loadFromFile(model_file);
 
     if (classifier == NULL) {
