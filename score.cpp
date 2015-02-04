@@ -113,6 +113,7 @@ void Group::calculate_score(double beta)
   for (auto line : lines)
   {
     stringstream ss(line); string prediction, label;
+    if (line[0] == '#') continue; // comments are ignored
     ss >> prediction >> label;
 
     int64_t idxA = push_back_if_not_there(prediction, labelset),
@@ -157,6 +158,11 @@ double Group::get_meanscore(string which)
 string Group::to_string(cmdline::parser &c) {
   stringstream cout;
 
+  /* print out comment attached to this group if any */
+  for( auto line : lines )
+    if ( line[0] == '#' )
+      cout << line << endl;
+ 
   /* print confusion matrix */
   if (!c.exist("no-confusion")) {
     size_t tab_size = 0;
