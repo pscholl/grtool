@@ -230,9 +230,9 @@ string Group::to_string(cmdline::parser &c) {
 
     for (size_t i=0; i<labelset.size(); i++) {
       cout << labelset[i] << string(tab_size - labelset[i].size() + 1,' ');
-      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall.back())     ? "" : std::to_string(recall.back()));
-      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision.back()) ? "" : std::to_string(precision.back()));
-      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta.back())     ? "" : std::to_string(Fbeta.back()));
+      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall.back())     ? "" : std::to_string(recall[i]));
+      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision.back()) ? "" : std::to_string(precision[i]));
+      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta.back())     ? "" : std::to_string(Fbeta[i]));
       cout << endl;
     }
 
