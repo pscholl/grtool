@@ -74,9 +74,12 @@ int main(int argc, char *argv[])
   Group *g = new Group(); string line; double selector_score=0; uint64_t num_groups=0;
   while(getline(in,line)) {
     if (line=="") {
-      if (g->lines.size() == 0)
+      if (g->lines.size() == 0 || c.get<int>("group")==0)
         continue;
-      else if (c.get<int>("group") == 0 || num_groups < c.get<int>("group"))
+
+      num_groups += 1;
+
+      if (num_groups < c.get<int>("group"))
         continue;
       else {
         g->calculate_score(c.get<double>("F-score"));
@@ -86,11 +89,12 @@ int main(int argc, char *argv[])
           selector_score = score;
           cout << g->to_string(c);
         }
+
+        delete g;
+        g = new Group();
       }
-    } else {
-      num_groups += g->lines.size() == 0;
+    } else 
       g->lines.push_back(line);
-    }
   }
 
   if (g->lines.size() > 0) {
