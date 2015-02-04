@@ -79,9 +79,9 @@ int main(int argc, char *argv[])
 
       num_groups += 1;
       if (g->lines.size()==0)
-        continue; // we also count empty groups, as failed executions
+        continue; // we also count empty groups, these are usually failed executions
 
-      if (num_groups-1 < c.get<int>("group"))
+      if (num_groups < c.get<int>("group"))
         continue;
       else {
         g->calculate_score(c.get<double>("F-score"));
@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
         g = new Group();
         num_groups = 0;
       }
-    } else 
+    } else
       g->lines.push_back(line);
   }
 

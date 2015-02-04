@@ -43,7 +43,10 @@ int main(int argc, char *argv[])
     /* load the classifier only after the first data has arrived, so
      * we give the preceding command (when used in a pipe) enough time
      * to write the classifier to disk */
-    Classifier *classifier = loadFromFile(model_file);
+    Classifier *classifier; // TODO this needs to be loaded from stdin for piped cases!
+    for (int i=0; i<255 && classifier==NULL; i++, usleep(10))
+      classifier = loadFromFile(model_file);
+
     if (classifier == NULL) {
       cerr << "unable to load classification model " << model_file << " giving up" << endl;
       return -1;
