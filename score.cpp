@@ -15,7 +15,7 @@ class Group {
   vector< uint64_t > TP,TN,FP,FN;
   vector< double >   Fbeta,recall,precision;
 
-  string to_string(cmdline::parser &c);
+  string to_string(cmdline::parser &, int);
 };
 
 /* some helper functions */
@@ -74,24 +74,28 @@ int main(int argc, char *argv[])
   Group *g = new Group(); string line; double selector_score=0; uint64_t num_groups=0;
   while(getline(in,line)) {
     if (line=="") {
-      if (g->lines.size() == 0 || c.get<int>("group")==0)
-        continue;
+      if (c.get<int>("group")==0)
+        continue; // grouping not activated
 
       num_groups += 1;
+      if (g->lines.size()==0)
+        continue; // we also count empty groups, as failed executions
 
-      if (num_groups < c.get<int>("group"))
+      if (num_groups-1 < c.get<int>("group"))
         continue;
       else {
         g->calculate_score(c.get<double>("F-score"));
         double score = g->get_meanscore(c.get<string>("select-by"));
 
         if (selector_score <= score) {
+          double groups = c.get<int>("group");
           selector_score = score;
-          cout << g->to_string(c);
+          cout << g->to_string(c, groups!=0 ? num_groups - groups : -1);
         }
 
         delete g;
         g = new Group();
+        num_groups = 0;
       }
     } else 
       g->lines.push_back(line);
@@ -102,8 +106,9 @@ int main(int argc, char *argv[])
     double score = g->get_meanscore(c.get<string>("select-by"));
 
     if (selector_score <= score) {
+      double groups = c.get<int>("group");
       selector_score = score;
-      cout << g->to_string(c);
+      cout << g->to_string(c, groups!=0 ? num_groups - groups : -1);
     }
   }
 
@@ -159,25 +164,26 @@ double Group::get_meanscore(string which)
   return sum(nonan)/nonan.size();
 }
 
-string Group::to_string(cmdline::parser &c) {
+string Group::to_string(cmdline::parser &c, int ngroup=-1) {
   stringstream cout;
 
   /* print out comment attached to this group if any */
   for( auto line : lines )
     if ( line[0] == '#' )
       cout << line << endl;
- 
+
   /* print confusion matrix */
   if (!c.exist("no-confusion")) {
     size_t tab_size = 0;
     for (auto label : labelset)
       tab_size = tab_size < label.size() ? label.size() : tab_size;
+    tab_size += 1;
 
     /* print the header */
-    cout << string(tab_size,' ');
-    for (auto label : labelset) {
+    string s_ngroup = ngroup >= 0 ? std::to_string(ngroup) : "";
+    cout << " " << s_ngroup << string(tab_size - s_ngroup.size() - 1, ' ');
+    for (auto label : labelset)
       cout << "  " << label << " ";
-    }
     cout << endl;
 
     cout << string(tab_size,'-') << " ";
@@ -220,7 +226,8 @@ string Group::to_string(cmdline::parser &c) {
 
     uint64_t TAB_SIZE = 18;
 
-    cout << "  " << string(tab_size - 2 + 1, ' ');
+    string s_ngroup = ngroup >= 0 ? std::to_string(ngroup) : "";
+    cout << " " << s_ngroup << string(tab_size - s_ngroup.size() - 1, ' ');
     if (!c.exist("no-recall"))    cout << centered(TAB_SIZE,"  recall  ");
     if (!c.exist("no-precision")) cout << centered(TAB_SIZE,"  precision  ");
     if (beta>0)                   cout << centered(TAB_SIZE,"  Fbeta  ");
@@ -234,9 +241,9 @@ string Group::to_string(cmdline::parser &c) {
 
     for (size_t i=0; i<labelset.size(); i++) {
       cout << labelset[i] << string(tab_size - labelset[i].size() + 1,' ');
-      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall.back())     ? "" : std::to_string(recall[i]));
-      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision.back()) ? "" : std::to_string(precision[i]));
-      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta.back())     ? "" : std::to_string(Fbeta[i]));
+      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall[i])     ? "" : std::to_string(recall[i]));
+      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision[i]) ? "" : std::to_string(precision[i]));
+      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta[i])     ? "" : std::to_string(Fbeta[i]));
       cout << endl;
     }
 
