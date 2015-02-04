@@ -9,6 +9,7 @@ int main(int argc, char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
+  c.add<string>("title",      'T', "prepend the output with an optional title", false, "");
   c.footer     ("<classifier-model-file> [filename]...");
 
   /* parse the classifier-common arguments */
@@ -28,6 +29,11 @@ int main(int argc, char *argv[])
   string data_type = c.get<string>("type");
   CsvIOSample io(data_type);
   istream &in = grt_fileinput(c,1);
+
+  /* print title if any */
+  string title = c.get<string>("title");
+  if (title != "")
+    cout << title << endl;
 
   /* read and predict on input */
   while( in >> io && is_running ) {
