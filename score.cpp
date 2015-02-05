@@ -2,20 +2,44 @@
 #include "cmdline.h"
 #include <stdint.h>
 #include <math.h>
+#include <unordered_map>
+#include <regex>
+#include <algorithm> 
+#include <functional> 
+#include <cctype>
+#include <locale>
+
+// trim from start
+static inline std::string &ltrim(std::string &s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+        return s;
+}
+
+// trim from end
+static inline std::string &rtrim(std::string &s) {
+        s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+        return s;
+}
+
+// trim from both ends
+static inline std::string &trim(std::string &s) {
+        return ltrim(rtrim(s));
+}
 
 class Group {
   public:
-  Matrix<uint64_t> *confusion;
+  Matrix<uint64_t> *confusion = NULL;
   vector<string> labelset;
   vector<string> lines;
 
+  void add_prediction(string, string);
   void calculate_score(double beta);
-  double get_meanscore(string);
+  double get_meanscore(string, double);
 
   vector< uint64_t > TP,TN,FP,FN;
   vector< double >   Fbeta,recall,precision;
 
-  string to_string(cmdline::parser &, int);
+  string to_string(cmdline::parser&, string tag);
 };
 
 /* some helper functions */
@@ -46,8 +70,8 @@ int main(int argc, char *argv[])
   c.add         ("no-precision",  'p', "report precision, per class and overall");
   c.add         ("no-recall",     'r', "report recall, per class and overall");
   c.add<double> ("F-score",       'F', "report F-beta score, beta defaults to 1, 0 to disable", false, 1);
-  c.add<int>    ("group",         'g', "assemble N repetitions (divided by empty lines) into one result (default is to assemble all)", false, 0);
-  c.add<string> ("select-by",     's', "select output by ascending mean [F1,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("F1","recall","precision","disabled"));
+  c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
+  c.add<string> ("top-score",     't', "report only the current top [F1,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("F1","recall","precision","disabled"));
   c.footer      ("[filename] ...");
 
   /* parse the classifier-common arguments */
@@ -70,76 +94,103 @@ int main(int argc, char *argv[])
   istream &in = grt_fileinput(c);
   if (!in) return -1;
 
-  /* we read in N-groups divided by empty lines */
-  Group *g = new Group(); string line; double selector_score=0; uint64_t num_groups=0;
-  while(getline(in,line)) {
-    if (line=="") {
-      if (c.get<int>("group")==0)
-        continue; // grouping not activated
+  /* read multiple groups divided by tagged lines, if advised to do so.
+   * Otherwise just read everything and print one report at the end.
+   *
+   * If grouping is enabled (by -g) and no selection option (-s) is given, all
+   * groups will be reported after completly reading the input. Otherwise
+   * whenever a new maximum on the selection is achieved.
+   *
+   * Tagged lines look like this:
+   *  (tag) label prediction
+   * and untagged ones:
+   *  label prediction
+   */
+  string top_score_type = c.get<string>("top-score");
+  double top_score = .0, beta = c.get<double>("F-score");
+  unordered_map<string,Group> groups;
+  string line, tag="None", prediction, label;
+  regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)"),
+      untagged ("(\\w+)\\s+(\\w+)");
+  smatch match;
 
-      num_groups += 1;
-      if (g->lines.size()==0)
-        continue; // we also count empty groups, these are usually failed executions
+  while (getline(in,line)) {
+    if (trim(line)=="" || trim(line)[0]=='#') continue;
 
-      if (num_groups < c.get<int>("group"))
+    if (c.exist("group")) {
+      if (!regex_match(line,match,tagged)) {
+        cerr << line << " ignored (no tag?)" << endl;
         continue;
-      else {
-        g->calculate_score(c.get<double>("F-score"));
-        double score = g->get_meanscore(c.get<string>("select-by"));
-
-        if (selector_score <= score) {
-          double groups = c.get<int>("group");
-          selector_score = score;
-          cout << g->to_string(c, groups!=0 ? num_groups - groups : -1);
-        }
-
-        delete g;
-        g = new Group();
-        num_groups = 0;
       }
-    } else
-      g->lines.push_back(line);
-  }
 
-  if (g->lines.size() > 0) {
-    g->calculate_score(c.get<double>("F-score"));
-    double score = g->get_meanscore(c.get<string>("select-by"));
+      tag = match[1];
+      label = match[2];
+      prediction = match[3];
+    } else {
+      if (!regex_match(line,match,untagged)) {
+        cerr << line << " ignored" << endl;
+        continue;
+      }
 
-    if (selector_score <= score) {
-      double groups = c.get<int>("group");
-      selector_score = score;
-      cout << g->to_string(c, groups!=0 ? num_groups - groups : -1);
+      label = match[1];
+      prediction = match[2];
+    }
+
+    groups[tag].add_prediction(label, prediction);
+
+    if (c.exist("top-score")) {
+      double score = groups[tag].get_meanscore(top_score_type, beta);
+
+      if (top_score < score) {
+        cout << groups[tag].to_string(c, tag) << endl;
+        top_score = score;
+      }
     }
   }
+
+  if (c.exist("top-score")) {
+    Group g; Group &top = g; double top_score = 0.; string top_tag;
+    for (auto &x : groups) {
+      double score = x.second.get_meanscore(top_score_type, beta);
+      if (top_score < score) {
+        top = x.second;
+        top_tag = x.first;
+        top_score = score;
+      }
+    }
+    cout << "Final Top-Score (" << c.get<string>("top-score") << "):" << endl;
+    cout << top.to_string(c,top_tag) << endl;
+  }
+  else
+    for (auto &x : groups)
+      cout << x.second.to_string(c,x.first) << endl;
 
   return 0;
 }
 
+void Group::add_prediction(string label, string prediction)
+{
+  if (confusion == NULL)
+    confusion = new Matrix<uint64_t>();
+
+  int64_t idxA = push_back_if_not_there(prediction, labelset),
+          idxB = push_back_if_not_there(label,      labelset);
+
+  if (confusion->getNumRows() != labelset.size())
+    confusion = resize_matrix(confusion, labelset.size());
+
+  (*confusion)[idxA][idxB] += 1;
+}
+
 void Group::calculate_score(double beta)
 {
-  confusion = new Matrix<uint64_t>();
-
-  for (auto line : lines)
-  {
-    stringstream ss(line); string prediction, label;
-    if (line[0] == '#') continue; // comments are ignored
-    ss >> prediction >> label;
-
-    int64_t idxA = push_back_if_not_there(prediction, labelset),
-            idxB = push_back_if_not_there(label,      labelset);
-
-    if (confusion->getNumRows() != labelset.size())
-      confusion = resize_matrix(confusion, labelset.size());
-
-    (*confusion)[idxA][idxB] += 1;
-  }
-
   // see https://en.wikipedia.org/wiki/Precision_and_recall
   vector<uint64_t> TP = diag( *confusion );
   vector<uint64_t> FP = rowsum(*confusion) - TP;
   vector<uint64_t> TN = sum(*confusion) - colsum(*confusion);
   vector<uint64_t> FN = colsum(*confusion) - TP;
 
+  recall.clear(); precision.clear(); Fbeta.clear();
   for (size_t i=0; i<labelset.size(); i++) {
     recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
     precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
@@ -147,9 +198,10 @@ void Group::calculate_score(double beta)
   }
 }
 
-double Group::get_meanscore(string which)
+double Group::get_meanscore(string which, double beta)
 {
   vector<double> *score, nonan;
+  calculate_score(beta);
 
   if (which.find("none") != string::npos)           return 0;
   else if (which.find("F1") != string::npos)        score = &Fbeta;
@@ -164,8 +216,9 @@ double Group::get_meanscore(string which)
   return sum(nonan)/nonan.size();
 }
 
-string Group::to_string(cmdline::parser &c, int ngroup=-1) {
+string Group::to_string(cmdline::parser &c, string tag) {
   stringstream cout;
+  calculate_score(c.get<double>("F-score"));
 
   /* print out comment attached to this group if any */
   for( auto line : lines )
@@ -177,11 +230,11 @@ string Group::to_string(cmdline::parser &c, int ngroup=-1) {
     size_t tab_size = 0;
     for (auto label : labelset)
       tab_size = tab_size < label.size() ? label.size() : tab_size;
+    tab_size = tab_size < tag.size() ? tag.size() : tab_size;
     tab_size += 1;
 
     /* print the header */
-    string s_ngroup = ngroup >= 0 ? std::to_string(ngroup) : "";
-    cout << " " << s_ngroup << string(tab_size - s_ngroup.size() - 1, ' ');
+    cout << " " << tag << string(tab_size - tag.size() - 1, ' ');
     for (auto label : labelset)
       cout << "  " << label << " ";
     cout << endl;
@@ -222,12 +275,12 @@ string Group::to_string(cmdline::parser &c, int ngroup=-1) {
     size_t tab_size = 2;
     for (auto label : labelset)
       tab_size = tab_size < label.size() ? label.size() : tab_size;
+    tab_size = tab_size < tag.size() ? tag.size() : tab_size;
     tab_size += 1;
 
     uint64_t TAB_SIZE = 18;
 
-    string s_ngroup = ngroup >= 0 ? std::to_string(ngroup) : "";
-    cout << " " << s_ngroup << string(tab_size - s_ngroup.size() - 1, ' ');
+    cout << " " << tag << string(tab_size - tag.size() - 1, ' ');
     if (!c.exist("no-recall"))    cout << centered(TAB_SIZE,"  recall  ");
     if (!c.exist("no-precision")) cout << centered(TAB_SIZE,"  precision  ");
     if (beta>0)                   cout << centered(TAB_SIZE,"  Fbeta  ");
@@ -254,7 +307,6 @@ string Group::to_string(cmdline::parser &c, int ngroup=-1) {
     cout << endl;
   }
 
-  cout << endl;
   return cout.str();
 }
 
