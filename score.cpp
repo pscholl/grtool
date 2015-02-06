@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
    * and untagged ones:
    *  label prediction
    */
-  string top_score_type = c.get<string>("top-score");
+  string top_score_type = c.get<string>("top-score"), top_tag = "None";
   double top_score = .0, beta = c.get<double>("F-score");
   unordered_map<string,Group> groups;
   string line, tag="None", prediction, label;
@@ -141,15 +141,16 @@ int main(int argc, char *argv[])
     if (c.exist("top-score")) {
       double score = groups[tag].get_meanscore(top_score_type, beta);
 
-      if (top_score < score) {
+      if (top_score < score || (tag==top_tag && score < top_score)) {
         cout << groups[tag].to_string(c, tag) << endl;
         top_score = score;
+        top_tag = tag;
       }
     }
   }
 
   if (c.exist("top-score")) {
-    Group g; Group &top = g; double top_score = 0.; string top_tag;
+    Group g; Group &top = g; double top_score = 0.;
     for (auto &x : groups) {
       double score = x.second.get_meanscore(top_score_type, beta);
       if (top_score < score) {
