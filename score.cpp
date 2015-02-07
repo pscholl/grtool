@@ -9,6 +9,8 @@
 #include <cctype>
 #include <locale>
 
+// TODO sort by test score
+
 // trim from start
 static inline std::string &ltrim(std::string &s) {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
@@ -43,6 +45,7 @@ class Group {
 };
 
 /* some helper functions */
+string gettop(unordered_map<string,Group>&, string score_type, double beta);
 int    push_back_if_not_there(string &label, vector<string> &labelset);
 string centered(int, string);
 string centered(int, double);
@@ -71,7 +74,7 @@ int main(int argc, char *argv[])
   c.add         ("no-recall",     'r', "report recall, per class and overall");
   c.add<double> ("F-score",       'F', "report F-beta score, beta defaults to 1, 0 to disable", false, 1);
   c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
-  c.add<string> ("top-score",     't', "report only the current top [F1,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("F1","recall","precision","disabled"));
+  c.add<string> ("top-score",     't', "report only the current top [Fbeta,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","disabled"));
   c.footer      ("[filename] ...");
 
   /* parse the classifier-common arguments */
@@ -87,6 +90,11 @@ int main(int argc, char *argv[])
 
   if ((c.exist("no-confusion") && c.exist("no-precision") && c.exist("no-recall") && c.get<double>("F-score")==0)) {
     cerr << c.usage() << endl << "error: need at least one reporting option" << endl;
+    return -1;
+  }
+
+  if (c.exist("top-score") && !c.exist("group")) {
+    cerr << c.usage() << endl << "erro: top-score can only be used in conjuction with tagged (-g) input" << endl;
     return -1;
   }
 
@@ -138,18 +146,19 @@ int main(int argc, char *argv[])
 
     groups[tag].add_prediction(label, prediction);
 
-    if (c.exist("top-score")) {
+    /* intermediate top-score reports */
+    if (top_score_type != "disabled" && in == cin) {
+      string tag   = gettop(groups, top_score_type, beta);
       double score = groups[tag].get_meanscore(top_score_type, beta);
 
-      if (top_score < score || (tag==top_tag && score < top_score)) {
+      if (top_score != score || top_tag != tag ) {
+        top_score = score; top_tag = tag;
         cout << groups[tag].to_string(c, tag) << endl;
-        top_score = score;
-        top_tag = tag;
       }
     }
   }
 
-  if (c.exist("top-score")) {
+  if (top_score_type != "disabled") {
     Group g; Group &top = g; double top_score = 0.;
     for (auto &x : groups) {
       double score = x.second.get_meanscore(top_score_type, beta);
@@ -160,13 +169,28 @@ int main(int argc, char *argv[])
       }
     }
     cout << "Final Top-Score (" << c.get<string>("top-score") << "):" << endl;
-    cout << top.to_string(c,top_tag) << endl;
+    cout << top.to_string(c,top_tag);
   }
-  else
+  else {
+    int i=0;
     for (auto &x : groups)
-      cout << x.second.to_string(c,x.first) << endl;
+      cout << (i++ != 0 ? "\n" : "") << x.second.to_string(c,x.first);
+  }
 
   return 0;
+}
+
+string gettop(unordered_map<string,Group> &groups, string score_type, double beta)
+{
+  double top_score; string tag;
+
+  for (auto &g: groups)
+    if (top_score < g.second.get_meanscore(score_type,beta)) {
+      top_score = g.second.get_meanscore(score_type,beta);
+      tag = g.first;
+    }
+
+  return tag;
 }
 
 void Group::add_prediction(string label, string prediction)
@@ -205,7 +229,7 @@ double Group::get_meanscore(string which, double beta)
   calculate_score(beta);
 
   if (which.find("none") != string::npos)           return 0;
-  else if (which.find("F1") != string::npos)        score = &Fbeta;
+  else if (which.find("Fbeta") != string::npos)        score = &Fbeta;
   else if (which.find("recall") != string::npos)    score = &recall;
   else if (which.find("precision") != string::npos) score = &precision;
   else return 0;
@@ -235,7 +259,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
     tab_size += 1;
 
     /* print the header */
-    cout << " " << tag << string(tab_size - tag.size() - 1, ' ');
+    cout << tag << string(tab_size - tag.size(), ' ');
     for (auto label : labelset)
       cout << "  " << label << " ";
     cout << endl;
@@ -267,13 +291,15 @@ string Group::to_string(cmdline::parser &c, string tag) {
     for (auto label : labelset)
       cout << string(label.size()+2,'-') << " ";
     cout << endl;
-
-    cout << endl;
   }
 
   double beta = c.get<double>("F-score");
   if (!c.exist("no-recall") || !c.exist("no-precision") || beta>0) {
     size_t tab_size = 2;
+
+    if (!c.exist("no-confusion"))
+      cout << endl;
+
     for (auto label : labelset)
       tab_size = tab_size < label.size() ? label.size() : tab_size;
     tab_size = tab_size < tag.size() ? tag.size() : tab_size;
@@ -281,7 +307,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
 
     uint64_t TAB_SIZE = 18;
 
-    cout << " " << tag << string(tab_size - tag.size() - 1, ' ');
+    cout << tag << string(tab_size - tag.size(), ' ') << " ";
     if (!c.exist("no-recall"))    cout << centered(TAB_SIZE,"  recall  ");
     if (!c.exist("no-precision")) cout << centered(TAB_SIZE,"  precision  ");
     if (beta>0)                   cout << centered(TAB_SIZE,"  Fbeta  ");
