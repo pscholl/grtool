@@ -229,7 +229,7 @@ double Group::get_meanscore(string which, double beta)
   calculate_score(beta);
 
   if (which.find("none") != string::npos)           return 0;
-  else if (which.find("Fbeta") != string::npos)        score = &Fbeta;
+  else if (which.find("Fbeta") != string::npos)     score = &Fbeta;
   else if (which.find("recall") != string::npos)    score = &recall;
   else if (which.find("precision") != string::npos) score = &precision;
   else return 0;
