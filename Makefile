@@ -1,16 +1,10 @@
 CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 # -O0
-#LDFLAGS=`pkg-config --libs grt` -lprofiler
 LDFLAGS=`pkg-config --libs grt`
 ALL=grt train predict info score preprocess extract
 
 all: $(ALL) *.h
 
-test: examples/*.md
-	cd examples
-	PATH=${PATH}:../ ../mdtest.py *.md
-
-.PHONY: test
-
+# Installation targets
 PREFIX=/usr
 bindir=$(PREFIX)/bin
 DESTDIR=
@@ -27,3 +21,7 @@ install: $(ALL)
 
 clean:
 	rm -f $(ALL)
+
+test: doc/*.md install
+	PATH="$(DESTDIR)/$(bindir)${PATH}" python doctest.py doc/*.md
+

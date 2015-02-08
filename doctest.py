@@ -14,7 +14,8 @@ def run_test(test):
         re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}\s*>.*\n)+)(( {4}.*\n)+)\s{0,3}\n")
         cmd_results  = [ (m.group(1).lstrip(),m.group(2).lstrip()) for m in re_codeblock.finditer(f.read()) ]
 
-    num = 0
+
+    cwd, num = os.getcwd(), 0
     for cmd, res in cmd_results:
         # create a temp dir to work in
         tdir=mkdtemp()
@@ -38,7 +39,9 @@ def run_test(test):
 
         os.rmdir(tdir)
         num += 1
+    os.chdir(cwd)
 
 if __name__ == "__main__":
     for test in sys.argv[1:]:
+        print ("Running test %s:" % test)
         run_test(test)
