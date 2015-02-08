@@ -11,7 +11,7 @@ def run_test(test):
     """
     cmd_results = []
     with open(test) as f:
-        re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}\s*>.*\n)+)(( {4}.*\n)+)\s{0,3}\n")
+        re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}\s*>.*\n)*)(( {4}.*\n)+)\s{0,3}\n")
         cmd_results  = [ (m.group(1).lstrip(),m.group(2).lstrip()) for m in re_codeblock.finditer(f.read()) ]
 
 
@@ -21,7 +21,7 @@ def run_test(test):
         tdir=mkdtemp()
         os.chdir(tdir)
 
-        cmd = cmd.replace("\n    > ", "\n").replace("\n    >","\n")
+        cmd = cmd.replace("\n    > ", "\n").replace("\n    >","\n").strip()
         res = res.replace("\n    ", "\n")
         p   = Popen(cmd,shell=True,stdout=PIPE,stderr=PIPE,universal_newlines=True)
         err = p.wait()
