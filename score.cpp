@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  if (top_score_type != "disabled") {
+  if (top_score_type != "disabled" && groups.size() > 0) {
     Group g; Group &top = g; double top_score = 0.;
     for (auto &x : groups) {
       double score = x.second.get_meanscore(top_score_type, beta);
