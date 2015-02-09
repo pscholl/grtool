@@ -28,6 +28,8 @@ int usage(int exit_code, string msg="") {
 
   if (msg != "")
     cerr << endl << "error: " << msg << endl;
+
+  return exit_code;
 }
 
 int main(int argc, char *argv[]) 
@@ -35,7 +37,7 @@ int main(int argc, char *argv[])
   char *goal = argv[1];
 
   if (argc <= 1 || (argc <= 2 && strcmp("help",argv[1])==0))
-    return usage(-1, "missing arguments");
+    return usage(0, "missing arguments");
 
   if (strcmp(argv[1], "help")==0) {
     char executable[256]; snprintf(executable,sizeof(executable),"grt-%s",argv[2]);
