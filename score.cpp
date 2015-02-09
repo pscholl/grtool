@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
   }
 
   if (top_score_type != "disabled" && groups.size() > 0) {
-    Group &top = groups.begin()->second; double top_score = 0.;
+    Group &top = groups.begin()->second; double top_score = -1.;
     for (auto &x : groups) {
       double score = x.second.get_meanscore(top_score_type, beta);
       if (top_score < score) {
@@ -182,7 +182,8 @@ int main(int argc, char *argv[])
 
 string gettop(unordered_map<string,Group> &groups, string score_type, double beta)
 {
-  double top_score; string tag;
+  double top_score = groups.begin()->second.get_meanscore(score_type,beta);
+  string tag = groups.begin()->first;
 
   for (auto &g: groups)
     if (top_score < g.second.get_meanscore(score_type,beta)) {

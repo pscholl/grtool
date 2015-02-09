@@ -26,5 +26,5 @@
 
 # EXAMPLES
 
-    $ grt predict my-model.hmm
+    echo "" | grt predict my-model.hmm
     ...
