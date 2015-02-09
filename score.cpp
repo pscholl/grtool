@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
   c.add         ("no-recall",     'r', "report recall, per class and overall");
   c.add<double> ("F-score",       'F', "report F-beta score, beta defaults to 1, 0 to disable", false, 1);
   c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
+  c.add         ("quiet",         'q', "print no warnings");
   c.add<string> ("top-score",     't', "report only the current top [Fbeta,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","disabled"));
   c.footer      ("[filename] ...");
 
@@ -126,7 +127,7 @@ int main(int argc, char *argv[])
     if (trim(line)=="" || trim(line)[0]=='#') continue;
 
     if (c.exist("group")) {
-      if (!regex_match(line,match,tagged)) {
+      if (!regex_match(line,match,tagged) && !c.exist("quiet")) {
         cerr << line << " ignored (no tag?)" << endl;
         continue;
       }

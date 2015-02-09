@@ -8,7 +8,7 @@
 
 # SYNOPSIS
  grt score [-h|--help] [-c|--no-confusion] [-p|--no-precision] [-r|--no-recall]
-           [-F|--F-score <beta>] [-g|--group]
+           [-F|--F-score <beta>] [-g|--group] [-q|--quiet]
            [-t|--top-score <F1|recall|precision|disabled>] [input-file]
 
 # DESCRIPTION
@@ -28,6 +28,9 @@ A ground truth label separated by whitespace from a prediction needs to be given
 # OPTIONS
 -h, --help
 :   Print a help message.
+
+-q, --quiet
+:   Do not print warning messages.
  
 -c, --no-confusion
 :   Do not report the confusion matrix.
