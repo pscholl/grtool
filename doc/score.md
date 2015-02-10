@@ -47,8 +47,11 @@ A ground truth label separated by whitespace from a prediction needs to be given
 -g, --group
 :   Turn on tag-based aggregation, all input lines must be prefixed with (<tag>), where tag can be any string. In this mode all lines with the same tag are aggregated and reported as belonging to the same group. This is useful for scoring multiple predictions in the same run (see the examples section). If turned off, all lines are assumed to belong to the same group. Defaults to off.
 
--t, --top-score <F1|recall|precision|disabled>
-:   Only report the chosen mean top-score. This option can only be used when grouping is enabled (-g). It then continuously reports the current top-score and, at the end of input, reports the final mean top-score and the group tag. This can be used for parameter selection when the inputs and group tags are made of different parameters for a learning model.
+-s, --sort <F1|recall|precision|disabled>
+:   Report results for all groups (needs to be enabled with -g) in ascending order. Ordering parameter is the mean number of scoring parameter.
+
+-i, --intermdiate
+:   Report intermediate results, useful for piped operation, where the actual calculation takes a long time.
 
 # EXAMPLES
 
@@ -68,9 +71,9 @@ These are a few example on the input and output data of the scoring. Let's start
     
     None               recall          precision           Fbeta       
     ------------ ----------------- ----------------- -----------------
-    right_swipe       0.500000          1.000000          0.500000     
-    left_swipe        1.000000          0.666667          1.000000     
-                     0.75/0.25       0.833333/0.166      0.75/0.25     
+    right_swipe       0.500000          1.000000          0.666667     
+    left_swipe        1.000000          0.666667          0.800000     
+                     0.75/0.25       0.833333/0.166    0.733333/0.066  
 
 We have four lines of input, i.e. four predictions in total that need to be scored. They are made of a left_swipe, right_swipe label. The left hand side of the input is the ground truth label, which is gathered by a wizard-of-oz like system, and the right hand side is the prediction of the model. You can see that we have one misclassification on line two, which is reflected in the recall, precision and F-score, as well as in the confusion matrix. Reporting of some scores can be turned off by providing the corresponding parameter:
 
@@ -99,8 +102,8 @@ Most often you want to test your machine learning model on multiple parameter an
     participant 1        recall          precision           Fbeta       
     -------------- ----------------- ----------------- -----------------
     left_swipe                            0.000000                       
-    right_swipe         0.666667          1.000000          0.666667     
-                        0.666667          0.5/0.5           0.666667     
+    right_swipe         0.666667          1.000000          0.800000     
+                        0.666667          0.5/0.5           0.800000     
     
     participant 0        recall          precision           Fbeta       
     -------------- ----------------- ----------------- -----------------
@@ -110,26 +113,26 @@ Most often you want to test your machine learning model on multiple parameter an
 
 As you can see, results are now reported for each input tag after the complete input has been read. Also notice that the class-mean and standard deviation is reported at the bottom of each table.
 
-## Selecting the best scoring group
+## Sorting By Best Performing Group
 
-Sometimes you are not interested in the results of all groups, but only the one with the maximum mean evaluation score. grt-score can report only the group with the current maximum score. For this you can use the -t <score> switch, which then re-evaluates the maximum mean score for all groups and reports group with the maximum score:
+ In most cases you like to select the best performing parameter set. For this you can switch on grouping with -g and sorting by mean recall, precision or Fbeta score. This can be done with the -s switch. For example grouping and sorting our example on its mean Fbeta score:
 
     echo "(participant 0) right_swipe right_swipe
     > (participant 1) right_swipe left_swipe
     > (participant 1) right_swipe right_swipe
     > (participant 1) right_swipe right_swipe
     > (participant 0) left_swipe  left_swipe
-    > (participant 0) left_swipe  left_swipe" | grt score -g -t Fbeta -c
-    participant 0        recall          precision           Fbeta       
+    > (participant 0) left_swipe  left_swipe" | grt score -g -s Fbeta -c
+    participant 1        recall          precision           Fbeta       
     -------------- ----------------- ----------------- -----------------
-    right_swipe         1.000000          1.000000          1.000000     
-                        1.000000          1.000000          1.000000     
+    left_swipe                            0.000000                       
+    right_swipe         0.666667          1.000000          0.800000     
+                        0.666667          0.5/0.5           0.800000     
     
-    Final Top-Score (Fbeta):
     participant 0        recall          precision           Fbeta       
     -------------- ----------------- ----------------- -----------------
     right_swipe         1.000000          1.000000          1.000000     
     left_swipe          1.000000          1.000000          1.000000     
                           1/0               1/0               1/0        
 
-When reading input from a pipe, intermediate scores will also be reported, i.e. whenever the top-score changes it will be reported. When reading input from a file no intermediate scores will be reported, also the final score at the end of the input.
+When reading input from a pipe, intermediate scores will also be reported, i.e. whenever the order changes it will be reported. When reading input from a file no intermediate scores will be reported.

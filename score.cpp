@@ -9,8 +9,6 @@
 #include <cctype>
 #include <locale>
 
-// TODO sort by test score
-
 // trim from start
 static inline std::string &ltrim(std::string &s) {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
@@ -45,7 +43,7 @@ class Group {
 };
 
 /* some helper functions */
-string gettop(unordered_map<string,Group>&, string score_type, double beta);
+bool   value_differs(map<double,string>&, map<double,string>&);
 int    push_back_if_not_there(string &label, vector<string> &labelset);
 string centered(int, string);
 string centered(int, double);
@@ -75,7 +73,8 @@ int main(int argc, char *argv[])
   c.add<double> ("F-score",       'F', "report F-beta score, beta defaults to 1, 0 to disable", false, 1);
   c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
   c.add         ("quiet",         'q', "print no warnings");
-  c.add<string> ("top-score",     't', "report only the current top [Fbeta,recall,precision,disabled] score (disabled per default)", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","disabled"));
+  c.add<string> ("sort",          's', "prints results in ascending mean [Fbeta,recall,precision,disabled] order", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","disabled"));
+  c.add         ("intermediate",  'i', "do not report intermediate scores");
   c.footer      ("[filename] ...");
 
   /* parse the classifier-common arguments */
@@ -94,8 +93,8 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  if (c.exist("top-score") && !c.exist("group")) {
-    cerr << c.usage() << endl << "erro: top-score can only be used in conjuction with tagged (-g) input" << endl;
+  if (c.exist("sort") && !c.exist("group")) {
+    cerr << c.usage() << endl << "erro: sorting can only be used in conjuction with tagged (-g) input" << endl;
     return -1;
   }
 
@@ -115,9 +114,10 @@ int main(int argc, char *argv[])
    * and untagged ones:
    *  label prediction
    */
-  string top_score_type = c.get<string>("top-score"), top_tag = "None";
+  string top_score_type = c.get<string>("sort"), top_tag = "None";
   double top_score = .0, beta = c.get<double>("F-score");
   unordered_map<string,Group> groups;
+           map<double,string> scores;
   string line, tag="None", prediction, label;
   regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)"),
       untagged ("(\\w+)\\s+(\\w+)");
@@ -127,8 +127,8 @@ int main(int argc, char *argv[])
     if (trim(line)=="" || trim(line)[0]=='#') continue;
 
     if (c.exist("group")) {
-      if (!regex_match(line,match,tagged) && !c.exist("quiet")) {
-        cerr << line << " ignored (no tag?)" << endl;
+      if (!regex_match(line,match,tagged)) {
+        if (!c.exist("quiet")) cerr << line << " ignored (no tag?)" << endl;
         continue;
       }
 
@@ -145,32 +145,36 @@ int main(int argc, char *argv[])
       prediction = match[2];
     }
 
-    groups[tag].add_prediction(label, prediction);
-
     /* intermediate top-score reports */
-    if (top_score_type != "disabled" && in == cin) {
-      string tag   = gettop(groups, top_score_type, beta);
-      double score = groups[tag].get_meanscore(top_score_type, beta);
+    if (top_score_type != "disabled" && in == cin && c.exist("intermediate")) {
+      double score;
 
-      if (top_score != score || top_tag != tag ) {
-        top_score = score; top_tag = tag;
-        cout << groups[tag].to_string(c, tag) << endl;
-      }
-    }
+      Group &g = groups[tag];
+      score = g.get_meanscore(top_score_type,beta);
+
+      if(scores.count(score) && scores[score] == tag)
+        scores.erase(score);
+
+      g.add_prediction(label, prediction);
+      score = g.get_meanscore(top_score_type,beta);
+      scores[score] = tag;
+
+      for(auto &x : scores)
+        cout << groups[x.second].to_string(c,x.second) << endl;
+    } else
+      groups[tag].add_prediction(label, prediction);
   }
 
   if (top_score_type != "disabled" && groups.size() > 0) {
-    Group &top = groups.begin()->second; double top_score = -1.;
-    for (auto &x : groups) {
-      double score = x.second.get_meanscore(top_score_type, beta);
-      if (top_score < score) {
-        top = x.second;
-        top_tag = x.first;
-        top_score = score;
-      }
-    }
-    cout << "Final Top-Score (" << c.get<string>("top-score") << "):" << endl;
-    cout << top.to_string(c,top_tag);
+    if (c.exist("intermediate"))
+        cout << "Final Top-Score (" << c.get<string>("sort") << "):" << endl;
+
+    for (auto &x : groups)
+      scores[x.second.get_meanscore(top_score_type,beta)] = x.first;
+
+    int i=0;
+    for (auto &x : scores)
+      cout << (i++ != 0 ? "\n" : "") << groups[x.second].to_string(c,x.second);
   }
   else {
     int i=0;
@@ -179,20 +183,6 @@ int main(int argc, char *argv[])
   }
 
   return 0;
-}
-
-string gettop(unordered_map<string,Group> &groups, string score_type, double beta)
-{
-  double top_score = groups.begin()->second.get_meanscore(score_type,beta);
-  string tag = groups.begin()->first;
-
-  for (auto &g: groups)
-    if (top_score < g.second.get_meanscore(score_type,beta)) {
-      top_score = g.second.get_meanscore(score_type,beta);
-      tag = g.first;
-    }
-
-  return tag;
 }
 
 void Group::add_prediction(string label, string prediction)
@@ -211,6 +201,8 @@ void Group::add_prediction(string label, string prediction)
 
 void Group::calculate_score(double beta)
 {
+  if (confusion == NULL) return;
+
   // see https://en.wikipedia.org/wiki/Precision_and_recall
   vector<uint64_t> TP = diag( *confusion );
   vector<uint64_t> FP = rowsum(*confusion) - TP;
@@ -221,7 +213,7 @@ void Group::calculate_score(double beta)
   for (size_t i=0; i<labelset.size(); i++) {
     recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
     precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
-    Fbeta.push_back( (1+beta*beta) * TP[i] / ((1+beta*beta) * TP[i] + beta*beta * FN[i] + FN[i]) );
+    Fbeta.push_back( (1+pow(beta,2)) * (precision[i] * recall[i])/(pow(beta,2)*precision[i] + recall[i]) );
   }
 }
 
@@ -240,7 +232,7 @@ double Group::get_meanscore(string which, double beta)
     if (!std::isnan(val))
       nonan.push_back(val);
 
-  return sum(nonan)/nonan.size();
+  return nonan.size()==0 ? 0. : sum(nonan)/nonan.size();
 }
 
 string Group::to_string(cmdline::parser &c, string tag) {
