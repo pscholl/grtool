@@ -299,7 +299,7 @@ FeatureExtraction *loadFeatureExtractionFromFile(string &file) {
   return feature;
 }
 
-Classifier *loadFromFile(string &file)
+Classifier *loadClassifierFromFile(string &file)
 {
   ErrorLog err;
   Classifier *classifier = NULL;

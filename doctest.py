@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import sys, os, re, difflib, shutil
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, call
 from tempfile import mkdtemp
 from argparse import ArgumentParser
 
-def run_test(test, PATH):
+def run_test(test, PATH, gdb=False):
     """ run some bash test. Syntax is very simplitic, everything that is intended by
     4 spaces is a test. Pull these groups out, the first line + every line after that
     that is prefixed with ">" are command and arguments. Everything after that is the
@@ -34,7 +34,9 @@ def run_test(test, PATH):
         if err != 0:
             print ("  Test #%d: FAILED" % num)
             print ("  cmd '%s' failed with code: %d"% (cmd, err))
-            sys.stderr.write(p.stderr.read())
+            serr = p.stderr.read()
+            sys.stderr.write(serr)
+            if gdb and "core dumped" in serr: call("coredumpctl gdb -1", shell=True)
         elif out != res and res.strip()!="":
             print ("  Test #%d: FAILED" % num)
             d = difflib.Differ().compare(res.split("\n"),out.split("\n"))
@@ -50,8 +52,9 @@ if __name__ == "__main__":
     p = ArgumentParser("run bash code in markdown documents")
     p.add_argument('files', nargs='+', type=str)
     p.add_argument('-p', '--path', type=str)
+    p.add_argument('-g', '--gdb', action="store_true", help="run gdb on core dumping tests")
     args = p.parse_args()
 
     for test in args.files:
         print ("%s:" % test)
-        run_test(test, args.path)
+        run_test(test, args.path, args.gdb)

@@ -6,29 +6,26 @@
 using namespace GRT;
 using namespace std;
 
-Classifier *apply_cmdline_args(string, Classifier*, cmdline::parser&);
+Classifier *apply_cmdline_args(string,cmdline::parser&,int,string&);
 string list_classifiers();
-
 InfoLog info;
 
 int main(int argc, const char *argv[])
 {
-  static bool is_running = true;
+  Classifier *classifier = NULL;
+  string input_file = "-";
   cmdline::parser c;
 
-  c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
+  c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 1);
   c.add        ("help",       'h', "print this message");
-  c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
-
+  c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "unlabelled"));
   c.add<string>("output",     'o', "store trained classifier in file", true);
   c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
-
-  c.footer     ("<classifier> [input-data]...");
+  c.footer     ("<classifier or file> [input-data]...");
 
   /* parse common arguments */
   bool parse_ok = c.parse(argc, argv, false)  && !c.exist("help");
   set_verbosity(c.get<int>("verbose"));
-  //set_running_indicator(&is_running);
 
   /* got a trainable classifier? */
   string str_classifier = c.rest().size() > 0 ? c.rest()[0] : "list";
@@ -38,37 +35,39 @@ int main(int argc, const char *argv[])
     return 0;
   }
 
-  /* got an output file */
-    Classifier *classifier = Classifier::createInstanceFromString(str_classifier);
-  if (classifier == NULL) {
-    cout << c.usage() << endl;
-    cout << list_classifiers() << endl;
-    cerr << "error: unable to load classifier: " << str_classifier << endl;
-    return -1;
-  }
-
   /* add the classifier specific arguments */
-  classifier = apply_cmdline_args(str_classifier, classifier, c);
-  if (classifier == NULL)
-    return -1;
+  classifier = apply_cmdline_args(str_classifier,c,1,input_file);
 
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
     return -1;
   }
 
-  if (!c.exist("output")) {
-    cerr << c.usage() << endl << "please provide an output file" << endl;
+  if (classifier == NULL) {
+    cerr << "error: unable to load/create algorithm: " << str_classifier << endl;
     return -1;
   }
+
+  if (!c.exist("output")) {
+    cerr << "please provide an output file" << endl;
+    return -1;
+  }
+
+  /* check if we can open the output file */
   fstream test(c.get<string>("output"), ios_base::out);
   if (!test.good()) {
-    cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" provided via -o" << endl;
+    cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" as output" << endl;
     return -1;
   }
 
   /* do we read from a file or stdin? */
-  istream &in = grt_fileinput(c);
+  ifstream fin; fin.open(input_file);
+  istream &in = input_file=="-" ? cin : fin;
+
+  if (!in.good()) {
+    cerr << "unable to open input file " << input_file << endl;
+    return -1;
+  }
 
   /* now start to read input samples */
   string type = c.get<string>("type");
@@ -88,6 +87,9 @@ int main(int argc, const char *argv[])
     }
     num_samples++;
   }
+
+  if (num_samples==0)
+    return 0;
 
   info << dataset.getStatsAsString() << endl;
 
@@ -132,15 +134,14 @@ int main(int argc, const char *argv[])
   if (input_limit < 1.) {
     switch(io.type) {
     case TIMESERIES:
-      cout << "# timeseries" << endl;
+      cout << "# timeseries";
       for (auto sample : t_testdata.getClassificationData()) {
         string label = t_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         MatrixDouble &matrix = sample.getData();
         for (int i=0; i<matrix.getNumRows(); i++) {
-          cout << label;
+          cout << endl << label;
           for (int j=0; j<matrix.getNumCols(); j++)
             cout << "\t" << matrix[i][j];
-          cout << endl;
         }
         cout << endl;
       }
@@ -173,7 +174,11 @@ string list_classifiers() {
   stringstream ss;
   string name;
 
+  cout << "HMM (timeseries)" << endl;
+  cout << "cHMM (timeseries)" << endl;
+
   for (auto name : names)  {
+    if ("HMM" == name) continue;
     Classifier *c = Classifier::createInstanceFromString(name);
     if (c->getTimeseriesCompatible())
       ss << name << " (timeseries" << (c->getSupportsNullRejection() ? ",null rejection)" : ")") << endl;
@@ -189,9 +194,11 @@ string list_classifiers() {
 }
 
 #define checkedarg(func, type, name) if(!func(p.get<type>(name))) { cerr << "invalid value for" << name << " " << p.get<type>(name) << endl; return NULL; }
-Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
+
+Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions,string &input_file)
 {
   cmdline::parser p;
+  Classifier *o = NULL;
 
   // TODO
   // ANBC
@@ -206,27 +213,31 @@ Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
   // SwipeDetector
 
   if ( "HMM" == name ) {
-    p.add<string>("hmmtype",      'k', "either 'discrete_ergodic', 'discrete_leftright', 'continuous_ergodic' or 'continuous_leftright'", false, "continuous_leftright", cmdline::oneof<string>("continuous_leftright", "continuous_ergodic", "discrete_leftright", "discrete_ergodic"));
-    p.add<int>   ("comitteesize", 's', "number of models used for prediction, default: 10", false, 10);
-    p.add<double>("delta",        'd', "learning delta, default: 1", false, 1);
-    p.add<int>   ("downsample",   'D', "downsample factor, default: 5", false, 5);
+    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "ergodic", cmdline::oneof<string>("leftright", "ergodic"));
 
-    p.add<int>   ("num-states",    'S', "number of states", false, 10);
-    p.add<int>   ("num-symbols",   'N', "number of symbols", false, 20);
-    p.add<int>   ("max-epochs",    'E', "maximum number of epochs during training", false, 1000);
-    p.add<float> ("min-change",    'M', "minimum change before abortion", false, 1.0e-5);
+    p.add<double>("delta",          0, "delta for leftright model, default: 1", false, 1);
+    p.add<int>   ("num-states",   'S', "number of states", false, 10);
+    p.add<int>   ("num-symbols",  'N', "number of symbols", false, 20);
+    p.add<int>   ("max-epochs",    0, "maximum number of epochs during training", false, 1000);
+    p.add<float> ("min-change",    0, "minimum change before abortion", false, 1.0e-5);
+  } else if ( "cHMM" == name ) {
+    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "ergodic", cmdline::oneof<string>("leftright", "ergodic"));
+
+    p.add<int>   ("comitteesize",  0, "number of models used for prediction, default: 10", false, 10);
+    p.add<double>("delta",         0, "delta for leftright model, default: 1", false, 1);
+    p.add<int>   ("downsample",    0, "downsample factor, default: 5", false, 5);
   } else if ( "KNN" == name ) {
-    p.add<string>("distance",         'd', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
+    p.add<string>("distance",         'D', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
     p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
     p.add<int>   ("K-neighbors",      'K', "number of neighbors used in classification (if 0 search for optimum)", false, 0);
-    p.add<int>   ("min-K",              0, "only used during search", false, 2);
-    p.add<int>   ("max-K",              0, "only used during search", false, 20);
+    p.add<int>   ("min-K",             0, "only used during search", false, 2);
+    p.add<int>   ("max-K",             0, "only used during search", false, 20);
   } else if ( "DTW" == name ) {
     p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
     p.add<string>("rejection-mode",   'R', "NULL-class rejection mode, one of 'template', 'likelihood' or 'template_and_likelihood'", false, "template", cmdline::oneof<string>("template", "likelihood", "template_and_likelihood"));
     p.add<double>("warping-radius",   'W', "limit the warping to this radius (0 means disabled, 1 is maximum)", false, 0, cmdline::range(0.,1.));
     p.add        ("offset-by-first",  'O', "offset all samples by first sample, helps DTW when not using normalization");
-    p.add<int>   ("downsample",       'D', "downsample factor, default: 5", false, 5);
+    p.add<int>   ("downsample",        0, "downsample factor, default: 5", false, 5);
   } else if ( "FiniteStateMachine" == name ) {
     p.add<int>   ("num-particles",        'N', "number of particles", false, 200);
     p.add<int>   ("num-clusters",         'M', "number of clusters per state", false, 10);
@@ -241,13 +252,27 @@ Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
   }
 
   if (!p.parse(c.rest()) || c.exist("help")) {
-    cerr << c.usage() << endl << name << " options:" << endl << p.str_options() << p.error() << endl;
-    return NULL;
+    cerr << c.usage() << endl << name << " options:" << endl << p.str_options() << endl << p.error() << endl;
+    exit(-1);
   }
 
   if ( "HMM" == name ) {
     HMM *h = new HMM(
-      /* hmmtype */ p.get<string>("hmmtype").find("discrete") == string::npos,
+      /* hmmtype */ HMM_DISCRETE,
+      /* hmmodel */ p.get<string>("hmmtype").find("ergodic")  == string::npos,
+      /* delta */   p.get<double>("delta"),
+      /* scaling */ false,
+      /* useNull */ false);
+
+    checkedarg(h->setNumStates, int, "num-states");
+    checkedarg(h->setNumSymbols, int, "num-symbols");
+    checkedarg(h->setMaxNumEpochs, int, "max-epochs");
+    checkedarg(h->setMinChange, float, "min-change");
+
+    o = h;
+  } else if ( "cHMM" == name ) {
+    HMM *h = new HMM(
+      /* hmmtype */ HMM_CONTINUOUS,
       /* hmmodel */ p.get<string>("hmmtype").find("ergodic")  == string::npos,
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
@@ -255,11 +280,6 @@ Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
 
     checkedarg(h->setCommitteeSize, int, "comitteesize");
     checkedarg(h->setDownsampleFactor, int, "downsample");
-
-    checkedarg(h->setNumStates, int, "num-states");
-    checkedarg(h->setNumSymbols, int, "num-symbols");
-    checkedarg(h->setMaxNumEpochs, int, "max-epochs");
-    checkedarg(h->setMinChange, float, "min-change");
 
     o = h;
   } else if ( "KNN" == name ) {
@@ -303,8 +323,15 @@ Classifier *apply_cmdline_args(string name, Classifier* o, cmdline::parser& c)
       p.get<double>("transition-sigma"),
       p.get<double>("phase-sigma"),
       p.get<double>("velocity-sigma"));
+  } else {
+    o = loadClassifierFromFile(name);
   }
 
-  c.rest() = p.rest();
+  if (o != NULL)
+    o->setNumInputDimensions(num_dimensions);
+
+  if (p.rest().size() > 0)
+    input_file = p.rest()[0];
+
   return o;
 }
