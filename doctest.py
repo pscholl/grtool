@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, os, re, difflib
+import sys, os, re, difflib, shutil
 from subprocess import Popen, PIPE
 from tempfile import mkdtemp
 from argparse import ArgumentParser
@@ -12,7 +12,7 @@ def run_test(test, PATH):
     """
     cmd_results = []
     with open(test) as f:
-        re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}>.*?\n)*)(( {4}.*\n)*)($|\s{0,3})")
+        re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}>.*\n)*)(( {4}.*\n)*)($|\s{0,3})")
         cmd_results  = [ (m.group(1).lstrip(),m.group(2).lstrip()) for m in re_codeblock.finditer(f.read()) ]
 
     if PATH is not None:
@@ -34,6 +34,7 @@ def run_test(test, PATH):
         if err != 0:
             print ("  Test #%d: FAILED" % num)
             print ("  cmd '%s' failed with code: %d"% (cmd, err))
+            sys.stderr.write(p.stderr.read())
         elif out != res and res.strip()!="":
             print ("  Test #%d: FAILED" % num)
             d = difflib.Differ().compare(res.split("\n"),out.split("\n"))
@@ -41,7 +42,7 @@ def run_test(test, PATH):
         else:
             print ("  Test #%d: OK" % num)
 
-        os.rmdir(tdir)
+        shutil.rmtree(tdir)
         num += 1
     os.chdir(cwd)
 

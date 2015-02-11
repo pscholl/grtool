@@ -8,8 +8,8 @@
 
 # SYNOPSIS
  grt score [-h|--help] [-c|--no-confusion] [-p|--no-precision] [-r|--no-recall]
-           [-F|--F-score <beta>] [-g|--group] [-q|--quiet]
-           [-t|--top-score <F1|recall|precision|disabled>] [input-file]
+           [-F|--F-score <beta>] [-g|--group] [-q|--quiet] [-i|--intermediate]
+           [-s|--sort <F1|recall|precision|disabled>] [input-file]
 
 # DESCRIPTION
  Use this program to evaluate trained models. Given a list of prediction and ground truth labels it can calculate the confusion matrix, recall, prediction and Fbeta score of the prediction.
