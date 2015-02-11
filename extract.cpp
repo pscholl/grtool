@@ -40,10 +40,8 @@ int main(int argc, const char *argv[]) {
   }
 
   /* try and create an instance by loading the str_extractor */
-  FeatureExtraction *f = loadFeatureExtractionFromFile( str_extractor );
-
-  if (f == NULL && !apply_cmdline_args(str_extractor,c,1,input_file))
-    return -1; /* try and create an instance from the cmdline */
+  FeatureExtraction *f = apply_cmdline_args(str_extractor,c,1,input_file);
+  if (f == NULL) return -1; 
 
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
@@ -53,7 +51,10 @@ int main(int argc, const char *argv[]) {
   /* do we read from a file or from stdin? */
   std::ifstream fin; fin.open(input_file);
   istream &in = input_file=="-" ? cin : fin;
-  if (!in.good()) return -1;
+  if (!in.good()) {
+    cerr << "unable to read input file " << input_file << endl;
+    return -1;
+  }
 
   if (f!=NULL && f->getTrained() && c.exist("output")) {
     cerr << "refusing to load and store already trained model" << endl;
@@ -194,11 +195,6 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
     p.add        ("combined",    'C', "wether zero-crossing are calculated independently");
   }
 
-  else {
-    cerr << c.usage() << endl << "extractor not found: " << type << endl;
-    return NULL;
-  }
-
   if (!p.parse(c.rest_with_name()) || c.exist("help")) {
     cerr << c.usage() << endl << "feature extraction options:" << endl << p.str_options() << endl << p.error() << endl;
     return NULL;
@@ -276,6 +272,12 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
         p.get<double>("deadzone"),
         num_dimensions,
         p.exist("combined"));
+  } else {
+    f = loadFeatureExtractionFromFile(type);
+    if (f==NULL) {
+      cerr << c.usage() << endl << p.usage() << endl << "error: extractor " << type << "could neither be loaded as file nor does it specify one of the extraction modules" << endl;
+      return f;
+    }
   }
 
   if (p.rest().size() > 0) input_file = p.rest()[0];

@@ -14,7 +14,7 @@
  grt extract list
 
 # DESCRIPTION
- This program uses the feature extraction modules of the GRT to transform the input sequence with the given feature extractor. Giving 'list' as the extractor will list all available alogrithms. The 'feature-extractor' can either be one of this list or an already saved instance. In the latter case a filename needs to be provided (files take precedence over extractors). Storing an extractor can be achieved with the '-o' option. Storing a feature extractor is useful for extractors that need to be trained (for example the KMeansQuantizer). All input data will be passed through after the training has been accomplished, so piping is possible. The number of samples used for training can be controlled with the '-n' option, if not specified the whole input will be cached in memory before passing through.
+ This program uses the feature extraction modules of the GRT to transform the input sequence with the given feature extractor. Giving 'list' as the extractor will list all available alogrithms. The 'feature-extractor' can either be one of this list or an already saved instance. In the latter case a filename needs to be provided. Storing an extractor can be achieved with the '-o' option. Storing a feature extractor is useful for extractors that need to be trained (for example the KMeansQuantizer). All input data will be passed through after the training has been accomplished, so piping is possible. The number of samples used for training can be controlled with the '-n' option, if not specified the whole input will be cached in memory before passing through.
 
 # OPTIONS
 -h, --help
