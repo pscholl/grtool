@@ -371,6 +371,12 @@ public:
     return others;
   }
 
+  std::vector<std::string> rest_with_name() {
+    std::vector<std::string> r(others);
+    r.insert(r.begin(), prog_name);
+    return r;
+  }
+
   bool parse(const std::string &arg){
     std::vector<std::string> args;
 

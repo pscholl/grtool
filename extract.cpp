@@ -7,8 +7,8 @@ using namespace GRT;
 using namespace std;
 
 string list_extractors();
-FeatureExtraction* apply_cmdline_args(string, cmdline::parser&, int);
-void feature(FeatureExtraction *, std::string);
+FeatureExtraction* apply_cmdline_args(string, cmdline::parser&, int, string&);
+bool feature(FeatureExtraction *, std::string);
 
 InfoLog info;
 
@@ -17,41 +17,43 @@ int main(int argc, const char *argv[]) {
 
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
-  c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add<int>   ("num-samples",'n', "number of input samples to use for training", true, 0);
   c.add<string>("output",     'o', "if given store the model in file, for later usage", false);
   c.footer     ("<feature-extractor or input file name> [<filename>] ");
 
   bool parse_ok = !c.parse(argc,argv) || c.exist("help");
-
-  /* react on SIGINT and set verbosity */
   set_verbosity(c.get<int>("verbose"));
 
   /* load the extractor and check wether we need to list them */
-  string str_extractor = c.rest().size() > 0 ? c.rest()[0] : "list";
+  string str_extractor = "list",
+            input_file = "-";
+
+  if (c.rest().size() > 0) {
+    str_extractor = c.rest()[0];
+    c.rest().erase(c.rest().begin());
+  }
+
   if (str_extractor == "list") {
     cout << c.usage() << endl;
     cout << list_extractors();
     return 0;
   }
 
-  /* try and create an instance */
-  FeatureExtraction *f;
-  ifstream maybefile( str_extractor );
+  /* try and create an instance by loading the str_extractor */
+  FeatureExtraction *f = loadFeatureExtractionFromFile( str_extractor );
 
-  f = loadFeatureExtractionFromFile( str_extractor );
-  if (f != NULL) c.rest().erase(c.rest().begin());
+  if (f == NULL && !apply_cmdline_args(str_extractor,c,1,input_file))
+    return -1; /* try and create an instance from the cmdline */
 
-  /* create and apply extractor specific parameters */
-  // do a dummy init to get all parameters listed
-  apply_cmdline_args(str_extractor, c, 1);
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
     return -1;
   }
 
   /* do we read from a file or from stdin? */
-  istream &in = grt_fileinput(c);
+  std::ifstream fin; fin.open(input_file);
+  istream &in = input_file=="-" ? cin : fin;
+  if (!in.good()) return -1;
 
   if (f!=NULL && f->getTrained() && c.exist("output")) {
     cerr << "refusing to load and store already trained model" << endl;
@@ -89,14 +91,14 @@ int main(int argc, const char *argv[]) {
       if (data.size() == 0)
         continue;
 
-      if (num_lines == 0 && f == NULL)
+      if (num_lines == 0) {
         // initialization needs to be delayed until we know the number of input
         // dimensions, since they need to be known beforehand
-        f = apply_cmdline_args(str_extractor, c, data.size());
-
-      if (f == NULL) {
-        cerr << "unable to load extractor" << endl;
-        return -1;
+        f = apply_cmdline_args(str_extractor, c, data.size(),input_file);
+        if (f == NULL) {
+          cerr << "unable to load extractor" << endl;
+          return -1;
+        }
       }
 
       num_lines++;
@@ -114,12 +116,14 @@ int main(int argc, const char *argv[]) {
 
     /* and print what we already consumed */
     for (auto line : lines)
-      feature( f, line );
+      if (!feature( f, line ))
+        return -1;
   }
 
   /* now transforms the rest of the input */
   while (getline(in, line))
-    feature( f, line );
+    if (!feature( f, line ))
+      return -1;
 }
 
 string list_extractors() {
@@ -132,7 +136,7 @@ string list_extractors() {
 }
 
 FeatureExtraction*
-apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions) {
+apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &input_file) {
   FeatureExtraction *f;
   cmdline::parser p;
 
@@ -195,7 +199,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions) {
     return NULL;
   }
 
-  if (!p.parse(c.rest()) || c.exist("help")) {
+  if (!p.parse(c.rest_with_name()) || c.exist("help")) {
     cerr << c.usage() << endl << "feature extraction options:" << endl << p.str_options() << endl << p.error() << endl;
     return NULL;
   }
@@ -274,11 +278,11 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions) {
         p.exist("combined"));
   }
 
-  c.rest() = p.rest();
+  if (p.rest().size() > 0) input_file = p.rest()[0];
   return f;
 }
 
-void feature(FeatureExtraction *f, std::string line)
+bool feature(FeatureExtraction *f, std::string line)
 {
   stringstream ss(line);
   vector<double> data;
@@ -287,17 +291,19 @@ void feature(FeatureExtraction *f, std::string line)
 
   if (line=="" || line[0]=='#') {
     cout << line << endl;
-    return;
+    return true;
   }
 
   ss >> label;
   while (ss >> value)
     data.push_back(value);
 
-  f->computeFeatures(data);
+  bool result = f->computeFeatures(data);
 
   cout << label;
   for (auto val : f->getFeatureVector())
     cout << "\t" << val;
   cout << endl;
+
+  return result;
 }

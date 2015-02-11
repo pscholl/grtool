@@ -7,50 +7,76 @@
  grt-extract - extract features from a data sequence
 
 # SYNOPSIS
- grt extract [TODO options] \<feature-extractor or file-name\> [input-file]
+ grt extract [-v|--verbose \<1..4\>] [-h|--help] [-n|--num-samples \<n\>]
+             [-o|--output \<file\>]
+              \<feature-extractor or file-name\> [input-file]
 
  grt extract list
 
 # DESCRIPTION
- This program uses the feature extraction modules of the GRT to transform the input sequence with the given feature extractor. Giving 'list' as the extractor will list all available alogrithms. The 'feature-extractor' can either be one of this list or an already saved instance.
-
- Saving a feature extractor is useful for extractor that need to be trained (for example the KMeansQuantizer). All input data will be passed through after the training has been accomplished, so piping is possible. The number of sample used for training can be controlled with the '-n' option.
+ This program uses the feature extraction modules of the GRT to transform the input sequence with the given feature extractor. Giving 'list' as the extractor will list all available alogrithms. The 'feature-extractor' can either be one of this list or an already saved instance. In the latter case a filename needs to be provided (files take precedence over extractors). Storing an extractor can be achieved with the '-o' option. Storing a feature extractor is useful for extractors that need to be trained (for example the KMeansQuantizer). All input data will be passed through after the training has been accomplished, so piping is possible. The number of samples used for training can be controlled with the '-n' option, if not specified the whole input will be cached in memory before passing through.
 
 # OPTIONS
 -h, --help
-:   Print a help message.
+:   Print a help message. If an extractor is specified, the option for this extractor will be printed also.
  
--v, --verbose [level 0-4]
+-v, --verbose \<0..4\>
 :   Tell the command to be more verbose about its execution.
 
--t, --type [classification, timeseries, regression, unlabelled]
-:   Force the interpretation of the input format to be one of the list.
+-n, --num-samples \<n\>
+:   The number of samples that are used for training the extractor. Per default the whole input will be read (and cached in memory). This option can therefore limit the amount of data that needs to be hold in memory.
 
-TODO
+-o, --output \<file\>
+:   Store the trained extractor. Useful if you do not want to train the extractor for each run.
 
-# CLASSIFIER SPECIFIC OPTIONS
+# EXTRACTOR SPECIFIC OPTIONS
 
-## KMeansQuantizer 
-
-TODO
+ Each extractor has additional parameters which are exposed through the command line interface. When runnign a command like `grt extract KMeansQuantizer -h`, these additional parameters will be printed.
 
 # EXAMPLES
 
- This example trains a KMeanQuantizer and store the instance into a file called 'kmeans.grt' for later usage:
+ For starters let's list all available extraction modules:
+    
+    grt extract list
+    usage: extract --num-samples=int [options] ... <feature-extractor or input file name> [<filename>] 
+    options:
+      -v, --verbose        verbosity level: 0-4 (int [=0])
+      -h, --help           print this message
+      -n, --num-samples    number of input samples to use for training (int)
+      -o, --output         if given store the model in file, for later usage (string [=])
+    
+    FFT
+    FFTFeatures
+    KMeansFeatures
+    KMeansQuantizer
+    MovementIndex
+    MovementTrajectoryFeatures
+    RBMQuantizer
+    SOMQuantizer
+    TimeDomainFeatures
+    TimeseriesBuffer
+    ZeroCrossingCounter
 
-    $ grt extract KMeanQuantizer -o kmeans.grt kmeans.dataset
-    inverting 0
-    pipetting 1
-    ...
+ We could then decide to use a KMeansQuantizer, which we will train on the whole dataset and store the trained quantizer in the kmeans.grt file. The default number of cluster is set to 10, which are more clusters than samples in our dataset. We limit the number of clusters to 4 because of this:
 
- Now we can load this *trained* extractor again to quantize another dataset with the same values:
-
-    $ cat kmeans2.dataset | grt extract kmeans.grt
-    pipetting 1
-    inverting 0
-    ...
+    echo "inverting 1 1 1
+    > inverting 0 0 0
+    > pipetting 2 2 2
+    > pipetting 2 2 2 " | grt extract KMeansQuantizer -K 4 -o kmeans.grt
+    inverting	0
+    inverting	1
+    pipetting	3
+    pipetting	3
 
  We can also build a full pipe with the extractor. We will use the first 100 samples to *train* the extractor, which will then pass these (and all following) samples to the next program in the pipe:
 
-    $ grt extract KMeanQuantizer -n 100 kmeans.dataset | grt train HMM -m hmm.grt
-    ...
+    echo "inverting 1 1 1
+    > inverting 0 0 0
+    > pipetting 2 2 2
+    > pipetting 2 2 2 " | grt extract KMeansQuantizer -K 4 -o kmeans.grt
+    inverting	0
+    inverting	1
+    pipetting	3
+    pipetting	3
+
+
