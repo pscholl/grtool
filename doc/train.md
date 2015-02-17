@@ -70,21 +70,39 @@ A classifier that just stores all samples during training. For classification th
 -R, --rejection-mode
 :   Kind of NULL class rejection. One of template, likelihood or treshold_and_likelihood. Defaults to template.
 
+## CRF - Linear Conditional Random Fields
+This implementation is based on the crfsuite.
+
 ## Finite Sate Machine
 
 ## Particle Classifier
 
 # EXAMPLES
 
+## Training a discrete HMM
  In this example we will train a discrete Hidden Markov Model on a time-series input. Switching to time-series mode is achieved here by providing the according command line switch. We will only use 50% of the data, the data will be split in a stratified and random way. HMMs only work on time-series, which is why we need to provide one, and since we do a 50%-split we need to provide two samples. One of those samples (chosen at random) will be printed on the standard output while the other is consumed during training.
 
     echo "abc 1
     > abc 1
     >
     > abc 1
-    > abc 1" | grt train HMM -t timeseries -o test.hmm -n .5
+    > abc 1" | grt train HMM -T ergodic -t timeseries -o test.hmm -n .5
     # timeseries
     abc	1
     abc	1
 
  The output of this command can then be used as the test-set, which is also the reason for the comment line at to the top. Which instructs the next command (most probably the predict command) that a time-series is about to follow.
+
+## Training a CRF
+ Let us do the same as we did in the last example, but this time with a condtional random field.
+
+    echo "abc 1
+    > abc 1
+    >
+    > abc 1
+    > abc 1" | grt train CRF -t timeseries -o test.crf -n .5
+    # timeseries
+    abc	1
+    abc	1
+
+

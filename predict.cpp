@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
      * to write the classifier to disk */
     Classifier *classifier = NULL; // TODO this needs to be loaded from stdin for piped cases!
     for (int i=0; i<255 && classifier==NULL; i++, usleep(10*100))
-      classifier = loadFromFile(model_file);
+      classifier = loadClassifierFromFile(model_file);
 
     if (classifier == NULL) {
       cerr << "unable to load classification model " << model_file << " giving up" << endl;

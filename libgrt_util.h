@@ -258,7 +258,8 @@ void set_verbosity(int level) {
       case 3: TestingLog::enableLogging(true); TrainingLog::enableLogging(true);
       case 2: InfoLog::enableLogging(true);
       case 1: WarningLog::enableLogging(true);
-      case 0: ErrorLog::enableLogging(true);
+      case 0: ErrorLog::enableLogging(true); break;
+      default: set_verbosity(4);
   }
 }
 

@@ -2,6 +2,7 @@
 #include <iostream>
 #include "cmdline.h"
 #include "libgrt_util.h"
+#include "grt_crf.h"
 
 using namespace GRT;
 using namespace std;
@@ -213,19 +214,26 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
   // SwipeDetector
 
   if ( "HMM" == name ) {
-    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "ergodic", cmdline::oneof<string>("leftright", "ergodic"));
+    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "leftright", cmdline::oneof<string>("leftright", "ergodic"));
 
     p.add<double>("delta",          0, "delta for leftright model, default: 1", false, 1);
     p.add<int>   ("num-states",   'S', "number of states", false, 10);
     p.add<int>   ("num-symbols",  'N', "number of symbols", false, 20);
-    p.add<int>   ("max-epochs",    0, "maximum number of epochs during training", false, 1000);
-    p.add<float> ("min-change",    0, "minimum change before abortion", false, 1.0e-5);
+    p.add<int>   ("max-epochs",     0, "maximum number of epochs during training", false, 1000);
+    p.add<float> ("min-change",     0, "minimum change before abortion", false, 1.0e-5);
   } else if ( "cHMM" == name ) {
     p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "ergodic", cmdline::oneof<string>("leftright", "ergodic"));
 
     p.add<int>   ("comitteesize",  0, "number of models used for prediction, default: 10", false, 10);
     p.add<double>("delta",         0, "delta for leftright model, default: 1", false, 1);
     p.add<int>   ("downsample",    0, "downsample factor, default: 5", false, 5);
+  } else if ( "CRF" == name ) {
+    p.add<string>("algorithm",   'A', "learning algorithm for training", false, "lbfgs", cmdline::oneof<string>("lbfgs", "l2sgd", "ap", "pa", "arow"));
+    p.add<double>("minfreq",       0, "minimum frequency of features", false, 0.);
+    p.add        ("states",      'S', "generate all possible states");
+    p.add        ("transitions", 'T', "generate all possible transitions");
+
+    // TODO
   } else if ( "KNN" == name ) {
     p.add<string>("distance",         'D', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
     p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
@@ -282,6 +290,14 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     checkedarg(h->setDownsampleFactor, int, "downsample");
 
     o = h;
+  } else if ( "CRF" == name ) {
+    CRF *c = new CRF(
+        p.get<string>("algorithm"),
+        p.get<double>("minfreq"),
+        p.exist("states"),
+        p.exist("transitions"));
+
+    o = c;
   } else if ( "KNN" == name ) {
     KNN *k = new KNN(
       /* K */           p.get<int>("K-neighbors"),
