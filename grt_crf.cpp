@@ -228,8 +228,16 @@ bool CRF::saveModelToFile(fstream &f) const {
   return true;
 }
 
+#define MAGIC "lCRF"
 bool CRF::loadModelFromFile(string f) {
+  char header[strlen(MAGIC)];
   crfsuite_dictionary_t *labels;
+  ifstream is(f);
+  is.read(header, strlen(header));
+
+  if (!is || strcmp(MAGIC,header)!=0)
+    return false;
+
   trained = !crfsuite_create_instance_from_file(f.c_str(), (void**) &model);
 
   if (!model->get_labels(model, &labels)) {

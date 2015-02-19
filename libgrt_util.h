@@ -309,9 +309,9 @@ Classifier *loadClassifierFromFile(string &file)
 
   for (string c : Classifier::getRegisteredClassifiers()) {
     classifier = Classifier::createInstanceFromString(c);
-    if (classifier->loadModelFromFile(file))
+    if (c != "ParticleClassifier" && classifier->loadModelFromFile(file))
       break;
-    if (classifier == NULL) delete classifier;
+    if (classifier != NULL) delete classifier;
     classifier = NULL;
   }
 
