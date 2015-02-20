@@ -83,7 +83,7 @@ class CsvIOSample {
         stringstream ss(line);
         o.linenum++;
 
-        if (line == "") {
+        if (line.find_first_not_of(" \t") == string::npos) {
           if (data.size()!=0)
             break;
           else

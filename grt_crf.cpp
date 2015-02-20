@@ -55,6 +55,17 @@ bool CRF::train_(TimeSeriesClassificationData &ts) {
   attrs  = data.attrs;
   labels = data.labels;
 
+  if (ts.getNumClasses() <= 1) {
+    errorLog << "CRF needs more than one classlabel in training set" << endl;
+    return false;
+  }
+
+  if (ts.getNumSamples() == 0) {
+    errorLog << " CRF needs at least one training sample" << endl;
+    return false;
+  }
+
+
   // TODO t should be freed at some point
   char trainer_id[256];
   snprintf(trainer_id, sizeof(trainer_id), "train/%s/%s", "crf1d","lbfgs");
@@ -211,6 +222,8 @@ bool CRF::print() const {}
 bool CRF::saveModelToFile(fstream &f) const {
   std::ifstream in(tmpFileName, ios::binary);
 
+  // TODO remove tmpfile
+
   if (!f.is_open()) {
     errorLog << "saveModelToFile() - output file not open" << endl;
     return false;
@@ -230,12 +243,17 @@ bool CRF::saveModelToFile(fstream &f) const {
 
 #define MAGIC "lCRF"
 bool CRF::loadModelFromFile(string f) {
-  char header[strlen(MAGIC)];
+  char header[4];
   crfsuite_dictionary_t *labels;
-  ifstream is(f);
-  is.read(header, strlen(header));
+  ifstream is(f, ios::in|ios::binary);
+  int red = 0;
 
-  if (!is || strcmp(MAGIC,header)!=0)
+  while (red < 4) {
+    is.read(header+red, sizeof(header)-red);
+    red += is.tellg();
+  }
+
+  if (!is || memcmp(MAGIC,header,4)!=0)
     return false;
 
   trained = !crfsuite_create_instance_from_file(f.c_str(), (void**) &model);

@@ -80,7 +80,7 @@ int main(int argc, const char *argv[])
     int input_limit_i = input_limit <= 1 ? 0 : input_limit,
         num_samples   = 0;
 
-  while (in >> io && (input_limit_i==0 || num_samples < input_limit_i) ) {
+  while ((input_limit_i==0 || num_samples < input_limit_i) && in >> io) {
     bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
     if (!ok) {
       cerr << "error at line " << io.linenum << endl;
@@ -162,7 +162,12 @@ int main(int argc, const char *argv[])
       return -1;
     }
   } else if (input_limit > 1.) {
-    cout << "# " << io.type << endl;
+    string type = "";
+    switch(io.type) {
+    case TIMESERIES: type="timeseries"; break;
+    case CLASSIFICATION: type="classification"; break;
+    }
+    cout << "# " << type << endl;
     string line;
     while (getline(in, line))
       cout << line << endl;

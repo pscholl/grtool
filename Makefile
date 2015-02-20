@@ -33,7 +33,7 @@ install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/prep
 	$(INSTALL_PROGRAM) -D doc/predict.1 "$(DESTDIR)$(MANDIR)/man1/grt-predict.1"
 
 clean:
-	rm -f $(ALL)
+	rm -f $(ALL) *.o
 
 test: doc/*.md regression/*.md install
 	python doctest.py -p "$(DESTDIR)/$(BINDIR)" doc/*.md

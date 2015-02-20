@@ -38,7 +38,7 @@ def run_test(test, PATH, gdb=False):
             sys.stderr.write(serr)
             if gdb and "core dumped" in serr: call("coredumpctl gdb -1", shell=True)
         elif out != res and res.strip()!="":
-            print ("  Test #%d: FAILED" % num)
+            print ("  cmd '%s' FAILED:"% cmd)
             d = difflib.Differ().compare(res.split("\n"),out.split("\n"))
             print("\n".join(list(d)))
         else:
