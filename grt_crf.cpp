@@ -39,23 +39,6 @@ int training_msg_cb(void *instance, const char *fmt, va_list args) {
   return 0;
 }
 
-/** helper function to generate all possible input symbols */
-static int get_attr(float val, crfsuite_dictionary_t *attrs, int &max) {
-  char str[256];
-  snprintf(str,sizeof(str),"%f",val);
-  int aid = attrs->get(attrs, str);
-
-  for (float i=max; max<aid; i+=1.) {
-    snprintf(str,sizeof(str),"%f",i);
-    attrs->get(attrs, str);
-  }
-
-  if (max < aid)
-    max = aid;
-
-  return aid;
-}
-
 /** only timeseries is supported in this classifier */
 bool CRF::train_(TimeSeriesClassificationData &ts) {
   crfsuite_dictionary_t *attrs, *labels;
@@ -120,8 +103,10 @@ bool CRF::train_(TimeSeriesClassificationData &ts) {
       }
 
       for (size_t j=0; j<sample.getData().getNumRows(); j++) {
+        char str[256];
         attr.value = sample.getData()[j][0];
-        attr.aid   = get_attr(attr.value, attrs, max_input_symbol);
+        snprintf(str,sizeof(str),"%f",attr.value);
+        attr.aid   = attrs->get(attrs, str);
         crfsuite_item_append_attribute(&item, &attr);
         crfsuite_instance_append(&crfsuite_sample,&item,sample.getClassLabel() - ts.getMinimumClassLabel());
         crfsuite_item_finish(&item);
@@ -196,13 +181,10 @@ bool CRF::predict_(MatrixDouble &sample) {
     snprintf(str,sizeof(str),"%f",sample[j][0]);
     attr.value = sample[j][0];
     attr.aid   = attrs->to_id(attrs, str);
-    crfsuite_item_append_attribute(&item, &attr);
-    crfsuite_instance_append(&inst,&item,0);
-  }
-
-  if (attr.aid < -1) {
-    errorLog << "unmappable attribute (not seen during training?): " << str << endl;
-    return false;
+    if (0 <= attr.aid) { // ignore unseen attributes
+      crfsuite_item_append_attribute(&item, &attr); 
+      crfsuite_instance_append(&inst,&item,0);
+    }
   }
 
   if (inst.num_items == 0) {
@@ -270,7 +252,7 @@ bool CRF::loadModelFromFile(string f) {
   ifstream is(f, ios::in|ios::binary);
   int red = 0;
 
-  while (red < 4) {
+  while (is && red < 4) {
     is.read(header+red, sizeof(header)-red);
     red += is.tellg();
   }
