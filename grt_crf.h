@@ -44,6 +44,9 @@ protected:
   string algorithm;
   int minfreq;
   bool generate_all_states, generate_all_transitions;
+
+  crfsuite_dictionary_t *labels = NULL, *attrs = NULL;
+  crfsuite_tagger_t *tagger = NULL;
 };
 }
 

@@ -1,5 +1,6 @@
 #include <GRT.h>
 #include <iostream>
+#include <stdio.h>
 #include "cmdline.h"
 #include "libgrt_util.h"
 #include "grt_crf.h"
@@ -123,13 +124,17 @@ int main(int argc, const char *argv[])
   for (int i=0; i<io.labelset.size(); i++)
     classifier->setClassNameForLabel(i, io.labelset[i]);
 
-  if (c.exist("output") && !classifier->save(c.get<string>("output"))) {
+  /* re move the output file first */
+  stringstream ss (c.get<string>("output")); ss << ".tmp";
+  remove(c.get<string>("output").c_str());
+  if (!classifier->save(ss.str())) {
     cerr << "saving to " << c.get<string>("output") << " failed" << endl;
     return -1;
   } else if (!c.exist("output")) {
     // TODO classifier->saveModelToFile(o); to output stream so it can be picked
     // by pipe
   }
+  rename(ss.str().c_str(), c.get<string>("output").c_str());
 
   /* if there is testdataset we need to print this now */
   if (input_limit < 1.) {

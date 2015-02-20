@@ -39,11 +39,29 @@ int training_msg_cb(void *instance, const char *fmt, va_list args) {
   return 0;
 }
 
+/** helper function to generate all possible input symbols */
+static int get_attr(float val, crfsuite_dictionary_t *attrs, int &max) {
+  char str[256];
+  snprintf(str,sizeof(str),"%f",val);
+  int aid = attrs->get(attrs, str);
+
+  for (float i=max; max<aid; i+=1.) {
+    snprintf(str,sizeof(str),"%f",i);
+    attrs->get(attrs, str);
+  }
+
+  if (max < aid)
+    max = aid;
+
+  return aid;
+}
+
 /** only timeseries is supported in this classifier */
 bool CRF::train_(TimeSeriesClassificationData &ts) {
   crfsuite_dictionary_t *attrs, *labels;
   crfsuite_trainer_t *t;
   crfsuite_data_t data;
+  int max_input_symbol = 0; // keep track to generate all possible features
 
   crfsuite_data_init(&data);
   if (!(crfsuite_create_instance("dictionary", (void**) &data.attrs) &&
@@ -77,7 +95,6 @@ bool CRF::train_(TimeSeriesClassificationData &ts) {
   if (ts.getNumSamples() > 0) {
     TimeSeriesClassificationSample sample = ts[0];
 
-    char str[256];
     string label;
     crfsuite_item_t item;
     crfsuite_attribute_t attr;
@@ -103,9 +120,8 @@ bool CRF::train_(TimeSeriesClassificationData &ts) {
       }
 
       for (size_t j=0; j<sample.getData().getNumRows(); j++) {
-        snprintf(str,sizeof(str),"%f",sample.getData()[j][0]);
         attr.value = sample.getData()[j][0];
-        attr.aid   = attrs->get(attrs, str);
+        attr.aid   = get_attr(attr.value, attrs, max_input_symbol);
         crfsuite_item_append_attribute(&item, &attr);
         crfsuite_instance_append(&crfsuite_sample,&item,sample.getClassLabel() - ts.getMinimumClassLabel());
         crfsuite_item_finish(&item);
@@ -141,11 +157,9 @@ bool CRF::predict(VectorDouble inputVector) {
 
 /** override the prediction */
 bool CRF::predict_(MatrixDouble &sample) {
-  crfsuite_tagger_t *tagger;
   crfsuite_instance_t inst;
   crfsuite_item_t item;
   crfsuite_attribute_t attr;
-  crfsuite_dictionary_t *labels, *attrs;
 
   crfsuite_instance_init(&inst);
 
@@ -154,20 +168,21 @@ bool CRF::predict_(MatrixDouble &sample) {
     return false;
   }
 
-  // TODO this can be optimized out
-  if (model->get_tagger(model, &tagger)) {
-    errorLog << "unable to get tagger from CRF model" << endl;
-    return false;
-  }
+  if (!attrs || !tagger || !labels) {
+    if (model->get_tagger(model, &tagger)) {
+      errorLog << "unable to get tagger from CRF model" << endl;
+      return false;
+    }
 
-  if (model->get_labels(model, &labels)) {
-    errorLog << "unable to get labels from CRF model" << endl;
-    return false;
-  }
+    if (model->get_labels(model, &labels)) {
+      errorLog << "unable to get labels from CRF model" << endl;
+      return false;
+    }
 
-  if (model->get_attrs(model, &attrs)) {
-    errorLog << "unable to get attributes from CRF model" << endl;
-    return false;
+    if (model->get_attrs(model, &attrs)) {
+      errorLog << "unable to get attributes from CRF model" << endl;
+      return false;
+    }
   }
 
   if (sample.getNumCols() != 1) {
@@ -183,7 +198,11 @@ bool CRF::predict_(MatrixDouble &sample) {
     attr.aid   = attrs->to_id(attrs, str);
     crfsuite_item_append_attribute(&item, &attr);
     crfsuite_instance_append(&inst,&item,0);
-    crfsuite_item_finish(&item);
+  }
+
+  if (attr.aid < -1) {
+    errorLog << "unmappable attribute (not seen during training?): " << str << endl;
+    return false;
   }
 
   if (inst.num_items == 0) {
@@ -214,6 +233,9 @@ bool CRF::predict_(MatrixDouble &sample) {
 
 bool CRF::reset() {
   model = NULL;
+  tagger = NULL;
+  labels = NULL;
+  attrs = NULL;
 }
 
 bool CRF::clear() { reset(); }
