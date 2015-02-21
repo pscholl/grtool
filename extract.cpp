@@ -8,7 +8,7 @@ using namespace std;
 
 string list_extractors();
 FeatureExtraction* apply_cmdline_args(string, cmdline::parser&, int, string&);
-bool feature(FeatureExtraction *, std::string);
+bool feature(FeatureExtraction *f, std::string line, int buffer_size=0);
 
 InfoLog info;
 
@@ -67,6 +67,7 @@ int main(int argc, const char *argv[]) {
   }
 
   string line;
+  int buffer_size=0;
 
   /* read the number of training samples */
   if (f==NULL || !f->getTrained()) {
@@ -89,6 +90,8 @@ int main(int argc, const char *argv[]) {
       while (ss >> value)
         data.push_back(value);
 
+      // XXX give num_dim and buf_siez to feature()
+
       if (data.size() == 0)
         continue;
 
@@ -108,6 +111,9 @@ int main(int argc, const char *argv[]) {
 
     MatrixDouble dataset(set);
 
+    try { buffer_size = c.get<int>("window"); } catch(...) {}
+    try { buffer_size = c.get<int>("samples"); } catch(...) {}
+
     if (!f->train(dataset))
       cerr << "WARNING: training the extractor failed, not of all them can be trained!" << endl;
 
@@ -117,13 +123,13 @@ int main(int argc, const char *argv[]) {
 
     /* and print what we already consumed */
     for (auto line : lines)
-      if (!feature( f, line ))
+      if (!feature( f, line, buffer_size ))
         return -1;
   }
 
   /* now transforms the rest of the input */
   while (getline(in, line))
-    if (!feature( f, line ))
+    if (!feature( f, line, buffer_size ))
       return -1;
 }
 
@@ -255,7 +261,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
     f = new TimeDomainFeatures(
         p.get<int>("samples"),
         p.get<int>("frames"),
-        3,
+        num_dimensions,
         p.exist("offset"),
         !p.exist("no-mean"),
         !p.exist("no-stddev"),
@@ -264,7 +270,8 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
 
   } else if ( type == "TimeseriesBuffer" ) {
     f = new TimeseriesBuffer(
-        p.get<int>("samples"));
+        p.get<int>("samples"),
+        num_dimensions);
 
   } else if ( type == "ZeroCrossingCounter" ) {
     f = new ZeroCrossingCounter(
@@ -284,7 +291,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
   return f;
 }
 
-bool feature(FeatureExtraction *f, std::string line)
+bool feature(FeatureExtraction *f, std::string line, int buffer_size)
 {
   stringstream ss(line);
   vector<double> data;
@@ -293,6 +300,11 @@ bool feature(FeatureExtraction *f, std::string line)
 
   if (line=="" || line[0]=='#') {
     cout << line << endl;
+    // XXX there is no support for clearing the back-buffer of feature
+    //     extractors, so we pad with zeros.
+    data.resize(f->getNumInputDimensions(), 0.);
+    for (int i=0; i<buffer_size; i++)
+      f->computeFeatures(data);
     return true;
   }
 

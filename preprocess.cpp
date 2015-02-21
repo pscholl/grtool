@@ -76,8 +76,8 @@ int main(int argc, const char *argv[]) {
     if (linenum == 0) {
       // weird stuff, pp resets only when initialized, it only initialized once
       // data has been seen, and only set num outputdimenstion when reset so:
-      pp->process(vector<double>(vals.size(), 1.));
       pp->setNumInputDimensions(vals.size());
+      pp->process(vector<double>(vals.size(), 1.));
       pp->reset();
     }
 
