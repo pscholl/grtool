@@ -12,6 +12,7 @@ vector<vector<const char*>> cmds = {
   {"score",      "s",  "calculate classifcation score for prediction"},
   {"extract",    "e",  "extract features from a data sequence"},
   {"preprocess", "pp", "preprocess data sequence"},
+  {"plot",       "p",  "python based stream plotter"},
 };
 
 int usage(int exit_code, string msg="") {
