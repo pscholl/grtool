@@ -7,7 +7,7 @@
  grt-train - train a machine learning algorithm
 
 # SYNOPSIS
- grt train [-h|--help] [-v,--verbose \<level\>] [-t,--type \<classification,regression,unlabelled,timseries\>]
+ grt train [-h|--help] [-v|--verbose \<level\>] [-t,--type \<classification,regression,unlabelled,timseries\>]
            [-o|--output \<file\>] [-n|--num-samples \<n\>]
            \<algorithm or file\> [input-data]
 

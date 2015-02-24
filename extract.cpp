@@ -228,7 +228,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
   } else if ( type == "FFTFeatures" ) {
     f = new FFTFeatures(
         p.get<int>("window"),
-        num_dimensions,
+        num_dimensions, // this must actuallcy be the numdiems from the FFT
         !p.exist("no-max-freq"),
         !p.exist("no-max-freq-spec"),
         !p.exist("no-centroid"),

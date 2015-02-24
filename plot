@@ -48,6 +48,9 @@ class TextLineAnimator(Thread):
         qsize = self.queue.qsize()
         self.frameno += qsize
 
+        if qsize == 0:
+            return []
+
         while qsize > 0:
             label,data = self.queue.get()
             qsize -= 1
@@ -61,7 +64,7 @@ class TextLineAnimator(Thread):
 
         labels,data = self.labels,self.data
         if self.artists is None and len(self.data) == 0:
-            return self.artists
+            return []
 
         if self.artists is None:
             self.artists = self.setup_func(labels,data)

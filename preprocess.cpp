@@ -18,10 +18,11 @@ string list_preprocessors() {
   return ss.str();
 }
 
-PreProcessing *apply_cmdline_args(string, cmdline::parser&);
+PreProcessing *apply_cmdline_args(string, cmdline::parser&,int,string&);
 
 int main(int argc, const char *argv[]) {
   static bool is_running = true;
+  string input_file = "-";
   cmdline::parser c;
 
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
@@ -29,28 +30,31 @@ int main(int argc, const char *argv[]) {
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.footer     ("<pre-processor> [<filename>] ");
 
-  bool parse_ok = c.parse(argc,argv,false);
+  /* parse common options */
+  bool parse_ok = c.parse(argc,argv,false) && !c.exist("help");
   set_verbosity(c.get<int>("verbose"));
 
+  /* do we have a predictor? */
   string preproc_name = c.rest().size() > 0 ? c.rest()[0] : "list";
-
   if (preproc_name == "list") {
     cout << c.usage() << endl;
     cout << list_preprocessors();
     exit(0);
   }
 
-  PreProcessing *pp = apply_cmdline_args(preproc_name, c);
-  if (pp == NULL) exit(-1);
-  if (c.exist("help")) exit(-1); // has been printed in apply_cmdline_args
+  PreProcessing *pp = apply_cmdline_args(preproc_name,c,1,input_file);
+
+  if (pp==NULL)
+    exit(-1);
+
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
     exit(-1);
   }
 
   /* do we read from a file or from stdin-? */
-  if (c.rest().size() > 0) c.rest().erase(c.rest().begin());
-  istream &in = grt_fileinput(c);
+  ifstream fin; fin.open(input_file);
+  istream &in = input_file=="-" ? cin : fin;
 
   string line; int linenum=0;
   while(getline(in,line)) {
@@ -95,7 +99,7 @@ int main(int argc, const char *argv[]) {
   }
 }
 
-PreProcessing *apply_cmdline_args(string type, cmdline::parser &c) {
+PreProcessing *apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &input_file) {
   PreProcessing *pp;
   cmdline::parser p;
 
@@ -111,19 +115,21 @@ PreProcessing *apply_cmdline_args(string type, cmdline::parser &c) {
   } else if (type == "FIRFilter") {
     p.add<string>("filter-type",  'T', "filter type, one of LPF, HPF, BPF", false, "LPF", cmdline::oneof<string>("LPF","HPF","BPF"));
     p.add<int>   ("num-taps   ",  'N', "number of filter taps", false, 50);
-    p.add<double>("sample-rate",  'S', "sample rate of your data", true);
+    p.add<double>("sample-duration",  'S', "sample rate of your data", true);
     p.add<double>("cutoff",       'C', "cutoff frequency of the filter", false, 10);
     p.add<double>("gain",         'G', "filter gain", false, 1);
   } else if (type == "HighPassFilter") {
+    p.add<double>("factor",        'F', "the smaller this value the more smoothing is done", false, .1);
     p.add<double>("gain",          'G', "multiplies filtered values by this value", false, 1);
     p.add<double>("cutoff",        'C', "set the cutoff frequency in Hz", false, 50),
-    p.add<double>("sample-rate",   'R', "set the sample rate of your data, as 1/SR", true);
+    p.add<double>("sample-duration",   'R', "set the sample rate of your data, as 1/SR", true);
   } else if (type == "LeakyIntegrator") {
     p.add<double>("leak-rate",     'L', "leak rate", false, 0.99, cmdline::range<double>(0,1.));
   } else if (type == "LowPassFilter") {
+    p.add<double>("factor",        'F', "the smaller this value the more smoothing is done", false, .1);
     p.add<double>("gain",          'G', "multiplies filtered values by this value", false, 1);
     p.add<double>("cutoff",        'C', "set the cutoff frequency in Hz", false, 50),
-    p.add<double>("sample-rate",   'R', "set the sample rate of your data, as 1/SR", true);
+    p.add<double>("sample-duration",   'R', "set the sample rate of your data, as 1/SR", true);
   } else if (type == "SavitzkyGolayFilter") {
     p.add<int>   ("left-hand",       'L', "number of left-hand points for filter design", false, 10);
     p.add<int>   ("right-hand",      'R', "number of right-hand points for filter design", false, 10);
@@ -138,64 +144,71 @@ PreProcessing *apply_cmdline_args(string type, cmdline::parser &c) {
 
   if (!p.parse(c.rest()) || c.exist("help")) {
     cerr << c.usage() << endl << "pre processing options:" << endl << p.str_options() << endl << p.error() << endl;
-    return NULL;
+    exit(-1);
   }
 
   if (type == "DeadZone") {
     pp = new DeadZone(
         p.get<double>("lower-limit"),
         p.get<double>("upper-limit"),
-        1);
+        num_dimensions);
   } else if (type == "Derivative") {
     pp = new Derivative(
         p.get<int>   ("derivative"),
-        p.get<double>("delta"),
-        1,
+        p.get<double>("sample-duration"),
+        num_dimensions,
         p.get<int>  ("filter-size") != 0,
         p.get<int>  ("filter-size"));
   } else if (type == "DoubleMovingAverageFilter") {
     pp = new DoubleMovingAverageFilter(
-        p.get<int>  ("filter-size"));
+        p.get<int>  ("filter-size"),
+        num_dimensions);
   } else if (type == "FIRFilter") {
     vector<string> list = {"LPF","HPF","BPF"};
     pp = new FIRFilter(
         find(list.begin(),list.end(),p.get<string>("func")) - list.begin(),
         p.get<int>("num-taps"),
-        p.get<double>("sample-rate"),
+        p.get<double>("sample-duration"),
         p.get<double>("cutoff"),
         p.get<double>("gain"),
-        0);
+        num_dimensions);
   } else if (type == "HighPassFilter") {
     pp = new HighPassFilter(
-        0.1, // calculated via cutoff and sample rate
+        p.get<double>("factor"),
         p.get<double>("gain"),
-        1,
+        num_dimensions,
         p.get<double>("cutoff"),
-        p.get<double>("delta"));
+        p.get<double>("sample-duration"));
   } else if (type == "LeakyIntegrator") {
     pp = new LeakyIntegrator(
-        p.get<double>("leak-rate"));
+        p.get<double>("leak-rate"),
+        num_dimensions);
   } else if (type == "LowPassFilter") {
     pp = new LowPassFilter(
-        0.1, // calculated via cutoff and sample rate
+        p.get<double>("factor"),
         p.get<double>("gain"),
-        1,
+        num_dimensions,
         p.get<double>("cutoff"),
-        p.get<double>("delta"));
+        p.get<double>("sample-duration"));
   } else if (type == "MedianFilter") {
     pp = new MedianFilter(
-        p.get<int>("filter-size"));
+        p.get<int>("filter-size"),
+        num_dimensions);
   } else if (type == "MovingAverageFilter") {
-    pp = new MedianFilter(
-        p.get<int>("filter-size"));
+    pp = new MovingAverageFilter(
+        p.get<int>("filter-size"),
+        num_dimensions);
   } else if(type == "SavitzkyGolayFilter") {
     pp = new SavitzkyGolayFilter(
         p.get<int>("left-hand"),
         p.get<int>("right-hand"),
         p.get<int>("order"),
         p.get<int>("smoothing-order"),
-        1);
+        num_dimensions);
   }
+
+  if (p.rest().size() > 0)
+    input_file = p.rest()[0];
 
   return pp;
 }
