@@ -107,7 +107,7 @@ class TextLineAnimator(Thread):
         # propagate that we read input completly
         # (yes, sys.stdout.close() does not close the fd)
         #
-        os.close(sys.stdout.fileno)
+        os.close(sys.stdout.fileno())
 
     def default_setup(self,labels,data):
         arts = plt.plot(data)
