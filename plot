@@ -103,6 +103,12 @@ class TextLineAnimator(Thread):
             try: self.queue.put((line[0], [float(x) for x in line[1:]]))
             except ValueError: pass
 
+        #
+        # propagate that we read input completly
+        # (yes, sys.stdout.close() does not close the fd)
+        #
+        os.close(sys.stdout.fileno)
+
     def default_setup(self,labels,data):
         arts = plt.plot(data)
         plt.tight_layout()
