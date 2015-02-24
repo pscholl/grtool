@@ -104,7 +104,9 @@ class TextLineAnimator(Thread):
             except ValueError: pass
 
     def default_setup(self,labels,data):
-        return plt.plot( data )
+        arts = plt.plot(data)
+        plt.tight_layout()
+        return arts
 
     def default_loop(self,frameno,arts,labels,data):
         data  = np.array(data)
@@ -134,6 +136,7 @@ class TextLineAnimator(Thread):
     def toggle_pause(self):
         self.paused = not self.paused
 
+
 if __name__=="__main__":
     fig = plt.figure()
     if args.title: fig.canvas.set_window_title(args.title)
@@ -149,5 +152,10 @@ if __name__=="__main__":
             fig.canvas.set_window_title(title)
         elif event.key == 'q': os._exit(0) # sys.exit kills only current thread!
 
+    def resize(event):
+        try: plt.tight_layout()
+        except: pass
+
     fig.canvas.mpl_connect('key_press_event', press)
+    fig.canvas.mpl_connect('resize_event', resize)
     plt.show()
