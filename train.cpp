@@ -267,9 +267,22 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<double>("transition-sigma",     'T', "transition sigma", false, 0.005);
     p.add<double>("phase-sigma",          'P', "phase sigma", false, 0.1);
     p.add<double>("velocity-sigma",       'V', "velocity sigma", false, 0.01);
+  } else if ( "RandomForests" == name) {
+    p.add<int>   ("forest-size",          'N', "number of trees in the forest", false, 10);
+    p.add<int>   ("num-split",            'S', "number of split to search", false, 100);
+    p.add<int>   ("num-samples",          'M', "number of samples for non-leaf nodes", false, 5);
+    p.add<int>   ("max-depth",            'D', "maximum depth of the tree", false, 10);
+    p.add        ("remove-features",      'R', "remove features at each split");
+    p.add        ("use-scaling",          'U', "if data should be scaled to [0 1]");
+    p.add<string>("training",             'T', "training mode (iterative or best)", false, "best", cmdline::oneof<string>("iterative","best"));
   }
 
-  if (!p.parse(c.rest()) || c.exist("help")) {
+  if (c.exist("help")) {
+    cerr << c.usage() << endl << name << " options:" << endl << p.str_options();
+    exit(0);
+  }
+
+  if (!p.parse(c.rest())) {
     cerr << c.usage() << endl << name << " options:" << endl << p.str_options() << endl << p.error() << endl;
     exit(-1);
   }
@@ -349,6 +362,17 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       p.get<double>("transition-sigma"),
       p.get<double>("phase-sigma"),
       p.get<double>("velocity-sigma"));
+  } else if ( "RandomForests" == name ) {
+    vector<string> list = {"iterative", "best"};
+    o = new RandomForests(
+      DecisionTreeClusterNode(),
+      p.get<int>   ("forest-size"),
+      p.get<int>   ("num-split"),
+      p.get<int>   ("num-samples"),
+      p.get<int>   ("max-depth"),
+      find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
+      p.exist("remove-features"),
+      p.exist("use-scaling"));
   } else {
     o = loadClassifierFromFile(name);
   }
