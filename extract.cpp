@@ -7,21 +7,22 @@ using namespace GRT;
 using namespace std;
 
 string list_extractors();
-FeatureExtraction* apply_cmdline_args(string, cmdline::parser&, int, string&);
+FeatureExtraction* apply_cmdline_args(string, cmdline::parser&, int, string&, int&);
 bool feature(FeatureExtraction *f, std::string line, int buffer_size=0);
 
 InfoLog info;
 
 int main(int argc, const char *argv[]) {
   cmdline::parser c;
+  int buffer_size=0;
 
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
-  c.add<int>   ("num-samples",'n', "number of input samples to use for training", true, 0);
+  c.add<int>   ("num-samples",'n', "number of input samples to use for training", false, 0);
   c.add<string>("output",     'o', "if given store the model in file, for later usage", false);
   c.footer     ("<feature-extractor or input file name> [<filename>] ");
 
-  bool parse_ok = !c.parse(argc,argv) || c.exist("help");
+  bool parse_ok = c.parse(argc, argv, false)  && !c.exist("help");
   set_verbosity(c.get<int>("verbose"));
 
   /* load the extractor and check wether we need to list them */
@@ -40,7 +41,7 @@ int main(int argc, const char *argv[]) {
   }
 
   /* try and create an instance by loading the str_extractor */
-  FeatureExtraction *f = apply_cmdline_args(str_extractor,c,1,input_file);
+  FeatureExtraction *f = apply_cmdline_args(str_extractor,c,1,input_file, buffer_size);
   if (f == NULL) return -1; 
 
   if (!parse_ok) {
@@ -62,12 +63,11 @@ int main(int argc, const char *argv[]) {
   }
 
   if (f!=NULL && f->getTrained() && c.exist("num-samples")) {
-    cerr << "limiting the number of training samples on already trained exrtactor makes no sense" << endl;
+    cerr << "limiting the number of training samples on already trained extractor makes no sense" << endl;
     return -1;
   }
 
   string line;
-  int buffer_size=0;
 
   /* read the number of training samples */
   if (f==NULL || !f->getTrained()) {
@@ -90,15 +90,13 @@ int main(int argc, const char *argv[]) {
       while (ss >> value)
         data.push_back(value);
 
-      // XXX give num_dim and buf_siez to feature()
-
       if (data.size() == 0)
         continue;
 
       if (num_lines == 0) {
         // initialization needs to be delayed until we know the number of input
         // dimensions, since they need to be known beforehand
-        f = apply_cmdline_args(str_extractor, c, data.size(),input_file);
+        f = apply_cmdline_args(str_extractor, c, data.size(),input_file, buffer_size);
         if (f == NULL) {
           cerr << "unable to load extractor" << endl;
           return -1;
@@ -110,9 +108,6 @@ int main(int argc, const char *argv[]) {
     }
 
     MatrixDouble dataset(set);
-
-    try { buffer_size = c.get<int>("window"); } catch(...) {}
-    try { buffer_size = c.get<int>("samples"); } catch(...) {}
 
     if (!f->train(dataset))
       cerr << "WARNING: training the extractor failed, not of all them can be trained!" << endl;
@@ -143,7 +138,7 @@ string list_extractors() {
 }
 
 FeatureExtraction*
-apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &input_file) {
+apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &input_file, int &buffer_size) {
   FeatureExtraction *f;
   cmdline::parser p;
 
@@ -188,7 +183,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
     p.add        ("no-mean",     'M', "do not compute mean");
     p.add        ("no-stddev",   'S', "do not compute standard deviation");
     p.add        ("no-euclidean",'E', "do not compute euclidean norm");
-    p.add        ("no-rms",      'R', "do not compute root mean squared error");
+    p.add        ("no-rms",      'R', "do not compute root mean square");
   }
 
   else if ( type == "TimeseriesBuffer" ) {
@@ -200,11 +195,23 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
     p.add<double>("deadzone",    'D', "deadzone threshold", false, 0.01);
     p.add        ("combined",    'C', "wether zero-crossing are calculated independently");
   }
+  else if ( type == "FrequencyDomainFeatures" ) {
+    p.add<int>    ("hop",             'H', "every Hth sample the FFT will be computed", false, 1);
+    p.add<string> ("func",            'F', "window function, one of 'rect', 'bartlett','hamming','hanning'", false, "rect", cmdline::oneof<string>("rect","bartlett","hamming","hanning"));
+    p.add<int>    ("window",          'W', "window size in samples (should be power of two)", false, 512);
+    p.add         ("no-max-freq",     'N', "do not compute largest frequency");
+    p.add         ("no-max-freq-spec",'M', "do not compute maximum-frequency spectrum frequency feature");
+    p.add         ("no-centroid"   ,  'C', "do not compute center frequency");
+    p.add<int>    ("top-K",           'K', "compute the top-K frequencies (0 disabels this feature)", false, 10);
+  }
 
   if (!p.parse(c.rest_with_name()) || c.exist("help")) {
     cerr << c.usage() << endl << "feature extraction options:" << endl << p.str_options() << endl << p.error() << endl;
     return NULL;
   }
+
+  try { buffer_size = p.get<int>("samples"); } catch(...) {}
+  try { buffer_size = p.get<int>("window"); } catch(...) {}
 
   if ( type == "RBMQuantizer" )
     f = new RBMQuantizer( p.get<int>("clusters") );
@@ -235,6 +242,19 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
         p.get<int>("top-K")!=0,
         p.get<int>("top-K"));
 
+  } else if ( type == "FrequencyDomainFeatures" ) {
+    vector<string> list = {"rect","bartlett","hamming","hanning"};
+    f = new FrequencyDomainFeatures(
+        p.get<int>("window"),
+        p.get<int>("hop"),
+        num_dimensions,
+        find(list.begin(),list.end(),p.get<string>("func")) - list.begin(),
+        !p.exist("no-max-freq"),
+        !p.exist("no-max-freq-spec"),
+        !p.exist("no-centroid"),
+        p.get<int>("top-K")!=0,
+        p.get<int>("top-K"));
+
   } else if ( type == "KMeansFeatures" ) {
     stringstream ss(p.get<string>("clusters"));
     vector<unsigned int> list;
@@ -244,7 +264,8 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
     f = new KMeansFeatures(list);
 
   } else if ( type == "MovementIndex" ) {
-    f = new MovementIndex(p.get<int>("samples"));
+    f = new MovementIndex(p.get<int>("samples"),
+        num_dimensions);
 
   } else if ( type == "MovementTrajectoryFeatures" ) {
     vector<string> list = {"centroid","normalized","derivative","angle_2d"};
@@ -256,7 +277,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
         num_dimensions,
         p.exist("start-end"),
         p.exist("no-weighted-magnitude"));
-  
+
   } else if ( type == "TimeDomainFeatures" ) {
     f = new TimeDomainFeatures(
         p.get<int>("samples"),
@@ -293,6 +314,7 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
 
 bool feature(FeatureExtraction *f, std::string line, int buffer_size)
 {
+  static int got_n_samples = 0;
   stringstream ss(line);
   vector<double> data;
   double value;
@@ -300,13 +322,12 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
 
   if (line=="" || line[0]=='#') {
     cout << line << endl;
-    // XXX there is no support for clearing the back-buffer of feature
-    //     extractors, so we pad with zeros.
-    data.resize(f->getNumInputDimensions(), 0.);
-    for (int i=0; i<buffer_size; i++)
-      f->computeFeatures(data);
+    got_n_samples = 0;
     return true;
   }
+
+  // XXX we handle filter lag, by removing the first n sample until the buffer
+  //     is filled!
 
   ss >> label;
   while (ss >> value)
@@ -314,10 +335,13 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
 
   bool result = f->computeFeatures(data);
 
-  cout << label;
-  for (auto val : f->getFeatureVector())
-    cout << "\t" << val;
-  cout << endl;
+  if (got_n_samples > buffer_size) {
+    cout << label;
+    for (auto val : f->getFeatureVector())
+      cout << "\t" << val;
+    cout << endl;
+  } else 
+    got_n_samples++;
 
-  return result;
+  return true;
 }
