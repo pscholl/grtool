@@ -275,6 +275,16 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add        ("remove-features",      'R', "remove features at each split");
     p.add        ("use-scaling",          'U', "if data should be scaled to [0 1]");
     p.add<string>("training",             'T', "training mode (iterative or best)", false, "best", cmdline::oneof<string>("iterative","best"));
+  } else if ( "SVM" == name ) {
+    p.add<string>("kernel",               'K', "kernel type (linear,poly,rbf,sigmoid,precomputed, defaults to linear)", false, "linear", cmdline::oneof<string>("linear","poly","rbf","sigmoid","precomputed"));
+    p.add<string>("type",                 'T', "svm type (C_SVC,NU_SVC,ONE_CLASS,EPSILONS_VR,NU_SVR, defaults to C_CVS)", false,"C_SVC", cmdline::oneof<string>("C_SVC","NU_SVC", "ONE_CLASS","EPSILON_SVR","NU_SVR"));
+    p.add        ("use-scaling",          'U', "scale training sample for [-1,1] for numerical stability");
+    p.add        ("null-rejection",       'N', "enable null rejection");
+    p.add<double>("gamma",                'G', "set to 0. to auto-calculate, default: 0.", false, 0, cmdline::range(0,1));
+    p.add<int>   ("degree",               'D', "SVM degree parameter", false, 3);
+    p.add<double>("coef0",                'O', "SVM coef0 parameter", false, 0);
+    p.add<double>("nu",                   'M', "SVM nu parameter", false, 0.5);
+    p.add<double>("C",                    'C', "SVM C parameter", false, 1);
   }
 
   if (c.exist("help")) {
@@ -373,6 +383,21 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
       p.exist("remove-features"),
       p.exist("use-scaling"));
+  } else if ( "SVM" == name ) {
+    vector<string> kernel_list = {"linear","poly","rbf","sigmoid","precomputed"};
+    vector<string> type_list = {"C_SVC","NU_SVC", "ONE_CLASS","EPSILON_SVR","NU_SVR"};
+    o = new SVM(
+      find(kernel_list.begin(), kernel_list.end(), p.get<string>("kernel")) - kernel_list.begin(),
+      find(type_list.begin(), type_list.end(), p.get<string>("type")) - type_list.begin(),
+      p.exist("use-scaling"),
+      p.exist("null-rejection"),
+      p.get<double>("gamma") == 0,
+      p.get<double>("gamma"),
+      p.get<int>("degree"),
+      p.get<double>("coef0"),
+      p.get<double>("nu"),
+      p.get<double>("C"),
+      false, 0);
   } else {
     o = loadClassifierFromFile(name);
   }

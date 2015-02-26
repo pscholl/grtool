@@ -1,4 +1,4 @@
-CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -O0
+CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -O2
 LDFLAGS=-lstdc++ -lcrfsuite `pkg-config --libs grt`
 ALL=grt train predict info score preprocess extract
 
