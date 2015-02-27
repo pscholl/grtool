@@ -84,7 +84,7 @@ int main(int argc, const char *argv[]) {
       lines.push_back(line);
 
       if (line=="" || line[0]=='#')
-        ;
+        continue;
 
       ss >> label;
       while (ss >> value)
@@ -312,6 +312,10 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
   return f;
 }
 
+bool isempty(string s) {
+  return s.find_first_not_of("\t\n ") == string::npos;
+}
+
 bool feature(FeatureExtraction *f, std::string line, int buffer_size)
 {
   static int got_n_samples = 0;
@@ -320,7 +324,7 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
   double value;
   string label;
 
-  if (line=="" || line[0]=='#') {
+  if (isempty(line) || line[0]=='#') {
     cout << line << endl;
     got_n_samples = 0;
     return true;
@@ -334,6 +338,8 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
     data.push_back(value);
 
   bool result = f->computeFeatures(data);
+  if (!result)
+    return true;
 
   if (got_n_samples > buffer_size) {
     cout << label;
