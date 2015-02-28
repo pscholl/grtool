@@ -68,15 +68,16 @@
  For starters let's list all available extraction modules:
     
     grt extract list
-    usage: extract --num-samples=int [options] ... <feature-extractor or input file name> [<filename>] 
+    usage: extract [options] ... <feature-extractor or input file name> [<filename>] 
     options:
       -v, --verbose        verbosity level: 0-4 (int [=0])
       -h, --help           print this message
-      -n, --num-samples    number of input samples to use for training (int)
+      -n, --num-samples    number of input samples to use for training (int [=0])
       -o, --output         if given store the model in file, for later usage (string [=])
     
     FFT
     FFTFeatures
+    FrequencyDomainFeatures
     KMeansFeatures
     KMeansQuantizer
     MovementIndex
