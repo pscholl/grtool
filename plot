@@ -6,8 +6,76 @@ from matplotlib import pyplot as plt
 from threading import Thread
 from time import time,sleep
 from queue import Queue
+from inspect import isclass
+from math import ceil
+
+class ScatterPlot:
+    def __init__(self,labels,data):
+        ndim = len(data[0])
+        self.x,self.y = ndim,ndim
+        self.sc = [None] * ndim*ndim
+        plt.subplot(self.x,self.y,1)
+        self(0,labels,data)
+
+    def __call__(self,frameno,labels,data):
+        self.labels = list(set(labels))
+        self.cm     = mp.cm.get_cmap("cubehelix", len(self.labels)+1)
+
+        markers = list(mp.markers.MarkerStyle.markers.values())
+        crosses = [(x,y) for y in reversed(range(self.y)) for x in range(self.x)]
+        data    = np.array(data)
+
+        for (x,y),n in zip(crosses,range(len(crosses))):
+            li=[self.labels.index(l) for l in labels]
+            ax=plt.subplot(self.x,self.y,n+1)
+
+            if self.sc[n] is None:
+                self.sc[n] = plt.scatter(data[:,x],data[:,y],color=self.cm(li),alpha=.5)
+            else:
+                self.sc[n].set_offsets( np.array((data[:,x],data[:,y])).T )
+                self.sc[n].set_facecolors( self.cm(li,.5) )
+                self.sc[n].set_edgecolors( self.cm(li,.5) )
+
+        return self.sc
+
+class LinePlot:
+    def __init__(self, labels, data):
+        self.vspans = [] # for drawing labels
+        self.arts = plt.plot(data)
+        plt.tight_layout()
+
+    def __call__(self,frameno,labels,data):
+        data  = np.array(data)
+        xdata = np.arange(frameno-data.shape[0], frameno) + 1
+
+        for art,d in zip(self.arts,data.T):
+            art.set_data(xdata,d)
+
+        #
+        # remove all vspans and add updated ones
+        #
+        for span in self.vspans:
+            span.remove()
+
+        offset = frameno - data.shape[0]
+        spans  = [0] + [x for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)]
+        labels = [l1 for l1,l2 in zip(labels[:-1],labels[1:]) if l1!=l2]
+        self.vspans = [\
+                plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1)\
+                for x1,x2 in zip(spans[:-1],spans[1:]) ]
+        self.vspans += [\
+                plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
+                for label,x1 in zip(labels,spans) ]
+
+        return self.arts
+
+
+plotters = {
+        'line'    : LinePlot,
+        'scatter' : ScatterPlot, }
 
 cmdline = argparse.ArgumentParser('real-time of data for grt')
+cmdline.add_argument('--plot-type',   '-p', type=str, default="line",help="type of plot", choices=plotters.keys())
 cmdline.add_argument('--num-samples', '-n', type=int, default=0,     help="plot the last n samples, 0 keeps all")
 cmdline.add_argument('--frame-rate',  '-f', type=float, default=60., help="limit the frame-rate, 0 is unlimited")
 cmdline.add_argument('--quiet',       '-q', action="store_true",     help="if given does not copy input to stdout")
@@ -16,10 +84,8 @@ cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input 
 args = cmdline.parse_args()
 
 class TextLineAnimator(Thread):
-    def __init__(self, input_iterator, setup_func=None, loop_func=None, framelimit=None, quiet=False):
-        self.loop_func  = loop_func or self.default_loop
-        self.setup_func = setup_func or self.default_setup
-        self.artists = None
+    def __init__(self, input_iterator, plotter=LinePlot, loop_func=None, framelimit=None, quiet=False):
+        self.plotter = plotter
         self.frameno = 0
         self.framelimit = framelimit
         self.paused = False
@@ -29,7 +95,6 @@ class TextLineAnimator(Thread):
         #
         self.labels = []
         self.data   = []
-        self.vspans = [] # for drawing labels
 
         #
         # transferring the input from stdin
@@ -63,21 +128,22 @@ class TextLineAnimator(Thread):
                 self.labels.pop(0)
 
         labels,data = self.labels,self.data
-        if self.artists is None and len(self.data) == 0:
+        if isclass(self.plotter) and len(self.data) == 0:
             return []
 
-        if self.artists is None:
-            self.artists = self.setup_func(labels,data)
+        if isclass(self.plotter):
+            self.plotter = self.plotter(labels,data)
             plt.draw()
 
-        self.loop_func(self.frameno,self.artists,labels,data)
+        arts = self.plotter(self.frameno,labels,data)
 
-        # rescale
-        ax = self.artists[0].get_axes()
-        ax.relim()
-        ax.autoscale_view()
+        if arts is not None and len(arts) > 0:
+            # rescale
+            ax = arts[0].get_axes()
+            ax.relim()
+            ax.autoscale_view()
 
-        return self.artists
+        return arts
 
     def run(self, *args):
         for line in self.input:
@@ -109,36 +175,6 @@ class TextLineAnimator(Thread):
         #
         os.close(sys.stdout.fileno())
 
-    def default_setup(self,labels,data):
-        arts = plt.plot(data)
-        plt.tight_layout()
-        return arts
-
-    def default_loop(self,frameno,arts,labels,data):
-        data  = np.array(data)
-        xdata = np.arange(frameno-data.shape[0], frameno) + 1
-
-        for art,d in zip(arts,data.T):
-            art.set_data(xdata,d)
-
-        #
-        # remove all vspans and add updated ones
-        #
-        for span in self.vspans:
-            span.remove()
-
-        offset = frameno - data.shape[0]
-        spans  = [0] + [x for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)]
-        labels = [l1 for l1,l2 in zip(labels[:-1],labels[1:]) if l1!=l2]
-        self.vspans = [\
-                plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1)\
-                for x1,x2 in zip(spans[:-1],spans[1:]) ]
-        self.vspans += [\
-                plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
-                for label,x1 in zip(labels,spans) ]
-
-        return arts
-
     def toggle_pause(self):
         self.paused = not self.paused
 
@@ -146,7 +182,8 @@ class TextLineAnimator(Thread):
 if __name__=="__main__":
     fig = plt.figure()
     if args.title: fig.canvas.set_window_title(args.title)
-    anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet)
+
+    anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet,plotter=plotters[args.plot_type])
     afun = animation.FuncAnimation(fig,anim,interval=1000./args.frame_rate)
 
     def press(event):
