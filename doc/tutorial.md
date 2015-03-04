@@ -17,6 +17,8 @@
      score[s] - calculate classifcation score for prediction
      extract[e] - extract features from a data sequence
      preprocess[pp] - preprocess data sequence
+     plot[p] - python based stream plotter
+
 
  Executing for example 'grt help score', will retrieve documentation about the score sub-command. You can also use this command to execute any other command and get its usage documentation.
 

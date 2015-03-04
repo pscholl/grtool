@@ -341,7 +341,7 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
   if (!result)
     return true;
 
-  if (got_n_samples > buffer_size) {
+  if (got_n_samples >= buffer_size) {
     cout << label;
     for (auto val : f->getFeatureVector())
       cout << "\t" << val;

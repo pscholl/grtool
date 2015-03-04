@@ -103,7 +103,7 @@ Most often you want to test your machine learning model on multiple parameter an
     -------------- ----------------- ----------------- -----------------
     left_swipe                            0.000000                       
     right_swipe         0.666667          1.000000          0.800000     
-                        0.666667          0.5/0.5           0.800000     
+                     0.333333/0.333       0.5/0.5           0.4/0.4      
     
     participant 0        recall          precision           Fbeta       
     -------------- ----------------- ----------------- -----------------
@@ -127,7 +127,7 @@ As you can see, results are now reported for each input tag after the complete i
     -------------- ----------------- ----------------- -----------------
     left_swipe                            0.000000                       
     right_swipe         0.666667          1.000000          0.800000     
-                        0.666667          0.5/0.5           0.800000     
+                     0.333333/0.333       0.5/0.5           0.4/0.4      
     
     participant 0        recall          precision           Fbeta       
     -------------- ----------------- ----------------- -----------------

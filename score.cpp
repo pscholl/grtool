@@ -231,6 +231,8 @@ double Group::get_meanscore(string which, double beta)
   for (auto val : *score)
     if (!std::isnan(val))
       nonan.push_back(val);
+    else
+      nonan.push_back(0.);
 
   return nonan.size()==0 ? 0. : sum(nonan)/nonan.size();
 }
@@ -480,6 +482,8 @@ string meanstd(vector< double > list) {
   for ( auto val : list )
     if (!std::isnan(val))
       cleaned.push_back(val);
+    else
+      cleaned.push_back(0.);
 
   if (cleaned.size() == 0)
     return "";
