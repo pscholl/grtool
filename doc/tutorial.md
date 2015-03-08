@@ -32,3 +32,27 @@
 [1]: http://www.december.com/unix/tutor/pipesfilters.html
 [2]: http://www.linfo.org/pipes.html
 
+
+# NULL rejection for gesture recognition
+
+ Having a classifier that is able to predict the possible gesture that has been performed is only the first step in building a gesture recognition systems.
+ The problem of suppressing non-gestures or rather finding possible gestures in a stream of data is called gesture spotting.
+ One solution for this problem is using classifiers that supports something called NULL rejection, that is rejecting data which does not contain any detectable gesture.
+ A hidden markov model can eb exploited for that.
+ By additionally learning the minimum probablity of a gesture during classification, a treshold can be set which rejects un-classifisable data.
+ This is supported by a special label in the data stream, which is called "NULL".
+ This label will not be learned as a classification output, but will be used to set the rejection treshold.
+
+    echo "# timeseries
+    > testing 1
+    > testing 1
+    >
+    > testing 1
+    > testing 1
+    >
+    > NULL 0
+    > NULL 0
+    >
+    > NULL 0
+    > NULL 0" | grt train HMM -n .5 -o test.hmm | grt predict bio.hmm
+

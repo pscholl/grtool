@@ -303,7 +303,7 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       /* hmmodel */ p.get<string>("hmmtype").find("ergodic")  == string::npos,
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
-      /* useNull */ false);
+      /* useNull */ true);
 
     checkedarg(h->setNumStates, int, "num-states");
     checkedarg(h->setNumSymbols, int, "num-symbols");

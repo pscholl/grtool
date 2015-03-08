@@ -46,7 +46,7 @@ class LinePlot:
 
     def __call__(self,frameno,labels,data):
         data  = np.array(data)
-        xdata = np.arange(frameno-data.shape[0], frameno) + 1
+        xdata = np.arange(frameno-data.shape[0], frameno)
 
         for art,d in zip(self.arts,data.T):
             art.set_data(xdata,d)
@@ -57,16 +57,17 @@ class LinePlot:
         for span in self.vspans:
             span.remove()
 
+        labels.append(None)
         offset = frameno - data.shape[0]
-        spans  = [0] + [x for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)]
-        labels = [l1 for l1,l2 in zip(labels[:-1],labels[1:]) if l1!=l2]
+        spans  = [0] + [x+1 for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)-1]
+        mylabels = [l1 for l1,l2 in zip(labels,labels[1:]) if l1!=l2]
         self.vspans = [\
                 plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1)\
                 for x1,x2 in zip(spans[:-1],spans[1:]) ]
         self.vspans += [\
                 plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
-                for label,x1 in zip(labels,spans) ]
-
+                for label,x1 in zip(mylabels,spans) ]
+        labels.pop()
         return self.arts
 
 
@@ -114,7 +115,7 @@ class TextLineAnimator(Thread):
         self.frameno += qsize
 
         if qsize == 0:
-            return []
+            return None
 
         while qsize > 0:
             label,data = self.queue.get()
@@ -172,19 +173,35 @@ class TextLineAnimator(Thread):
         #
         # propagate that we read input completly
         # (yes, sys.stdout.close() does not close the fd)
+        # but delay this until all data has been consumed!
         #
+        while self.queue.qsize() > 0:
+            sleep(.1)
+
         os.close(sys.stdout.fileno())
+        sys.stdout.close()
 
     def toggle_pause(self):
         self.paused = not self.paused
 
+
+class MyFuncAnimation(animation.FuncAnimation):
+    #
+    # This is a hack to stop the animation, to avoid python busy-looping
+    # when there is no more data to read. The window will still persist,
+    # however as soon as stdout is closed we can be more or less sure
+    # that all data has been read and drawn.
+    #
+    def _step(self,*args):
+        animation.FuncAnimation._step(self,*args)
+        return not sys.stdout.closed
 
 if __name__=="__main__":
     fig = plt.figure()
     if args.title: fig.canvas.set_window_title(args.title)
 
     anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet,plotter=plotters[args.plot_type])
-    afun = animation.FuncAnimation(fig,anim,interval=1000./args.frame_rate)
+    afun = MyFuncAnimation(fig,anim,interval=1000./args.frame_rate)
 
     def press(event):
         if event.key == ' ':
