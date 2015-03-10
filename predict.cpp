@@ -10,6 +10,7 @@ int main(int argc, char *argv[])
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add<string>("title",      'T', "prepend the output with an optional title", false, "");
+  c.add        ("no-null",    'n', "do not show NULL class predicted data");
   c.footer     ("<classifier-model-file> [filename]...");
 
   /* parse the classifier-common arguments */
@@ -72,10 +73,10 @@ int main(int argc, char *argv[])
       return -1;
     }
 
-    if (s_prediction != "" && s_label != "")
+    if (prediction == GRT_DEFAULT_NULL_CLASS_LABEL) {
+      if (!c.exist("no-null")) cout << (label==0 ? "NULL" : s_label) << "\t" << "NULL" << endl;
+    } else
       cout << s_label << "\t" << s_prediction << endl;
-    else
-      cout << label << "\t" << prediction << endl;
   }
 
   cout << endl;
