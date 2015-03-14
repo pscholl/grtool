@@ -73,10 +73,10 @@ int main(int argc, char *argv[])
       return -1;
     }
 
-    if (prediction == GRT_DEFAULT_NULL_CLASS_LABEL) {
-      if (!c.exist("no-null")) cout << (label==0 ? "NULL" : s_label) << "\t" << "NULL" << endl;
-    } else
-      cout << s_label << "\t" << s_prediction << endl;
+    if (label == 0) s_label = "NULL";
+    if (prediction == 0) s_prediction = "NULL";
+
+    cout << s_label << "\t" << s_prediction << endl;
   }
 
   cout << endl;

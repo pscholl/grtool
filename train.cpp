@@ -93,8 +93,6 @@ int main(int argc, const char *argv[])
   if (num_samples==0)
     return 0;
 
-  info << dataset.getStatsAsString() << endl;
-
   /* if we have percent input limit, we need to apply this now */
   TimeSeriesClassificationData t_testdata;
   ClassificationData c_testdata;
@@ -112,6 +110,8 @@ int main(int argc, const char *argv[])
       return -1;
     }
   }
+
+  info << dataset.getStatsAsString() << endl;
 
   /* train and save classifier */
   bool ok; csvio_dispatch(dataset, ok=classifier->train);
@@ -198,7 +198,7 @@ string list_classifiers() {
   for (auto name : names)  {
     Classifier *c = Classifier::createInstanceFromString(name);
     if (!c->getTimeseriesCompatible())
-      ss << name << (c->getSupportsNullRejection() ? "(null rejection)" : "") << endl;
+      ss << name << (c->getSupportsNullRejection() ? " (null rejection)" : "") << endl;
   }
 
   return ss.str();

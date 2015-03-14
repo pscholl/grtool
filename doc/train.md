@@ -86,7 +86,7 @@ This implementation is based on the crfsuite.
     > abc 1
     >
     > abc 1
-    > abc 1" | grt train HMM -T ergodic -t timeseries -o test.hmm -n .5
+    > abc 1" | grt train HMM -S 2 -T ergodic -t timeseries -o test.hmm -n .5
     # timeseries
     abc	1
     abc	1
