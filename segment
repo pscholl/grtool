@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+class groundtruth:
+    def __init__(self, args):
+        self.label = None
+        self.firstcall = True
+
+    def __call__(self,data,label=None):
+        s = ""
+        if self.firstcall:
+            self.firstcall = False
+            s+="# timeseries\n"
+
+        if self.label != label:
+            self.label = label
+            s += "\n"
+        s+= label + "\t"
+        s += "\t".join(data)
+        return s
+
+class sliding_window:
+    def __init__(self, args):
+        self.size = args.window_size
+        self.overlap = args.overlap
+        self.numbuffered = 0
+        self.firstcall = True
+        self.labels = {}
+
+    def __call__(self,data,label=None):
+        s = ""
+        if self.firstcall:
+            self.firstcall = False
+            s += "# timeseries\n"
+
+        if label in self.labels:
+            self.labels[label] += 1
+        else:
+            self.labels[label] = 1
+
+        if self.numbuffered > self.size:
+            largest = -1
+            for (k,v) in self.labels.items():
+                if v > largest:
+                    label,largest = k, v
+            self.labels = {}
+
+        s += label + "\t"
+        s += "\t".join(data)
+
+        if self.numbuffered > self.size:
+            self.numbuffered -= int( (1-self.overlap) * self.size)
+            s += "\n"
+
+        self.numbuffered += 1
+        return s
+
+methods = {
+    'groundtruth'    : groundtruth,
+    'sliding_window' : sliding_window }
+
+import argparse, fileinput
+cmdline = argparse.ArgumentParser('segment stream of data into timeseries')
+subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation method", dest="method")
+sw_cmdline = subparser.add_parser('sliding_window', help="sliding window method")
+sw_cmdline.add_argument('-w', '--window-size', type=int, default=10, help="number of samples in each window")
+sw_cmdline.add_argument('-o', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
+gt_cmdline = subparser.add_parser('groundtruth', help="groundtruth method")
+
+cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+args = cmdline.parse_args()
+
+print (args)
+
+if __name__=="__main__":
+    method = methods[args.method](args)
+    last_label  = None
+
+    for line in fileinput.input(args.files):
+        if line.strip() == "":
+            continue
+
+        if line.strip()[0] == '#':
+            print (line)
+            continue
+
+        label,rest = line.split()[0],line.split()[1:]
+        print (method(rest,label))

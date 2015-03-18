@@ -81,7 +81,8 @@ cmdline.add_argument('--num-samples', '-n', type=int, default=0,     help="plot 
 cmdline.add_argument('--frame-rate',  '-f', type=float, default=60., help="limit the frame-rate, 0 is unlimited")
 cmdline.add_argument('--quiet',       '-q', action="store_true",     help="if given does not copy input to stdout")
 cmdline.add_argument('--title',       '-t', type=str, default=None,  help="plot window title")
-cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+cmdline.add_argument('--output',      '-o', type=str, default=None,  help="if given plot into movie file instead of screen")
+cmdline.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 args = cmdline.parse_args()
 
 class TextLineAnimator(Thread):
@@ -142,7 +143,7 @@ class TextLineAnimator(Thread):
             # rescale
             ax = arts[0].get_axes()
             ax.relim()
-            ax.autoscale_view()
+            ax.autoscale_view(True,True,True)
 
         return arts
 
@@ -202,6 +203,12 @@ if __name__=="__main__":
 
     anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet,plotter=plotters[args.plot_type])
     afun = MyFuncAnimation(fig,anim,interval=1000./args.frame_rate)
+
+    if args.output is not None:
+        writer = animation.writers['ffmpeg']
+        writer = writer(fps=args.frame_rate,metadata={'title':args.title})
+        afun.save(args.output, writer=writer)
+        sys.exit(0)
 
     def press(event):
         if event.key == ' ':

@@ -13,6 +13,7 @@ vector<vector<const char*>> cmds = {
   {"extract",    "e",  "extract features from a data sequence"},
   {"preprocess", "pp", "preprocess data sequence"},
   {"plot",       "p",  "python based stream plotter"},
+  {"segment",    "sg", "segments a list of samples into multiple timeseries"},
 };
 
 int usage(int exit_code, string msg="") {
