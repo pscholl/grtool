@@ -200,6 +200,7 @@ class MyFuncAnimation(animation.FuncAnimation):
 if __name__=="__main__":
     fig = plt.figure()
     if args.title: fig.canvas.set_window_title(args.title)
+    elif len(args.files) > 0: fig.canvas.set_window_title(" ".join(args.files))
 
     anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet,plotter=plotters[args.plot_type])
     afun = MyFuncAnimation(fig,anim,interval=1000./args.frame_rate)
