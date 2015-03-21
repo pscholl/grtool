@@ -1,2 +1,2 @@
-# grt
-Gesture Recogniton Tool based on the Gesture Recognition Toolkit
+grtool - command line interface to the Gesture Recognition Toolkit
+ 

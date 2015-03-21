@@ -63,8 +63,8 @@ import argparse, fileinput
 cmdline = argparse.ArgumentParser('segment stream of data into timeseries')
 subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation method", dest="method")
 sw_cmdline = subparser.add_parser('sliding_window', help="sliding window method")
-sw_cmdline.add_argument('-w', '--window-size', type=int, default=10, help="number of samples in each window")
-sw_cmdline.add_argument('-o', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
+sw_cmdline.add_argument('-W', '--window-size', type=int, default=10, help="number of samples in each window")
+sw_cmdline.add_argument('-O', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
 gt_cmdline = subparser.add_parser('groundtruth', help="groundtruth method")
 
 cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
