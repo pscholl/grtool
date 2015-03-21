@@ -76,6 +76,8 @@ if __name__=="__main__":
     method = methods[args.method](args)
     last_label  = None
 
+    print ("# timeseries")
+
     for line in fileinput.input(args.files):
         if line.strip() == "":
             continue
