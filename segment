@@ -5,6 +5,8 @@ class groundtruth:
     def __init__(self, args):
         self.label = None
         self.firstcall = True
+        self.max_size = args.window_size
+        self.count = 0
 
     def __call__(self,data,label=None):
         s = ""
@@ -12,11 +14,13 @@ class groundtruth:
             self.firstcall = False
             s+="# timeseries\n"
 
-        if self.label != label:
+        if self.label != label or (self.max_size!=0 and self.count > self.max_size):
             self.label = label
+            self.count = 0
             s += "\n"
         s+= label + "\t"
         s += "\t".join(data)
+        self.count += 1
         return s
 
 class sliding_window:
@@ -65,12 +69,11 @@ subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation
 sw_cmdline = subparser.add_parser('sliding_window', help="sliding window method")
 sw_cmdline.add_argument('-W', '--window-size', type=int, default=10, help="number of samples in each window")
 sw_cmdline.add_argument('-O', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
+sw_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
 gt_cmdline = subparser.add_parser('groundtruth', help="groundtruth method")
-
-cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
+gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
 args = cmdline.parse_args()
-
-print (args)
 
 if __name__=="__main__":
     method = methods[args.method](args)
