@@ -8,6 +8,7 @@ from time import time,sleep
 from queue import Queue
 from inspect import isclass
 from math import ceil
+mp.style.use("ggplot")
 
 class ScatterPlot:
     def __init__(self,labels,data):
@@ -45,8 +46,12 @@ class LinePlot:
         plt.tight_layout()
 
     def __call__(self,frameno,labels,data):
-        data  = np.array(data)
-        xdata = np.arange(frameno-data.shape[0], frameno)
+        data     = np.array(data)
+        xdata    = np.arange(frameno-data.shape[0], frameno)
+        labels.append(None)
+
+        self.labels = list(set(labels))
+        self.cm  = mp.cm.get_cmap("jet", len(self.labels)+1)
 
         for art,d in zip(self.arts,data.T):
             art.set_data(xdata,d)
@@ -57,21 +62,36 @@ class LinePlot:
         for span in self.vspans:
             span.remove()
 
-        labels.append(None)
         offset = frameno - data.shape[0]
         spans  = [0] + [x+1 for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)-1]
         mylabels = [l1 for l1,l2 in zip(labels,labels[1:]) if l1!=l2]
+        li=[self.labels.index(l) for l in mylabels]
         self.vspans = [\
-                plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1)\
-                for x1,x2 in zip(spans[:-1],spans[1:]) ]
+                plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
+                for x1,x2,c in zip(spans[:-1],spans[1:],self.cm(li)) ]
         self.vspans += [\
                 plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
                 for label,x1 in zip(mylabels,spans) ]
         labels.pop()
         return self.arts
 
+class XYPlot:
+    def __init__(self, labels, data):
+        data = np.array(data).T
+        try: self.arts = plt.plot(data[::2],data[1::2])
+        except ValueError: sys.stderr.write("input dims do not fit\n"); sys.exit(-1)
+        plt.tight_layout()
+
+    def __call__(self,frameno,labels,data):
+        data = np.array(data).T
+        for art,x,y in zip(self.arts,data[::2],data[1::2]):
+            s=np.argsort(y)
+            try: art.set_data(x[s],y[s])
+            except ValueError: sys.stderr.write("input dims do not fit\n"); sys.exit(-1)
+        return self.arts
 
 plotters = {
+        'xy'      : XYPlot,
         'line'    : LinePlot,
         'scatter' : ScatterPlot, }
 
@@ -179,8 +199,8 @@ class TextLineAnimator(Thread):
         while self.queue.qsize() > 0:
             sleep(.1)
 
-        os.close(sys.stdout.fileno())
-        sys.stdout.close()
+        #os.close(sys.stdout.fileno())
+        #sys.stdout.close()
 
     def toggle_pause(self):
         self.paused = not self.paused
