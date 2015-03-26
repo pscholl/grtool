@@ -330,24 +330,24 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
     return true;
   }
 
-  // XXX we handle filter lag, by removing the first n sample until the buffer
-  //     is filled!
-
   ss >> label;
   while (ss >> value)
     data.push_back(value);
 
+
+  // XXX we handle filter lag, by removing the first n sample until the buffer
+  //     is filled!
+  got_n_samples++;
+
   bool result = f->computeFeatures(data);
-  if (!result)
-    return true;
+  if (!result) return true;
 
   if (got_n_samples >= buffer_size) {
     cout << label;
     for (auto val : f->getFeatureVector())
       cout << "\t" << val;
     cout << endl;
-  } else 
-    got_n_samples++;
+  }
 
   return true;
 }
