@@ -77,17 +77,49 @@ class LinePlot:
 
 class XYPlot:
     def __init__(self, labels, data):
+        self.annotations,self.arts = [],[]
         data = np.array(data).T
-        try: self.arts = plt.plot(data[::2],data[1::2])
-        except ValueError: sys.stderr.write("input dims do not fit\n"); sys.exit(-1)
+        for i,x,y in zip(range(len(data[::2])),data[::2],data[1::2]):
+            s=np.argsort(x)
+            try: a = plt.plot(x[s],y[s],'o-',label=str(i))[0]
+            except ValueError: sys.stderr.write("input dims do not fit\n"); sys.exit(-1)
+            self.arts.append(a)
+            for (l,point) in zip(labels,zip(x,y)):
+                a = plt.annotate(l,xy=point,xycoords="data")
+                a.set_visible(False)
+                self.annotations.append(a)
+
+        #
+        # Limit axes
+        #
+        plt.xlim((0,1))
+        plt.ylim((0,1))
         plt.tight_layout()
+        plt.legend(loc=2)
+
+        #
+        # add mouse-over annotations
+        #
+        def on_move(ev):
+            if (ev.xdata is None):
+                return
+
+            for a in self.annotations:
+                x,y = a.xy
+                a.set_visible( (x - ev.xdata)**2 + (y - ev.ydata)**2 <= .00005 )
+
+        plt.gcf().canvas.mpl_connect('motion_notify_event',on_move)
 
     def __call__(self,frameno,labels,data):
         data = np.array(data).T
         for art,x,y in zip(self.arts,data[::2],data[1::2]):
-            s=np.argsort(y)
+            s=np.argsort(x)
             try: art.set_data(x[s],y[s])
             except ValueError: sys.stderr.write("input dims do not fit\n"); sys.exit(-1)
+            for (l,point) in zip(labels,zip(x,y)):
+                a = plt.annotate(l,xy=point,xycoords="data")
+                a.set_visible(False)
+                self.annotations.append(a)
         return self.arts
 
 plotters = {
