@@ -7,7 +7,8 @@
  grt-predict - predict the class of a data sequence
 
 # SYNOPSIS
- grt predict [-h] [-v|--verbose \<level\>] [-t|--type \<input-type\>] \<classification-model\> [input-file]
+ grt predict [-h] [-v|--verbose \<level\>] [-t|--type \<input-type\>] \<classification-model\> 
+             [-s|--segment \<N\>] [-p|--passthrough] [input-file]
 
 # DESCRIPTION
  This program predict the class label of unseen data according to the model stored in the classification model file. The output will be a tab-separated list of the label given in the input file and the predicted label. If the input data is unlabelled the output is undefined.
@@ -23,6 +24,12 @@
 
 -t, --type [classification, timeseries, regression, unlabelled]
 :   Force the interpretation of the input format to be one of the list.
+
+-s, --segment [N]
+:   greedy confidence segmentation, capture a window of at least N samples and consume samples until the classifier rejects the window as NULL, defaults to 0 which disables this
+
+-p, --passthrough
+:   enable pass-though mode for greedy segmentation mode, labels are a combination of groundtruth and current prediction printed with each line of data
 
 # EXAMPLES
 

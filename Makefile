@@ -1,6 +1,6 @@
-CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -O0
+CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -O3
 LDFLAGS=-lstdc++ -lcrfsuite `pkg-config --libs grt`
-ALL=grt train predict info score preprocess extract
+ALL=grt train predict info score preprocess extract postprocess
 
 all: $(ALL) *.h
 train: train.o grt_crf.o
@@ -19,6 +19,7 @@ install: $(ALL) install-doc
 	$(INSTALL_PROGRAM) -D train "$(DESTDIR)$(BINDIR)/grt-train"
 	$(INSTALL_PROGRAM) -D predict "$(DESTDIR)$(BINDIR)/grt-predict"
 	$(INSTALL_PROGRAM) -D preprocess "$(DESTDIR)$(BINDIR)/grt-preprocess"
+	$(INSTALL_PROGRAM) -D postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
 	$(INSTALL_PROGRAM) -D extract "$(DESTDIR)$(BINDIR)/grt-extract"
 	$(INSTALL_PROGRAM) -D score "$(DESTDIR)$(BINDIR)/grt-score"
 	$(INSTALL_PROGRAM) -D info "$(DESTDIR)$(BINDIR)/grt-info"
@@ -31,6 +32,7 @@ install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/prep
 	$(INSTALL_PROGRAM) -D doc/info.1 "$(DESTDIR)$(MANDIR)/man1/grt-info.1"
 	$(INSTALL_PROGRAM) -D doc/train.1 "$(DESTDIR)$(MANDIR)/man1/grt-train.1"
 	$(INSTALL_PROGRAM) -D doc/preprocess.1 "$(DESTDIR)$(MANDIR)/man1/grt-preprocess.1"
+	$(INSTALL_PROGRAM) -D doc/postprocess.1 "$(DESTDIR)$(MANDIR)/man1/grt-postprocess.1"
 	$(INSTALL_PROGRAM) -D doc/extract.1 "$(DESTDIR)$(MANDIR)/man1/grt-extract.1"
 	$(INSTALL_PROGRAM) -D doc/predict.1 "$(DESTDIR)$(MANDIR)/man1/grt-predict.1"
 

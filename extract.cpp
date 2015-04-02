@@ -205,8 +205,13 @@ apply_cmdline_args(string type, cmdline::parser &c, int num_dimensions, string &
     p.add<int>    ("top-K",           'K', "compute the top-K frequencies (0 disabels this feature)", false, 10);
   }
 
-  if (!p.parse(c.rest_with_name()) || c.exist("help")) {
+  if (!p.parse(c.rest_with_name())) {
     cerr << c.usage() << endl << "feature extraction options:" << endl << p.str_options() << endl << p.error() << endl;
+    return NULL;
+  }
+
+  if (c.exist("help")) {
+    cerr << c.usage() << endl << "feature extraction options:" << endl << p.str_options();
     return NULL;
   }
 
@@ -333,7 +338,6 @@ bool feature(FeatureExtraction *f, std::string line, int buffer_size)
   ss >> label;
   while (ss >> value)
     data.push_back(value);
-
 
   // XXX we handle filter lag, by removing the first n sample until the buffer
   //     is filled!

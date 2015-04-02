@@ -5,15 +5,16 @@
 #include "libgrt_util.h"
 
 vector<vector<const char*>> cmds = {
-  {"help",       "h",  "prints this message or the help for the specified command"},
-  {"info",       "i",  "print stats about a dataset file"},
-  {"train",      "tr", "trains a prediction model"},
-  {"predict",    "pr", "predict from unseen data"},
-  {"score",      "s",  "calculate classifcation score for prediction"},
-  {"extract",    "e",  "extract features from a data sequence"},
-  {"preprocess", "pp", "preprocess data sequence"},
-  {"plot",       "p",  "python based stream plotter"},
-  {"segment",    "sg", "segments a list of samples into multiple timeseries"},
+  {"help",        "h",  "prints this message or the help for the specified command"},
+  {"info",        "i",  "print stats about a dataset file"},
+  {"train",       "tr", "trains a prediction model"},
+  {"predict",     "pr", "predict from unseen data"},
+  {"score",       "s",  "calculate classifcation score for prediction"},
+  {"extract",     "e",  "extract features from a data sequence"},
+  {"preprocess",  "pp", "preprocess data sequence"},
+  {"postprocess", "pop", "postprocess label streams"},
+  {"plot",        "p",  "python based stream plotter"},
+  {"segment",     "sg", "segments a list of samples into multiple timeseries"},
 };
 
 int usage(int exit_code, string msg="") {

@@ -272,7 +272,8 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<int>   ("num-split",            'S', "number of split to search", false, 100);
     p.add<int>   ("num-samples",          'M', "number of samples for non-leaf nodes", false, 5);
     p.add<int>   ("max-depth",            'D', "maximum depth of the tree", false, 10);
-    p.add        ("remove-features",      'R', "remove features at each split");
+    p.add<string>("rejection-mode",       'R', "NULL-class rejection mode, one of 'template', 'likelihood' or 'template_and_likelihood'", false, "template", cmdline::oneof<string>("template", "likelihood", "template_and_likelihood"));
+    p.add        ("remove-features",      'F', "remove features at each split");
     p.add        ("use-scaling",          'U', "if data should be scaled to [0 1]");
     p.add<string>("training",             'T', "training mode (iterative or best)", false, "best", cmdline::oneof<string>("iterative","best"));
   } else if ( "SVM" == name ) {

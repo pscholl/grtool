@@ -40,6 +40,7 @@ class Group {
   vector< double >   Fbeta,recall,precision;
 
   string to_string(cmdline::parser&, string tag);
+  string to_flat_string(cmdline::parser&, string tag);
 };
 
 /* some helper functions */
@@ -48,6 +49,7 @@ int    push_back_if_not_there(string &label, vector<string> &labelset);
 string centered(int, string);
 string centered(int, double);
 string meanstd(vector< double >);
+string mean(vector< double >);
 template< class T> vector<T>  diag(Matrix<T> &m);
 template< class T> T          sum(vector<T> m);
 template< class T> T          sum(Matrix<T> &m);
@@ -67,6 +69,7 @@ int main(int argc, char *argv[])
   static bool is_running = true;
   cmdline::parser c;
   c.add         ("help",          'h', "print this message");
+  c.add         ("flat",          'f', "line-based output, implies --no-confusion");
   c.add         ("no-confusion",  'c', "report confusion matrix");
   c.add         ("no-precision",  'p', "report precision, per class and overall");
   c.add         ("no-recall",     'r', "report recall, per class and overall");
@@ -97,6 +100,9 @@ int main(int argc, char *argv[])
     cerr << c.usage() << endl << "erro: sorting can only be used in conjuction with tagged (-g) input" << endl;
     return -1;
   }
+
+  if (c.exist("flat"))
+    c.set_option("no-confusion");
 
   /* open standard input or file argument */
   istream &in = grt_fileinput(c);
@@ -159,8 +165,15 @@ int main(int argc, char *argv[])
       score = g.get_meanscore(top_score_type,beta);
       scores[score] = tag;
 
-      for(auto &x : scores)
-        cout << groups[x.second].to_string(c,x.second) << endl;
+      if (!c.exist("flat"))
+        for(auto &x : scores)
+          cout << groups[x.second].to_string(c,x.second) << endl;
+      else {
+        // TODO
+        // for(auto &x : scores)
+        //   cout << groups[x.second].to_string(c,x.second);
+        // cout << endl;
+      }
     } else
       groups[tag].add_prediction(label, prediction);
   }
@@ -179,7 +192,9 @@ int main(int argc, char *argv[])
   else {
     int i=0;
     for (auto &x : groups)
-      cout << (i++ != 0 ? "\n" : "") << x.second.to_string(c,x.first);
+      cout << (i++ != 0 ? "\n" : "") << (c.exist("flat") ?
+                      x.second.to_flat_string(c,x.first) :
+                           x.second.to_string(c,x.first));
   }
 
   return 0;
@@ -235,6 +250,43 @@ double Group::get_meanscore(string which, double beta)
       nonan.push_back(0.);
 
   return nonan.size()==0 ? 0. : sum(nonan)/nonan.size();
+}
+
+string Group::to_flat_string(cmdline::parser &c, string tag) {
+  stringstream ss;
+  calculate_score(c.get<double>("F-score"));
+
+  /* print out comment attached to this group if any */
+  for( auto line : lines )
+    if ( line[0] == '#' )
+      cout << line << endl;
+
+  /* print the header */
+  double beta = c.get<double>("F-score");
+  ss << "# ";
+  ss << " groupname ";
+  if (!c.exist("no-recall"))    ss << "total_recall ";
+  if (!c.exist("no-precision")) ss << "total_precision ";
+  if (beta>0)                   ss << "total_Fbeta ";
+  for (auto label : labelset) {
+    if (!c.exist("no-recall"))    ss << label << "_recall ";
+    if (!c.exist("no-precision")) ss << label << "_precision ";
+    if (beta>0)                   ss << label << "_Fbeta ";
+  } ss << endl;
+
+  /* print out the total scores first */
+  ss << tag << " ";
+  if (!c.exist("no-recall"))      ss << mean(recall) << " ";
+  if (!c.exist("no-precision"))   ss << mean(precision) << " ";
+  if (beta>0)                     ss << mean(Fbeta) << " ";
+
+  for (size_t i=0; i<labelset.size(); i++) {
+    if (!c.exist("no-recall"))    ss << (std::isnan(recall[i])     ? "0" : std::to_string(recall[i])) << " ";
+    if (!c.exist("no-precision")) ss << (std::isnan(precision[i])  ? "0" : std::to_string(precision[i])) << " ";
+    if (beta>0)                   ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
+  } ss << endl;
+
+  return ss.str();
 }
 
 string Group::to_string(cmdline::parser &c, string tag) {
@@ -496,4 +548,20 @@ string meanstd(vector< double > list) {
   stringstream ss;
   ss << mean << "/" << sqrt( sum(pow(abs(cleaned-mean),2))/cleaned.size() );
   return ss.str();
+}
+
+string mean(vector< double > list) {
+  vector< double > cleaned;
+
+  for ( auto val : list )
+    if (!std::isnan(val))
+      cleaned.push_back(val);
+    else
+      cleaned.push_back(0.);
+
+  if (cleaned.size() == 0)
+    return "";
+
+  double mean = sum(cleaned)/cleaned.size();
+  return to_string(mean);
 }

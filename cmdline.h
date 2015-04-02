@@ -614,7 +614,6 @@ public:
     return oss.str();
   }
 
-private:
 
   void check(int argc, bool ok){
     if ((argc==1 && !ok) || exist("help")){

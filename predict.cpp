@@ -9,8 +9,7 @@ int main(int argc, char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
-  c.add<string>("title",      'T', "prepend the output with an optional title", false, "");
-  c.add        ("no-null",    'n', "do not show NULL class predicted data");
+  c.add        ("likelihood", 'l', "print label_prediction likelihood instead of label and prediction");
   c.footer     ("<classifier-model-file> [filename]...");
 
   /* parse the classifier-common arguments */
@@ -30,11 +29,6 @@ int main(int argc, char *argv[])
   string data_type = c.get<string>("type");
   CsvIOSample io(data_type);
   istream &in = grt_fileinput(c,1);
-
-  /* print title if any */
-  string title = c.get<string>("title");
-  if (title != "")
-    cout << title << endl;
 
   /* read and predict on input */
   Classifier *classifier = NULL; // TODO this needs to be loaded from stdin for piped cases!
@@ -76,7 +70,10 @@ int main(int argc, char *argv[])
     if (label == 0) s_label = "NULL";
     if (prediction == 0) s_prediction = "NULL";
 
-    cout << s_label << "\t" << s_prediction << endl;
+    if (c.exist("likelihood"))
+      cout << s_label << "_" << s_prediction << "\t" << classifier->getMaximumLikelihood() << endl;
+    else
+      cout << s_label << "\t" << s_prediction << endl;
   }
 
   cout << endl;
