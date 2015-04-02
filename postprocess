@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os, sys, argparse, fileinput, collections
+
+cmdline = argparse.ArgumentParser('postprocess label outputs')
+subpars = cmdline.add_subparsers(help="type of post-processing",dest="command")
+major   = subpars.add_parser("majority", help="returns only the label with maximum occurence in the given window" )
+major.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
+major.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+change  = subpars.add_parser("change", help="return only changed labels")
+cmdline.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
+args = cmdline.parse_args()
+
+if __name__=="__main__":
+    if args.command == "majority":
+        # sanity check for supplied arguments
+        if args.overlap < 0 or args.overlap >=1:
+            sys.stderr.write("-O|--overlap must be in the range [0,1)\n")
+            sys.exit(-1)
+
+        if args.window <= 0:
+            sys.stderr.write("-W|--window must be larger than 0")
+            sys.exit(-1)
+
+        window = []
+        def print_window(window):
+            l1 = collections.Counter(l1 for (l1,l2) in window).most_common(1)[0][0]
+            l2 = collections.Counter(l2 for (l1,l2) in window).most_common(1)[0][0]
+            print (l1,l2)
+
+        for line in fileinput.input(args.files):
+            if line.strip()=="" or line.strip()[0] == "#":
+                continue
+
+            window.append(line.split())
+
+            if len(window) == args.window:
+                print_window(window)
+                window = window[int(len(window)*(1-args.overlap)):]
+
+        if len(window) > 0:
+            print_window(window)
+
+    elif args.command == "change":
+        lastline = None
+
+        for line in fileinput.input(args.files):
+            if line.strip()=="" or line.strip()[0] == "#":
+                continue
+
+            if line!=lastline:
+                lastline = line
+                print(line)
+
+
+
