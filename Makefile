@@ -26,7 +26,7 @@ install: $(ALL) install-doc
 	$(INSTALL_PROGRAM) -D plot "$(DESTDIR)$(BINDIR)/grt-plot"
 	$(INSTALL_PROGRAM) -D segment "$(DESTDIR)$(BINDIR)/grt-segment"
 
-install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/preprocess.1 doc/extract.1
+install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/preprocess.1 doc/extract.1 doc/postprocess.1
 	$(INSTALL_PROGRAM) -D doc/grt.1 "$(DESTDIR)$(MANDIR)/man1/grt.1"
 	$(INSTALL_PROGRAM) -D doc/score.1 "$(DESTDIR)$(MANDIR)/man1/grt-score.1"
 	$(INSTALL_PROGRAM) -D doc/info.1 "$(DESTDIR)$(MANDIR)/man1/grt-info.1"
