@@ -206,7 +206,7 @@ class TextLineAnimator(Thread):
             #
             # copy what we got to the next process
             #
-            if not self.quiet: sys.stdout.write(line)
+            if not self.quiet: sys.stdout.write(line); sys.stdout.flush()
 
             #
             # ignore empty and comment lines
@@ -231,8 +231,8 @@ class TextLineAnimator(Thread):
         while self.queue.qsize() > 0:
             sleep(.1)
 
-        #os.close(sys.stdout.fileno())
-        #sys.stdout.close()
+        os.close(sys.stdout.fileno())
+        sys.stdout.close()
 
     def toggle_pause(self):
         self.paused = not self.paused
