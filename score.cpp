@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
    * and untagged ones:
    *  label prediction
    */
-  string top_score_type = c.get<string>("sort"), top_tag = "None";
+  string top_score_type = c.get<string>("sort"), top_tag = "";
   double top_score = .0, beta = c.get<double>("F-score");
   unordered_map<string,Group> groups;
            map<double,string> scores;
@@ -324,8 +324,10 @@ string Group::to_string(cmdline::parser &c, string tag) {
 
       for(uint64_t j=0; j<labelset.size(); j++) {
         string num = std::to_string( (*confusion)[i][j] );
-        int pre = (labelset[j].size() + 2 - num.size())/2,
+        int pre  = (labelset[j].size() + 2 - num.size())/2,
             post = labelset[j].size() + 2 - num.size() - pre;
+        pre = pre < 0 ? 0 : pre;
+        post = post < 0 ? 0 : post;
 
         if ((*confusion)[i][j] == 0)
           cout << " " << string(labelset[j].size() + 2, ' ');

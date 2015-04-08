@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, argparse, fileinput, collections
+from math import ceil
 
 cmdline = argparse.ArgumentParser('postprocess label outputs')
 subpars = cmdline.add_subparsers(help="type of post-processing",dest="command")
@@ -37,7 +38,7 @@ if __name__=="__main__":
 
             if len(window) == args.window:
                 print_window(window)
-                window = window[int(len(window)*(1-args.overlap)):]
+                window = window[int(ceil(len(window)*(1-args.overlap))):]
 
         if len(window) > 0:
             print_window(window)
