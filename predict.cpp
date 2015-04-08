@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
     string s_prediction, s_label;
+    bool result = false;
 
     /* load the classifier only after the first data has arrived, so
      * we give the preceding command (when used in a pipe) enough time
@@ -49,14 +50,14 @@ int main(int argc, char *argv[])
 
     switch(io.type) {
     case TIMESERIES:
-      classifier->predict(io.t_data.getData());
+      result = classifier->predict(io.t_data.getData());
       label = io.t_data.getClassLabel();
       s_label = classifier->getClassNameForLabel(label);
       prediction = classifier->getPredictedClassLabel();
       s_prediction = classifier->getClassNameForLabel(prediction);
       break;
     case CLASSIFICATION:
-      classifier->predict(io.c_data.getSample());
+      result = classifier->predict(io.c_data.getSample());
       label = io.c_data.getClassLabel();
       s_label = classifier->getClassNameForLabel(label);
       prediction   = classifier->getPredictedClassLabel();
@@ -64,6 +65,11 @@ int main(int argc, char *argv[])
       break;
     default:
       cerr << "unknown input type" << endl;
+      return -1;
+    }
+
+    if (!result) {
+      cerr << "prediction failed (wrong input type?)" << endl;
       return -1;
     }
 
