@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+
 class groundtruth:
     def __init__(self, args):
         self.label = None
@@ -81,7 +83,8 @@ if __name__=="__main__":
 
     print ("# timeseries")
 
-    for line in fileinput.input(args.files):
+    # avoid buffering with bufsize=1
+    for line in fileinput.input(args.files,bufsize=1):
         if line.strip() == "":
             continue
 
@@ -90,4 +93,5 @@ if __name__=="__main__":
             continue
 
         label,rest = line.split()[0],line.split()[1:]
-        print (method(rest,label))
+        print(method(rest,label))
+        sys.stdout.flush()
