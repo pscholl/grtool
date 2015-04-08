@@ -41,7 +41,34 @@
 
  Once an algorithm has been chosen, more command line parameters become available. Not all of them can be used with all inputs, for example KNN can only be used for classification (i.e. fixed sizes sample frames).
 
+## SVM - Support Vector Machines
+
+ Classifier based on the infamouse LibSVM implementation.
+
+-K, --kernel
+:   kernel type. Must be one of (linear,poly,rbf,sigmoid,precomputed, defaults to linear)
+
+-T, --type
+:   SVM type. Must be one of (C_SVC,NU_SVC,ONE_CLASS,EPSILONS_VR,NU_SVR, defaults to C_CVS)
+
+-G, --gamma
+:   set to 0 for auto-calculation (default: 0)
+
+-D, --degree
+:   svm degree (default: 3)
+
+-O, --coef0
+:   coef0 paramater (default: 0)
+
+-M, --nu
+:   nu parameter (default: 0.5)
+
+-C, --C
+:   C parameter (default: 1)
+
+
 ## KNN - K-Nearest Neighbors
+
 A classifier that just stores all samples during training. For classification the major vote of the K-nearest neighbors (i.e. the K training samples with lowest distance to the classification sample) is used.
 
 -N, --null-coefficient
