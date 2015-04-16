@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import matplotlib as mp, os, sys, argparse, fileinput, numpy as np, matplotlib.animation as animation
+import matplotlib as mp, os, sys, argparse, fileinput, numpy as np, matplotlib.animation as animation, itertools
 from matplotlib import pyplot as plt
 from threading import Thread
 from time import time,sleep
@@ -79,9 +79,9 @@ class XYPlot:
     def __init__(self, labels, data):
         self.annotations,self.arts = [],[]
         data = np.array(data).T
-        for i,x,y in zip(range(len(data[::2])),data[::2],data[1::2]):
+        for i,x,y,m in zip(range(len(data[::2])),data[::2],data[1::2],itertools.cycle('>^*o')):
             s=np.argsort(x)
-            try: a = plt.plot(x[s],y[s],'o-',label=str(i))[0]
+            try: a = plt.plot(y[s],x[s],m,label=str(i))[0]
             except ValueError: sys.stderr.write("input dims do not fit\n"); sys.exit(-1)
             self.arts.append(a)
             for (l,point) in zip(labels,zip(x,y)):

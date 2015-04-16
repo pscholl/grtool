@@ -1,7 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 import sys
+
+class count:
+    def __init__(self, args):
+        self.label = ""
+        self.firstcall = True
+        self.max_size = args.window_size
+        self.count = 0
+
+    def __call__(self,data,label=None):
+        s = ""
+        if self.firstcall:
+            self.firstcall = False
+            s+="# timeseries\n"
+
+        if self.label != label or (self.max_size!=0 and self.count > self.max_size):
+            s += self.label + " " + str(self.count/50.) + "\n"
+            self.label = label
+            self.count = 0
+
+        self.count += 1
+        return s
 
 class groundtruth:
     def __init__(self, args):
@@ -62,6 +82,7 @@ class sliding_window:
         return s
 
 methods = {
+    'count'          : count,
     'groundtruth'    : groundtruth,
     'sliding_window' : sliding_window }
 
@@ -75,6 +96,9 @@ sw_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="inp
 gt_cmdline = subparser.add_parser('groundtruth', help="groundtruth method")
 gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
 gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+gt_cmdline = subparser.add_parser('count', help="count method")
+gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
+gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
 args = cmdline.parse_args()
 
 if __name__=="__main__":
@@ -84,7 +108,7 @@ if __name__=="__main__":
     print ("# timeseries")
 
     # avoid buffering with bufsize=1
-    for line in fileinput.input(args.files,bufsize=1):
+    for line in fileinput.input(args.files,bufsize=1000):
         if line.strip() == "":
             continue
 
@@ -93,5 +117,5 @@ if __name__=="__main__":
             continue
 
         label,rest = line.split()[0],line.split()[1:]
-        print(method(rest,label))
+        sys.stdout.write(method(rest,label))
         sys.stdout.flush()
