@@ -247,6 +247,8 @@ class MyFuncAnimation(animation.FuncAnimation):
     #
     def _step(self,*args):
         animation.FuncAnimation._step(self,*args)
+        if sys.stdout.closed:
+            plt.gcf().canvas.set_window_title(plt.gcf().canvas.get_window_title()+" [done]")
         return not sys.stdout.closed
 
 if __name__=="__main__":
