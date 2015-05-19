@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import matplotlib as mp, os, sys, argparse, fileinput, numpy as np, matplotlib.animation as animation, itertools

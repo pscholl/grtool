@@ -81,24 +81,89 @@ class sliding_window:
         self.numbuffered += 1
         return s
 
+class energy_based:
+    def __init__(self, args):
+        self.firstcall = True;
+
+        # the command line params
+        self.threshold = args.threshold
+        self.intWinSize = args.int_win_size
+
+        # the ground truth labels
+        self.labels = {}
+
+        # the shortened horizon where the energy is calculated over
+        self.buffer = [['0', '0', '0'] for x in range(0, self.intWinSize)]
+        self.sampleCount = 0
+
+        # mark if we crossed the threshold
+        self.wasBelowThreshold = True
+
+
+    def __call__(self,data,label=None):
+        s = ""
+        if self.firstcall:
+            self.firstcall = False
+            s += "# timeseries\n"
+
+        # add new data to buffer
+        del self.buffer[0]
+        self.buffer.append(data)
+
+        self.sampleCount += 1
+        if self.sampleCount < self.intWinSize:
+            return ""
+
+        # calculate the signal energy of the current buffer
+        energy = 0
+        for b in self.buffer:
+            x = float(b[0])
+            y = float(b[1])
+            z = float(b[2])
+            energy += x * x + y * y + z * z
+        energy /= float(self.intWinSize)
+
+        # write data, delayed by (intWinSize / 2)
+        s += label + "\t"
+        s += "\t".join(self.buffer[self.intWinSize / 2])
+
+        # if a segment is reached (the threshold was crossed), make a line break
+        if ((energy > self.threshold) is self.wasBelowThreshold): # XNOR
+            self.wasBelowThreshold = not self.wasBelowThreshold
+            s += "\n"
+
+        s += "\n"
+        return s
+
 methods = {
     'count'          : count,
     'groundtruth'    : groundtruth,
-    'sliding_window' : sliding_window }
+    'sliding_window' : sliding_window,
+    'energy_based'   : energy_based }
 
 import argparse, fileinput
 cmdline = argparse.ArgumentParser('segment stream of data into timeseries')
 subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation method", dest="method")
+
 sw_cmdline = subparser.add_parser('sliding_window', help="sliding window method")
 sw_cmdline.add_argument('-W', '--window-size', type=int, default=10, help="number of samples in each window")
 sw_cmdline.add_argument('-O', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
 sw_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
 gt_cmdline = subparser.add_parser('groundtruth', help="groundtruth method")
 gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
 gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
+# TODO: should that be called not "gt"?
 gt_cmdline = subparser.add_parser('count', help="count method")
 gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
 gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
+eb_cmdline = subparser.add_parser('energy_based', help="energy based method")
+eb_cmdline.add_argument('-T', '--threshold', type=float, default=0, help="creates a new segment every time the threshold is crossed")
+eb_cmdline.add_argument('-I', '--int-win-size', type=int, default=1, help="size of the integration window")
+eb_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
 args = cmdline.parse_args()
 
 if __name__=="__main__":
