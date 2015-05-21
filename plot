@@ -3,6 +3,7 @@
 
 import matplotlib as mp, os, sys, argparse, fileinput, numpy as np, matplotlib.animation as animation, itertools
 from matplotlib import pyplot as plt
+from matplotlib import gridspec
 from threading import Thread
 from time import time,sleep
 from queue import Queue
@@ -42,36 +43,65 @@ class ScatterPlot:
 class LinePlot:
     def __init__(self, labels, data):
         self.vspans = [] # for drawing labels
+
+        # make 2 subplots with fixed ratio
+        gs = gridspec.GridSpec(2,1, height_ratios=[16, 1])
+
+        # the line plot
+        plt.subplot(gs[0])
         self.arts = plt.plot(data)
+
+        # the (for now) empty label plot
+        self.labelAxes = plt.subplot(gs[1])
+        self.labelAxes.get_yaxis().set_visible(False)
+        self.labelAxes.get_xaxis().set_visible(False)
+
+        # add lines to the arts
+        self.arts += plt.plot(data)
         plt.tight_layout()
 
     def __call__(self,frameno,labels,data):
+        # update plot data
         data     = np.array(data)
         xdata    = np.arange(frameno-data.shape[0], frameno)
         labels.append(None)
 
+        # update labels
         self.labels = list(set(labels))
         self.cm  = mp.cm.get_cmap("jet", len(self.labels)+1)
 
-        for art,d in zip(self.arts,data.T):
+        # append new data
+        for art,d in zip(self.arts[:3],data.T):
             art.set_data(xdata,d)
 
-        #
+        # update x axis for label plot
+        self.labelAxes.set_xlim([0, len(xdata)])
+
         # remove all vspans and add updated ones
-        #
         for span in self.vspans:
             span.remove()
 
         offset = frameno - data.shape[0]
+
+        # calculate width of each vspan block
         spans  = [0] + [x+1 for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)-1]
+
+        # span differences (for text centering)
+        spanDiffs  = [(s1-s2) for (s1,s2) in zip(spans[:-1], spans[1:])]
+
+        # create list of currently visible labels
         mylabels = [l1 for l1,l2 in zip(labels,labels[1:]) if l1!=l2]
+
+        # collect label indices
         li=[self.labels.index(l) for l in mylabels]
+
+        # create vspans and annotations
         self.vspans = [\
-                plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
+                self.labelAxes.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
                 for x1,x2,c in zip(spans[:-1],spans[1:],self.cm(li)) ]
         self.vspans += [\
-                plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
-                for label,x1 in zip(mylabels,spans) ]
+                self.labelAxes.annotate(label, (x1-0.5*sd-len(label)*30,0.5), xycoords=("data", "axes fraction"), rotation=0)\
+                for label,x1,sd in zip(mylabels,spans,spanDiffs) ]
         labels.pop()
         return self.arts
 
