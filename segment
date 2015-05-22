@@ -11,10 +11,6 @@ class count:
 
     def __call__(self,data,label=None):
         s = ""
-        if self.firstcall:
-            self.firstcall = False
-            s+="# timeseries\n"
-
         if self.label != label or (self.max_size!=0 and self.count > self.max_size):
             s += self.label + " " + str(self.count/50.) + "\n"
             self.label = label
@@ -32,16 +28,14 @@ class groundtruth:
 
     def __call__(self,data,label=None):
         s = ""
-        if self.firstcall:
-            self.firstcall = False
-            s+="# timeseries\n"
-
         if self.label != label or (self.max_size!=0 and self.count > self.max_size):
             self.label = label
             self.count = 0
             s += "\n"
-        s+= label + "\t"
+
+        s += label + "\t"
         s += "\t".join(data)
+        s += "\n"
         self.count += 1
         return s
 
@@ -55,10 +49,6 @@ class sliding_window:
 
     def __call__(self,data,label=None):
         s = ""
-        if self.firstcall:
-            self.firstcall = False
-            s += "# timeseries\n"
-
         if label in self.labels:
             self.labels[label] += 1
         else:
@@ -79,7 +69,7 @@ class sliding_window:
             s += "\n"
 
         self.numbuffered += 1
-        return s
+        return s+"\n"
 
 class energy_based:
     def __init__(self, args):
