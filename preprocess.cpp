@@ -154,8 +154,8 @@ PreProcessing *apply_cmdline_args(string type, cmdline::parser &c, int num_dimen
         num_dimensions);
   } else if (type == "Derivative") {
     pp = new Derivative(
-        p.get<int>   ("derivative"),
-        p.get<double>("sample-duration"),
+        p.get<int>   ("order"),
+        p.get<double>("delta"),
         num_dimensions,
         p.get<int>  ("filter-size") != 0,
         p.get<int>  ("filter-size"));
