@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+import argparse,sys,subprocess,shlex,tempfile,os,shutil,re
+from datetime import timedelta as td
+from select import select
+from struct import Struct, error
+from math import ceil,floor
+from sys import stderr
+
+SRT = re.compile(r'(\d+).\n?'
+        r'(?P<start>\d{2}:\d{2}:\d{2},\d{3}) --> '
+        r'(?P<end>\d{2}:\d{2}:\d{2},\d{3}).\n?'
+        r'(?P<text>.+?)(\n\n?|$)', re.DOTALL|re.MULTILINE)
+ASS = re.compile(r'Dialogue: (.+)')
+
+def unpack_to_str(files, default="NULL", style="Default", do_flush=True):
+    """ unpacks a .mkv file to a string representation, if it contains an audio
+    and subtitle track. Without a subtitle track just unpacks an audio track
+    with the default label.
+    """
+    tmpdir = tempfile.mkdtemp()
+    data,subtitle = os.path.join(tmpdir,"data"),os.path.join(tmpdir,"sub")
+
+    try:
+        os.mkfifo(data)
+        os.mkfifo(subtitle)
+
+        ms = (subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT) for f in files)
+        ms = (re.search("Audio: .*, (\d+) Hz, (\d+.\d+)", str(s)) for s in ms)
+        ms = [x.groups() for x in ms if x]
+        if len(ms) == 0: raise Exception("unable to probe audio input files, are there any?")
+        rate,num_channels = [(int(a),sum(int(x) for x in b.split('.'))) for a,b in ms][0]
+
+        cmd = "ffmpeg %s -y -f ass %s -y -f f32le %s"%(" -i ".join([""]+files),subtitle,data)
+        ffmpeg = subprocess.Popen(cmd,shell=True)
+
+        subtitle,data = open(subtitle,"r"), open(data,"rb")
+        tic,fmt,buf   = 0, Struct("%df"%num_channels), []
+        b,e,l         = None,None,None
+
+        def ticks(s):
+            h,m,s,ms = [int(x) for x in s.replace('.',':').split(':')]
+            return ceil((h*60*60*1000 + m*60*1000 + s*1000 + ms) / (1000/rate))
+
+        while True:
+            r,_,_ = select([data,subtitle],[],[],10)
+
+            if data in r:
+                buf.append([str(x) for x in fmt.unpack(data.read(fmt.size))])
+
+            if subtitle in r and (e is None or tic>=e):
+                match = ASS.match(subtitle.readline())
+                if match:
+                    _,_b,_e,s,_,_,_,_,_,l = match.group(1).split(',')
+
+                    if style is not None and s!=style:
+                        continue
+
+                    b,e = ticks(_b),ticks(_e)
+
+                    if b<tic:
+                        raise Exception("overlapping labels are not supported")
+
+            while (not e is None and tic<e) and len(buf)>0:
+                label = l if tic>=b else default
+                print(label,*buf.pop(),sep="\t")
+                tic += 1
+    except error:
+        pass # happens when we read the whole file
+    except:
+        raise
+    finally:
+        while len(buf)>0 and do_flush:
+            print("NULL",*buf.pop(),sep="\t")
+        ffmpeg.terminate()
+        data.close()
+        subtitle.close()
+        shutil.rmtree(tmpdir)
+
+if __name__ == '__main__':
+    cmdline = argparse.ArgumentParser('unpacks .mkv file (using ffmpeg)')
+    cmdline.add_argument('files', type=str, nargs='+', help="input files")
+    cmdline.add_argument('-d', '--default', type=str, default="NULL", help="default class label for unlabelled data")
+    cmdline.add_argument('-s', '--style', type=str, default=None,     help="the class label style to select")
+    cmdline.add_argument('-n', '--no-flush', action="store_false",     help="if specified stops output after the last label")
+    args = cmdline.parse_args()
+
+    unpack_to_str(args.files,args.default,args.style,args.no_flush)
