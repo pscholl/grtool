@@ -14,7 +14,7 @@ SRT = re.compile(r'(\d+).\n?'
         r'(?P<text>.+?)(\n\n?|$)', re.DOTALL|re.MULTILINE)
 ASS = re.compile(r'Dialogue: (.+)')
 
-def unpack_to_str(files, default="NULL", style="Default", do_flush=True):
+def unpack_to_str(files, default="NULL", style="Default", do_flush=True, stream=[]):
     """ unpacks a .mkv file to a string representation, if it contains an audio
     and subtitle track. Without a subtitle track just unpacks an audio track
     with the default label.
@@ -26,13 +26,25 @@ def unpack_to_str(files, default="NULL", style="Default", do_flush=True):
         os.mkfifo(data)
         os.mkfifo(subtitle)
 
-        ms = (subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT) for f in files)
-        ms = (re.search("Audio: .*, (\d+) Hz, (\d+.\d+)", str(s)) for s in ms)
-        ms = [x.groups() for x in ms if x]
-        if len(ms) == 0: raise Exception("unable to probe audio input files, are there any?")
-        rate,num_channels = [(int(a),sum(int(x) for x in b.split('.'))) for a,b in ms][0]
+        # get stream id and metadata from each input
+        ms = (subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT).decode("utf-8") for f in files)
+        ms = (re.search("Stream #(\d+:\d+)(\(.*?\))?: (?:(?:Audio: .*, (\d+) Hz, (\d+.\d+))|(?:Subtitle: ))", str(line)) for s in ms for line in s.split("\n"))
+        ms = (x.groups() for x in ms if x)
+        ms = [(id,name[1:-1] if name else "",int(rate) if rate else None,sum(int(x) for x in c.split('.')) if c else None) for (id,name,rate,c) in ms]
 
-        cmd = "ffmpeg %s -y -f ass %s -y -f f32le %s"%(" -i ".join([""]+files),subtitle,data)
+        # now select the streams, either by name-matching with stream or by selecting the first
+        # audio track.
+        if len(ms) == 0: raise Exception("unable to probe audio input files, are there any?")
+        rate,num_channels = list(ms)[0][2],list(ms)[0][3]
+        stream_ids = ""
+
+        if len(stream) > 0:
+            ms = [(i,n,r,c) for i,n,r,c in ms if n in stream]
+            if len(ms)!=len(stream):
+                raise Exception("unable to find streams in inputs")
+            stream_ids = " ".join(["-c:%s copy"%i for i,n,r,c in ms])
+
+        cmd = "ffmpeg %s %s -y -f ass %s -y -f f32le %s"%(" -i ".join([""]+files),stream_ids,subtitle,data)
         ffmpeg = subprocess.Popen(cmd,shell=True)
 
         subtitle,data = open(subtitle,"r"), open(data,"rb")
@@ -81,9 +93,10 @@ def unpack_to_str(files, default="NULL", style="Default", do_flush=True):
 if __name__ == '__main__':
     cmdline = argparse.ArgumentParser('unpacks .mkv file (using ffmpeg)')
     cmdline.add_argument('files', type=str, nargs='+', help="input files")
-    cmdline.add_argument('-d', '--default', type=str, default="NULL", help="default class label for unlabelled data")
-    cmdline.add_argument('-s', '--style', type=str, default=None,     help="the class label style to select")
-    cmdline.add_argument('-n', '--no-flush', action="store_false",     help="if specified stops output after the last label")
+    cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
+    cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
+    cmdline.add_argument('-n', '--no-flush', action="store_false",          help="if specified stops output after the last label")
+    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*")
     args = cmdline.parse_args()
 
-    unpack_to_str(args.files,args.default,args.style,args.no_flush)
+    unpack_to_str(args.files,args.default,args.style,args.no_flush, args.stream)

@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     }
 
     /* intermediate top-score reports */
-    if (top_score_type != "disabled" && in == cin && c.exist("intermediate")) {
+    if (top_score_type != "disabled" && &in==&cin && c.exist("intermediate")) {
       double score;
 
       Group &g = groups[tag];

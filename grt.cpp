@@ -5,16 +5,18 @@
 #include "libgrt_util.h"
 
 vector<vector<const char*>> cmds = {
-  {"help",        "h",  "prints this message or the help for the specified command"},
-  {"info",        "i",  "print stats about a dataset file"},
-  {"train",       "tr", "trains a prediction model"},
-  {"predict",     "pr", "predict from unseen data"},
-  {"score",       "s",  "calculate classifcation score for prediction"},
-  {"extract",     "e",  "extract features from a data sequence"},
-  {"preprocess",  "pp", "preprocess data sequence"},
+  {"help",        "h",   "prints this message or the help for the specified command"},
+  {"info",        "i",   "print stats about a dataset file"},
+  {"train",       "tr",  "trains a prediction model"},
+  {"predict",     "pr",  "predict from unseen data"},
+  {"score",       "s",   "calculate classifcation score for prediction"},
+  {"extract",     "e",   "extract features from a data sequence"},
+  {"preprocess",  "pp",  "preprocess data sequence"},
   {"postprocess", "pop", "postprocess label streams"},
-  {"plot",        "p",  "python based stream plotter"},
-  {"segment",     "sg", "segments a list of samples into multiple timeseries"},
+  {"plot",        "p",   "python based stream plotter"},
+  {"segment",     "sg",  "segments a list of samples into multiple timeseries"},
+  {"pack",        "pa",  "pack multiple streams into an .mkv file (using ffmpeg)"},
+  {"unpack",      "u",   "unpack first audio and subtitle stream from .mkv file (using ffmpeg)"},
 };
 
 int usage(int exit_code, string msg="") {
@@ -34,6 +36,7 @@ int usage(int exit_code, string msg="") {
 
   return exit_code;
 }
+
 
 int main(int argc, char *argv[]) 
 {
@@ -56,8 +59,7 @@ int main(int argc, char *argv[])
       char executable[256];
       snprintf(executable,sizeof(executable),"grt-%s",cmd);
       return execvp(executable, &argv[1]);
-    }
-  }
+  }}
 
   return usage(-1, "command not found");
 }
