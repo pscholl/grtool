@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+import argparse,sys,subprocess,shlex,tempfile,os,shutil,re
+
+def pack(files, titles=[]):
+    output  = files[-1]
+    files   = files[:-1]
+    cmdline = "ffmpeg "
+
+    # probe the input files and generate stream selectors
+    #ms = [subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT).decode("utf-8") for f in files]
+    #ms = ((fid,re.search("Stream #(\d+:\d+)(\(.*?\))?: (?:(?:Audio: .*, (\d+) Hz, (\d+.\d+))|(?:Subtitle: ))", str(line))) for (fid,s) in zip(range (len(files)),ms) for line in s.split("\n"))
+    #ms = ((fid,x.groups()) for (fid,x) in ms if x)
+    #ids = [(fid,id.split(":")[1]) for (fid,(id,name,rate,c)) in ms]
+    #ms = ["%d:%s"%(a,b) for (a,b) in ids]
+
+    #cmdline += " -map ".join([""] + ms)
+    #cmdline += " "
+
+    # add input and output files
+    cmdline += " -i ".join([""] + files)
+    cmdline += " -c:a copy -c:v copy -c:s ass "
+
+    # fill in the title
+    titles.extend(files[len(titles)-len(files):])
+    cmdline += " ".join(["-metadata:s:%d language:%s"%(id,title) for (id,title) in zip(range(len(files)),titles)])
+
+    cmdline += " " + output
+
+    return os.execvp("ffmpeg", shlex.split(cmdline))
+
+if __name__ == '__main__':
+    cmdline = argparse.ArgumentParser('pack data streams into .mkv file (using ffmpeg)')
+    cmdline.add_argument('files', type=str, nargs='+', help="input files")
+    cmdline.add_argument('-t', '--title', type=str, nargs='+', default=[], help="title for each stream")
+    args = cmdline.parse_args()
+    pack(args.files, args.title)
