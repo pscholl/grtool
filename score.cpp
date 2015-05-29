@@ -37,7 +37,7 @@ class Group {
   double get_meanscore(string, double);
 
   vector< uint64_t > TP,TN,FP,FN;
-  vector< double >   Fbeta,recall,precision;
+  vector< double >   Fbeta,recall,precision,TNR,NPV;
 
   string to_string(cmdline::parser&, string tag);
   string to_flat_string(cmdline::parser&, string tag);
@@ -227,6 +227,8 @@ void Group::calculate_score(double beta)
   for (size_t i=0; i<labelset.size(); i++) {
     recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
     precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
+    TNR.push_back( TN[i] / (double) (TN[i] + FP[i]) );
+    NPV.push_back( TN[i] / (double) (FN[i] + TN[i]) );
     Fbeta.push_back( (1+pow(beta,2)) * (precision[i] * recall[i])/(pow(beta,2)*precision[i] + recall[i]) );
   }
 }
@@ -240,6 +242,8 @@ double Group::get_meanscore(string which, double beta)
   else if (which.find("Fbeta") != string::npos)     score = &Fbeta;
   else if (which.find("recall") != string::npos)    score = &recall;
   else if (which.find("precision") != string::npos) score = &precision;
+  else if (which.find("NPV") != string::npos) score = &precision;
+  else if (which.find("TNR") != string::npos) score = &precision;
   else return 0;
 
   for (auto val : *score)
@@ -270,10 +274,14 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
   ss << "total_recall ";
   ss << "total_precision ";
   ss << "total_Fbeta ";
+  ss << "total_NPV ";
+  ss << "total_TNR ";
   for (auto label : labelset) {
     ss << label << "_recall ";
     ss << label << "_precision ";
     ss << label << "_Fbeta ";
+    ss << label << "_NPV ";
+    ss << label << "_TNR ";
   } ss << endl;
 
   /* print out the total scores first */
@@ -281,11 +289,15 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
   ss << mean(recall) << " ";
   ss << mean(precision) << " ";
   ss << mean(Fbeta) << " ";
+  ss << mean(NPV) << " ";
+  ss << mean(TNR) << " ";
 
   for (size_t i=0; i<labelset.size(); i++) {
     ss << (std::isnan(recall[i])     ? "0" : std::to_string(recall[i])) << " ";
     ss << (std::isnan(precision[i])  ? "0" : std::to_string(precision[i])) << " ";
     ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
+    ss << (std::isnan(NPV[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
+    ss << (std::isnan(TNR[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
   } ss << endl;
 
   return ss.str();
@@ -345,9 +357,9 @@ string Group::to_string(cmdline::parser &c, string tag) {
     cout << endl;
   }
 
-  double beta = c.get<double>("F-score");
   if (!c.exist("no-score")) {
     size_t tab_size = 2;
+    double beta = c.get<double>("F-score");
 
     if (!c.exist("no-confusion"))
       cout << endl;
@@ -363,9 +375,13 @@ string Group::to_string(cmdline::parser &c, string tag) {
     cout << centered(TAB_SIZE,"  recall  ");
     cout << centered(TAB_SIZE,"  precision  ");
     cout << centered(TAB_SIZE,"  Fbeta  ");
+    cout << centered(TAB_SIZE,"   NPV   ");
+    cout << centered(TAB_SIZE,"   TNR   ");
     cout << endl;
 
     cout << string(tab_size, '-') << " " ;
+    cout << string(TAB_SIZE-1, '-') << " ";
+    cout << string(TAB_SIZE-1, '-') << " ";
     cout << string(TAB_SIZE-1, '-') << " ";
     cout << string(TAB_SIZE-1, '-') << " ";
     cout << string(TAB_SIZE-1, '-');
@@ -376,6 +392,8 @@ string Group::to_string(cmdline::parser &c, string tag) {
       cout << centered(TAB_SIZE, std::isnan(recall[i])    ? "" : std::to_string(recall[i]));
       cout << centered(TAB_SIZE, std::isnan(precision[i]) ? "" : std::to_string(precision[i]));
       cout << centered(TAB_SIZE, std::isnan(Fbeta[i])     ? "" : std::to_string(Fbeta[i]));
+      cout << centered(TAB_SIZE, std::isnan(NPV[i])       ? "" : std::to_string(NPV[i]));
+      cout << centered(TAB_SIZE, std::isnan(TNR[i])       ? "" : std::to_string(TNR[i]));
       cout << endl;
     }
 
@@ -383,6 +401,8 @@ string Group::to_string(cmdline::parser &c, string tag) {
     cout << centered(TAB_SIZE, meanstd(recall));
     cout << centered(TAB_SIZE, meanstd(precision));
     cout << centered(TAB_SIZE, meanstd(Fbeta));
+    cout << centered(TAB_SIZE, meanstd(NPV));
+    cout << centered(TAB_SIZE, meanstd(TNR));
     cout << endl;
   }
 
