@@ -38,14 +38,11 @@ A ground truth label separated by whitespace from a prediction needs to be given
 -c, --no-confusion
 :   Do not report the confusion matrix.
 
--p, --no-precision
-:   Do not report the precision score for each label, and its mean and standard deviation.
-
--r, --no-recall
-:   Same as --no-precision but for the recall score.
+-n, --no-score
+:   Do not report any score.
 
 -F, --F-score <beta>
-:   Report the weighted mean of recall and precision. The weighting factor beta can be supplied and defaults to 1, supplying 0 disables reporting of the F-score.
+:   Specifies the beta value of the F-score, defaults to 1.
 
 -g, --group
 :   Turn on tag-based aggregation, all input lines must be prefixed with (<tag>), where tag can be any string. In this mode all lines with the same tag are aggregated and reported as belonging to the same group. This is useful for scoring multiple predictions in the same run (see the examples section). If turned off, all lines are assumed to belong to the same group. Defaults to off.
@@ -78,12 +75,12 @@ These are a few example on the input and output data of the scoring. Let's start
     left_swipe        1.000000          0.666667          0.800000     
                      0.75/0.25       0.833333/0.166    0.733333/0.066  
 
-We have four lines of input, i.e. four predictions in total that need to be scored. They are made of a left_swipe, right_swipe label. The left hand side of the input is the ground truth label, which is gathered by a wizard-of-oz like system, and the right hand side is the prediction of the model. You can see that we have one misclassification on line two, which is reflected in the recall, precision and F-score, as well as in the confusion matrix. Reporting of some scores can be turned off by providing the corresponding parameter:
+We have four lines of input, i.e. four predictions in total that need to be scored. They are made of a left_swipe, right_swipe label. The left hand side of the input is the ground truth label, which is gathered by a wizard-of-oz like system, and the right hand side is the prediction of the model. You can see that we have one misclassification on line two, which is reflected in the recall, precision and F-score, as well as in the confusion matrix. Reporting of the overall scores (and leaving only the confusion matrix) can be turned off.
 
     echo "right_swipe right_swipe
     > right_swipe left_swipe
     > left_swipe  left_swipe
-    > left_swipe  left_swipe" | grt score -r -p -F 0
+    > left_swipe  left_swipe" | grt score -n
     None          right_swipe   left_swipe 
     ------------ ------------- ------------ 
     right_swipe        1                   

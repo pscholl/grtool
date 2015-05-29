@@ -71,9 +71,8 @@ int main(int argc, char *argv[])
   c.add         ("help",          'h', "print this message");
   c.add         ("flat",          'f', "line-based output, implies --no-confusion");
   c.add         ("no-confusion",  'c', "report confusion matrix");
-  c.add         ("no-precision",  'p', "report precision, per class and overall");
-  c.add         ("no-recall",     'r', "report recall, per class and overall");
-  c.add<double> ("F-score",       'F', "report F-beta score, beta defaults to 1, 0 to disable", false, 1);
+  c.add         ("no-score",      'n', "report recall, per class and overall");
+  c.add<double> ("F-score",       'F', "beta value for F-score, default: 1", false, 1);
   c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
   c.add         ("quiet",         'q', "print no warnings");
   c.add<string> ("sort",          's', "prints results in ascending mean [Fbeta,recall,precision,disabled] order", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","disabled"));
@@ -91,11 +90,6 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  if ((c.exist("no-confusion") && c.exist("no-precision") && c.exist("no-recall") && c.get<double>("F-score")==0)) {
-    cerr << c.usage() << endl << "error: need at least one reporting option" << endl;
-    return -1;
-  }
-
   if (c.exist("sort") && !c.exist("group")) {
     cerr << c.usage() << endl << "erro: sorting can only be used in conjuction with tagged (-g) input" << endl;
     return -1;
@@ -103,6 +97,11 @@ int main(int argc, char *argv[])
 
   if (c.exist("flat"))
     c.set_option("no-confusion");
+
+  if (c.exist("no-score") && c.exist("no-confusion")) {
+    cerr << c.usage() << endl << "error: --no-confusion and --no-score can not be given at the same time" << endl;
+    return -1;
+  }
 
   /* open standard input or file argument */
   istream &in = grt_fileinput(c);
@@ -191,10 +190,10 @@ int main(int argc, char *argv[])
   }
   else {
     int i=0;
-    for (auto &x : groups)
+    for (auto &group : groups)
       cout << (i++ != 0 ? "\n" : "") << (c.exist("flat") ?
-                      x.second.to_flat_string(c,x.first) :
-                           x.second.to_string(c,x.first));
+              group.second.to_flat_string(c,group.first) :
+                   group.second.to_string(c,group.first));
   }
 
   return 0;
@@ -256,6 +255,9 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
   stringstream ss;
   calculate_score(c.get<double>("F-score"));
 
+  if (c.exist("no-score"))
+    return "";
+
   /* print out comment attached to this group if any */
   for( auto line : lines )
     if ( line[0] == '#' )
@@ -265,25 +267,25 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
   double beta = c.get<double>("F-score");
   ss << "# ";
   ss << " groupname ";
-  if (!c.exist("no-recall"))    ss << "total_recall ";
-  if (!c.exist("no-precision")) ss << "total_precision ";
-  if (beta>0)                   ss << "total_Fbeta ";
+  ss << "total_recall ";
+  ss << "total_precision ";
+  ss << "total_Fbeta ";
   for (auto label : labelset) {
-    if (!c.exist("no-recall"))    ss << label << "_recall ";
-    if (!c.exist("no-precision")) ss << label << "_precision ";
-    if (beta>0)                   ss << label << "_Fbeta ";
+    ss << label << "_recall ";
+    ss << label << "_precision ";
+    ss << label << "_Fbeta ";
   } ss << endl;
 
   /* print out the total scores first */
   ss << tag << " ";
-  if (!c.exist("no-recall"))      ss << mean(recall) << " ";
-  if (!c.exist("no-precision"))   ss << mean(precision) << " ";
-  if (beta>0)                     ss << mean(Fbeta) << " ";
+  ss << mean(recall) << " ";
+  ss << mean(precision) << " ";
+  ss << mean(Fbeta) << " ";
 
   for (size_t i=0; i<labelset.size(); i++) {
-    if (!c.exist("no-recall"))    ss << (std::isnan(recall[i])     ? "0" : std::to_string(recall[i])) << " ";
-    if (!c.exist("no-precision")) ss << (std::isnan(precision[i])  ? "0" : std::to_string(precision[i])) << " ";
-    if (beta>0)                   ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
+    ss << (std::isnan(recall[i])     ? "0" : std::to_string(recall[i])) << " ";
+    ss << (std::isnan(precision[i])  ? "0" : std::to_string(precision[i])) << " ";
+    ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
   } ss << endl;
 
   return ss.str();
@@ -344,7 +346,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
   }
 
   double beta = c.get<double>("F-score");
-  if (!c.exist("no-recall") || !c.exist("no-precision") || beta>0) {
+  if (!c.exist("no-score")) {
     size_t tab_size = 2;
 
     if (!c.exist("no-confusion"))
@@ -358,29 +360,29 @@ string Group::to_string(cmdline::parser &c, string tag) {
     uint64_t TAB_SIZE = 18;
 
     cout << tag << string(tab_size - tag.size(), ' ') << " ";
-    if (!c.exist("no-recall"))    cout << centered(TAB_SIZE,"  recall  ");
-    if (!c.exist("no-precision")) cout << centered(TAB_SIZE,"  precision  ");
-    if (beta>0)                   cout << centered(TAB_SIZE,"  Fbeta  ");
+    cout << centered(TAB_SIZE,"  recall  ");
+    cout << centered(TAB_SIZE,"  precision  ");
+    cout << centered(TAB_SIZE,"  Fbeta  ");
     cout << endl;
 
     cout << string(tab_size, '-') << " " ;
-    if (!c.exist("no-recall"))    cout << string(TAB_SIZE-1, '-') << " ";
-    if (!c.exist("no-precision")) cout << string(TAB_SIZE-1, '-') << " ";
-    if (beta>0)                   cout << string(TAB_SIZE-1, '-');
+    cout << string(TAB_SIZE-1, '-') << " ";
+    cout << string(TAB_SIZE-1, '-') << " ";
+    cout << string(TAB_SIZE-1, '-');
     cout << endl;
 
     for (size_t i=0; i<labelset.size(); i++) {
       cout << labelset[i] << string(tab_size - labelset[i].size() + 1,' ');
-      if (!c.exist("no-recall"))    cout << centered(TAB_SIZE, std::isnan(recall[i])     ? "" : std::to_string(recall[i]));
-      if (!c.exist("no-precision")) cout << centered(TAB_SIZE, std::isnan(precision[i]) ? "" : std::to_string(precision[i]));
-      if (beta>0)                   cout << centered(TAB_SIZE, std::isnan(Fbeta[i])     ? "" : std::to_string(Fbeta[i]));
+      cout << centered(TAB_SIZE, std::isnan(recall[i])    ? "" : std::to_string(recall[i]));
+      cout << centered(TAB_SIZE, std::isnan(precision[i]) ? "" : std::to_string(precision[i]));
+      cout << centered(TAB_SIZE, std::isnan(Fbeta[i])     ? "" : std::to_string(Fbeta[i]));
       cout << endl;
     }
 
     cout << string(tab_size +1, ' ');
-    if (!c.exist("no-recall"))      cout << centered(TAB_SIZE, meanstd(recall));
-    if (!c.exist("no-precision"))   cout << centered(TAB_SIZE, meanstd(precision));
-    if (beta>0)                     cout << centered(TAB_SIZE, meanstd(Fbeta));
+    cout << centered(TAB_SIZE, meanstd(recall));
+    cout << centered(TAB_SIZE, meanstd(precision));
+    cout << centered(TAB_SIZE, meanstd(Fbeta));
     cout << endl;
   }
 
