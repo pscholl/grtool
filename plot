@@ -40,7 +40,7 @@ class ScatterPlot:
 
         return self.sc
 
-class LinePlot:
+class LinePlotWithLabels:
     def __init__(self, labels, data):
         self.vspans = [] # for drawing labels
 
@@ -105,6 +105,42 @@ class LinePlot:
         labels.pop()
         return self.arts
 
+class LinePlot:
+    def __init__(self, labels, data):
+        self.vspans = [] # for drawing labels
+        self.arts = plt.plot(data)
+        plt.tight_layout()
+
+    def __call__(self,frameno,labels,data):
+        data     = np.array(data)
+        xdata    = np.arange(frameno-data.shape[0], frameno)
+        labels.append(None)
+
+        self.labels = list(set(labels))
+        self.cm  = mp.cm.get_cmap("jet", len(self.labels)+1)
+
+        for art,d in zip(self.arts,data.T):
+            art.set_data(xdata,d)
+
+        #
+        # remove all vspans and add updated ones
+        #
+        for span in self.vspans:
+            span.remove()
+
+        offset = frameno - data.shape[0]
+        spans  = [0] + [x+1 for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)-1]
+        mylabels = [l1 for l1,l2 in zip(labels,labels[1:]) if l1!=l2]
+        li=[self.labels.index(l) for l in mylabels]
+        self.vspans = [\
+                plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
+                for x1,x2,c in zip(spans[:-1],spans[1:],self.cm(li)) ]
+        self.vspans += [\
+                plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
+                for label,x1 in zip(mylabels,spans) ]
+        labels.pop()
+        return self.arts
+
 class XYPlot:
     def __init__(self, labels, data):
         self.annotations,self.arts = [],[]
@@ -153,9 +189,10 @@ class XYPlot:
         return self.arts
 
 plotters = {
-        'xy'      : XYPlot,
-        'line'    : LinePlot,
-        'scatter' : ScatterPlot, }
+        'xy'            : XYPlot,
+        'line'          : LinePlot,
+        'lineLabels'    : LinePlotWithLabels,
+        'scatter'       : ScatterPlot, }
 
 cmdline = argparse.ArgumentParser('real-time of data for grt')
 cmdline.add_argument('--plot-type',   '-p', type=str, default="line",help="type of plot", choices=plotters.keys())
