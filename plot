@@ -9,6 +9,7 @@ from time import time,sleep
 from queue import Queue
 from inspect import isclass
 from math import ceil
+import sys
 mp.style.use("ggplot")
 
 class ScatterPlot:
@@ -57,7 +58,6 @@ class LinePlotWithLabels:
         self.labelAxes.get_xaxis().set_visible(False)
 
         # add lines to the arts
-        self.arts += plt.plot(data)
         plt.tight_layout()
 
     def __call__(self,frameno,labels,data):
@@ -83,7 +83,7 @@ class LinePlotWithLabels:
 
         offset = frameno - data.shape[0]
 
-        # calculate width of each vspan block
+        # calculate end index of each vspan block
         spans  = [0] + [x+1 for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)-1]
 
         # span differences (for text centering)
