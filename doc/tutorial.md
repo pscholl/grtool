@@ -17,7 +17,11 @@
      score[s] - calculate classifcation score for prediction
      extract[e] - extract features from a data sequence
      preprocess[pp] - preprocess data sequence
+     postprocess[pop] - postprocess label streams
      plot[p] - python based stream plotter
+     segment[sg] - segments a list of samples into multiple timeseries
+     pack[pa] - pack multiple streams into an .mkv file (using ffmpeg)
+     unpack[u] - unpack first audio and subtitle stream from .mkv file (using ffmpeg)
 
 
  Executing for example 'grt help score', will retrieve documentation about the score sub-command. You can also use this command to execute any other command and get its usage documentation.

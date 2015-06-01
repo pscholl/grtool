@@ -34,6 +34,7 @@ class Group {
 
   void add_prediction(string, string);
   void calculate_score(double beta);
+  void calculate_ead();
   double get_meanscore(string, double);
 
   vector< uint64_t > TP,TN,FP,FN;
@@ -41,13 +42,30 @@ class Group {
 
   string to_string(cmdline::parser&, string tag);
   string to_flat_string(cmdline::parser&, string tag);
+
+  string last_label = "NULL", last_prediction = "NULL";
+
+  struct { // EAD errors according to Ward et.al. 2011
+    uint64_t deletions = 0,
+             ev_fragmented = 0,
+             ev_fragmerged = 0,
+             ev_merged = 0,
+             correct = 0,
+             re_merged = 0,
+             re_fragmerged = 0,
+             re_fragmented = 0,
+             insertions = 0;
+  } ead;
+
+  uint64_t groundtruth_changed = 0,
+           prediction_changed  = 0;
 };
 
 /* some helper functions */
 bool   value_differs(map<double,string>&, map<double,string>&);
 int    push_back_if_not_there(string &label, vector<string> &labelset);
-string centered(int, string);
-string centered(int, double);
+string centered(int, string, int DEFAULT=5);
+string centered(int, double, int DEFAULT=5);
 string meanstd(vector< double >);
 string mean(vector< double >);
 template< class T> vector<T>  diag(Matrix<T> &m);
@@ -72,6 +90,7 @@ int main(int argc, char *argv[])
   c.add         ("flat",          'f', "line-based output, implies --no-confusion");
   c.add         ("no-confusion",  'c', "report confusion matrix");
   c.add         ("no-score",      'n', "report recall, per class and overall");
+  c.add         ("no-ead",        'e', "report event-analysis diagram");
   c.add<double> ("F-score",       'F', "beta value for F-score, default: 1", false, 1);
   c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
   c.add         ("quiet",         'q', "print no warnings");
@@ -98,8 +117,8 @@ int main(int argc, char *argv[])
   if (c.exist("flat"))
     c.set_option("no-confusion");
 
-  if (c.exist("no-score") && c.exist("no-confusion")) {
-    cerr << c.usage() << endl << "error: --no-confusion and --no-score can not be given at the same time" << endl;
+  if (c.exist("no-score") && c.exist("no-confusion") && c.exist("no-ead")) {
+    cerr << c.usage() << endl << "error: --no-confusion, --no-score and --no-ead can not be given at the same time" << endl;
     return -1;
   }
 
@@ -201,6 +220,8 @@ int main(int argc, char *argv[])
 
 void Group::add_prediction(string label, string prediction)
 {
+  /* first we calculate your every-day confusion matrix, which
+   * is later used to calculate TP,TN,FN,FP scores and their stats */
   if (confusion == NULL)
     confusion = new Matrix<uint64_t>();
 
@@ -211,6 +232,67 @@ void Group::add_prediction(string label, string prediction)
     confusion = resize_matrix(confusion, labelset.size());
 
   (*confusion)[idxA][idxB] += 1;
+
+  /* and then we also calculate the more in-depth analysis of Ward et.al.
+   * - Performance Metrics for Activity Recognition.
+   *
+   * For this we need to keep track of the next and last label to score, 
+   * one call before this one. */
+  groundtruth_changed += label!=last_label;
+  prediction_changed  += prediction!=last_prediction;
+
+  // cerr << last_label << "\t" << label << "\t\t";
+  // cerr << last_prediction << "\t" << prediction << "\t\t";
+  // cerr << groundtruth_changed << "\t" << prediction_changed << endl;
+
+  /* events are hit when both labels are NULL, with one exception handled
+   * when a double-NULL was encountered */
+  if ( label=="NULL" && (label==prediction || label==last_prediction && prediction_changed>1) ) {
+    calculate_ead();
+    prediction_changed = groundtruth_changed = 0;
+  }
+
+  /* compress label sequences into one last_label */
+  last_label      = label;
+  last_prediction = prediction;
+}
+
+void Group::calculate_ead()
+{
+  if ( groundtruth_changed==prediction_changed && groundtruth_changed==0 )
+    return;
+
+  groundtruth_changed -= floor(groundtruth_changed/2);
+  prediction_changed  -= floor(prediction_changed/2);
+
+  if (prediction_changed==0) { // deletion
+    ead.deletions++;
+    return;
+  }
+
+  // special case, if this is a hard boundary insertions
+  ead.insertions     += last_prediction=="NULL";
+  prediction_changed -= last_prediction=="NULL";
+
+  cerr << groundtruth_changed << "\t" << prediction_changed << endl;
+
+  /* now for each of the error cases */
+  if ( prediction_changed == groundtruth_changed && prediction_changed == 1 ) {
+    ead.correct++;
+  } else if ( groundtruth_changed == 1 && prediction_changed > 1 ) {
+    ead.ev_fragmented++;
+    ead.re_fragmented += prediction_changed;
+  } else if ( groundtruth_changed == 1 && prediction_changed == 0) {
+    ead.deletions++;
+  } else if ( groundtruth_changed == 0 && prediction_changed == 1) {
+    ead.insertions++;
+  } else if ( groundtruth_changed > 1 && prediction_changed == 1) {
+    ead.ev_merged += groundtruth_changed;
+    ead.re_merged++;
+  } else if ( groundtruth_changed > 1 && prediction_changed > 1) {
+    ead.ev_fragmerged += groundtruth_changed;
+    ead.re_fragmerged += prediction_changed;
+  }
 }
 
 void Group::calculate_score(double beta)
@@ -231,6 +313,10 @@ void Group::calculate_score(double beta)
     NPV.push_back( TN[i] / (double) (FN[i] + TN[i]) );
     Fbeta.push_back( (1+pow(beta,2)) * (precision[i] * recall[i])/(pow(beta,2)*precision[i] + recall[i]) );
   }
+
+  /* TODO prior to printing anythign we re-calc, this may be wrong here */
+  //add_prediction("NULL","NULL");
+  calculate_ead();
 }
 
 double Group::get_meanscore(string which, double beta)
@@ -301,6 +387,8 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
   } ss << endl;
 
   return ss.str();
+
+   // TODO also add the EAD
 }
 
 string Group::to_string(cmdline::parser &c, string tag) {
@@ -357,6 +445,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
     cout << endl;
   }
 
+  /* print stats */
   if (!c.exist("no-score")) {
     size_t tab_size = 2;
     double beta = c.get<double>("F-score");
@@ -406,14 +495,78 @@ string Group::to_string(cmdline::parser &c, string tag) {
     cout << endl;
   }
 
+  /* print EAD */
+  if (!c.exist("no-ead")) {
+    if (!c.exist("no-confusion") || !c.exist("no-score"))
+      cout << endl;
+
+    uint64_t ev_total = ead.deletions + ead.ev_fragmented + ead.ev_fragmerged +
+                        ead.ev_merged + ead.correct,
+             re_total = ead.correct + ead.re_merged + ead.re_fragmerged +
+                        ead.re_fragmented + ead.insertions;
+    float total = ev_total + re_total;
+    float LINE_SIZE = 80 - 3*8,
+             d = ead.deletions / total,
+             ef = ead.ev_fragmented / total, efm = ead.ev_fragmerged / total,
+             em = ead.ev_merged / total, c = ead.correct / total,
+             rm = ead.re_merged / total, rfm = ead.re_fragmerged / total,
+             rf = ead.re_fragmented / total, i = ead.insertions / total;
+
+    cout << string(d*LINE_SIZE   +3, u'-')   << " " <<
+            string(ef*LINE_SIZE  +3, '-')  << " " <<
+            string(efm*LINE_SIZE +3, '-') << " " <<
+            string(em*LINE_SIZE  +3, '-')  << " " <<
+            string(c*LINE_SIZE   +3, '-')   << endl;
+
+    cout << centered(d*LINE_SIZE   +3,"D",3) << " " <<
+            centered(ef*LINE_SIZE  +3,"F",3) << " " <<
+            centered(efm*LINE_SIZE +3,"FM",3) << " " <<
+            centered(em*LINE_SIZE  +3,"M",3) << " " <<
+            centered(c*LINE_SIZE   +3,"C",3) << " " <<
+            centered(rm*LINE_SIZE  +3,"M",3) << " " <<
+            centered(rfm*LINE_SIZE +3,"FM",3) << " " <<
+            centered(rf*LINE_SIZE  +3,"F",3) << " " <<
+            centered(i*LINE_SIZE   +3,"I",3) << endl;
+
+    cout << centered(d*LINE_SIZE   +3,100*d,3) << " " <<
+            centered(ef*LINE_SIZE  +3,100*ef,3) << " " <<
+            centered(efm*LINE_SIZE +3,100*efm,3) << " " <<
+            centered(em*LINE_SIZE  +3,100*em,3) << " " <<
+            centered(c*LINE_SIZE   +3,100*c,3) << " " <<
+            centered(rm*LINE_SIZE  +3,100*rm,3) << " " <<
+            centered(rfm*LINE_SIZE +3,100*rfm,3) << " " <<
+            centered(rf*LINE_SIZE  +3,100*rf,3) << " " <<
+            centered(i*LINE_SIZE   +3,100*i,3) << endl;
+
+    cout << string(d*LINE_SIZE   +3, ' ')   << " " <<
+            string(ef*LINE_SIZE  +3, ' ')  << " " <<
+            string(efm*LINE_SIZE +3, ' ') << " " <<
+            string(em*LINE_SIZE  +3, ' ')  << " " <<
+            string(c*LINE_SIZE   +3, '-')   << " " <<
+            string(rm*LINE_SIZE  +3, '-')  << " " <<
+            string(rfm*LINE_SIZE +3, '-') << " " <<
+            string(rf*LINE_SIZE  +3, '-')  << " " <<
+            string(i*LINE_SIZE   +3, '-')   << endl;
+
+    //cout << "deletions: " << ead.deletions << endl;
+    //cout << "ev_fragmented: " << ead.ev_fragmented << endl;
+    //cout << "ev_fragmerged: " << ead.ev_fragmerged << endl;
+    //cout << "ev_merged: " << ead.ev_merged << endl;
+    //cout << "correct: " << ead.correct << endl;
+    //cout << "re_merged: " << ead.re_merged << endl;
+    //cout << "re_fragmerged: " << ead.re_fragmerged << endl;
+    //cout << "re_fragmented: " << ead.re_fragmented << endl;
+    //cout << "insertions: " << ead.insertions << endl;
+  }
+
   return cout.str();
 }
 
-string centered(int tab_size, string val) {
+string centered(int tab_size, string val, int DEFAULT) {
   stringstream ss;
-  if (tab_size < 5) tab_size = 5;
-  if (val.size() > tab_size-4) val.resize(tab_size-4);
-  //if (val.size() > 5) val.resize(5);
+  if (tab_size < DEFAULT) tab_size = DEFAULT;
+  if (val.size() > tab_size-DEFAULT+1) val.resize(tab_size-DEFAULT+1);
+
   int pre = (tab_size - val.size()) / 2,
      post =  tab_size - val.size() - pre;
 
@@ -421,8 +574,8 @@ string centered(int tab_size, string val) {
   return ss.str();
 }
 
-string centered(int tab_size, double value) {
-  return centered(tab_size, to_string(value));
+string centered(int tab_size, double value, int DEFAULT) {
+  return centered(tab_size, to_string(value), DEFAULT);
 }
 
 template< class T>
