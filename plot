@@ -116,14 +116,16 @@ class LabelPlot:
 
         self.labelAxes = []
         self.labelAxes.append(plt.subplot(gs[0]))
-        self.labelAxes.append(plt.subplot(gs[1]))
+        self.labelAxes.append(plt.subplot(gs[1],sharex=self.labelAxes[0]))
         self.labelAxes[0].set_ylabel('Ground truth')
         self.labelAxes[0].set_yticks([])
         self.labelAxes[0].set_yticklabels([])
+        self.labelAxes[0].grid(False)
 
         self.labelAxes[1].set_ylabel('Prediction')
         self.labelAxes[1].set_yticks([])
         self.labelAxes[1].set_yticklabels([])
+        self.labelAxes[1].grid(False)
 
         self.labelAxes[0].set_xticklabels([])
 
