@@ -121,7 +121,7 @@ class LabelPlot:
         self.labelAxes[0].set_yticks([])
         self.labelAxes[0].set_yticklabels([])
 
-        self.labelAxes[1].set_ylabel('Data')
+        self.labelAxes[1].set_ylabel('Prediction')
         self.labelAxes[1].set_yticks([])
         self.labelAxes[1].set_yticklabels([])
 
@@ -133,12 +133,14 @@ class LabelPlot:
     def __call__(self,frameno,gtLabels,dtLabels):
         #dtLabels = gtLabels
         # update plot data
-        gtLabels.append(None)
-        dtLabels.append(None)
+        #gtLabels.append(None)
+        #dtLabels.append(None)
 
         # update labels
-        self.labels = list(set(gtLabels + dtLabels))
-        self.cm  = mp.cm.get_cmap("jet", len(self.labels)+1)
+        self.labels = list(set(gtLabels).union(dtLabels))
+        self.cm = mp.cm.get_cmap("jet", len(self.labels)+1)
+
+        assert len(dtLabels)==len(gtLabels)
 
         # update x axis for label plot
         self.labelAxes[0].set_xlim([frameno-len(gtLabels), frameno])
@@ -159,7 +161,7 @@ class LabelPlot:
 
         # collect label indices
         myGtlabels = [l1 for l1,l2 in zip(gtLabels,gtLabels[1:]) if l1!=l2]
-        myDtlabels = [l1 for l1,l2 in zip(dtLabels,gtLabels[1:]) if l1!=l2]
+        myDtlabels = [l1 for l1,l2 in zip(dtLabels,dtLabels[1:]) if l1!=l2]
         gtli=[self.labels.index(l) for l in myGtlabels]
         dtli=[self.labels.index(l) for l in myDtlabels]
 

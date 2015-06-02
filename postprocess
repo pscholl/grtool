@@ -9,8 +9,9 @@ subpars = cmdline.add_subparsers(help="type of post-processing",dest="command")
 major   = subpars.add_parser("majority", help="returns only the label with maximum occurence in the given window" )
 major.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
 major.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+major.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 change  = subpars.add_parser("change", help="return only changed labels")
-cmdline.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
+change.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 args = cmdline.parse_args()
 
 if __name__=="__main__":
