@@ -274,7 +274,7 @@ void Group::calculate_ead()
   ead.insertions     += last_prediction=="NULL";
   prediction_changed -= last_prediction=="NULL";
 
-  cerr << groundtruth_changed << "\t" << prediction_changed << endl;
+  //cerr << groundtruth_changed << "\t" << prediction_changed << endl;
 
   /* now for each of the error cases */
   if ( prediction_changed == groundtruth_changed && prediction_changed == 1 ) {
@@ -504,7 +504,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
                         ead.ev_merged + ead.correct,
              re_total = ead.correct + ead.re_merged + ead.re_fragmerged +
                         ead.re_fragmented + ead.insertions;
-    float total = ev_total + re_total;
+    float total = ev_total + re_total - ead.correct;
     float LINE_SIZE = 80 - 3*8,
              d = ead.deletions / total,
              ef = ead.ev_fragmented / total, efm = ead.ev_fragmerged / total,

@@ -144,7 +144,7 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
 
 ## Using the Event Analysis Diagram
 
- For continous AR the classical statistic measure can be misleading. Ward et.al. proposed additional error measures which allow for a clearer picture of error on an event instead of frame level. These errors can include fragmentation, i.e. when multiple predictions (separated by NULL predictions) split the same ground truth label sequence:
+ For continuous AR the classical statistic measure can be misleading. Ward et.al. proposed additional error measures which allow for a clearer picture of error on an event instead of frame level. These errors can include fragmentation, i.e. when multiple predictions (separated by NULL predictions) split the same ground truth label sequence:
 
     echo "NULL NULL
     > label NULL
@@ -155,15 +155,12 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
     > label label
     > NULL  label
     > NULL  NULL" | grt score -n -c
-    deletions: 0
-    ev_fragmented: 1
-    ev_fragmerged: 0
-    ev_merged: 0
-    correct: 0
-    re_merged: 0
-    re_fragmerged: 0
-    re_fragmented: 3
-    insertions: 0
+    --- ----------------- --- --- ---
+     D          F          F   M   C   M   F                        F                        I 
+     0      25.000000      0   0   0   0   0                    75.000000                    0 
+                                  --- --- --- --------------------------------------------- ---
+
+ In the example above, the left hand side (marked by the top line) amounts to the percentage of errors in ground truth events, the right hand side for error in the predictions.
 
  Another possible source of non-serious error, are timing errors. These describe cases where the boundaries of ground truth labels were missed slightly.
 
@@ -172,59 +169,39 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
     > label label
     > label NULL
     > NULL  label" | grt score -n -c
-    deletions: 0
-    ev_fragmented: 0
-    ev_fragmerged: 0
-    ev_merged: 0
-    correct: 1
-    re_merged: 0
-    re_fragmerged: 0
-    re_fragmented: 0
-    insertions: 1
+    --- --- --- --- -------------------------------
+     D   F   F   M                 C                 M   F   F                 I               
+     0   0   0   0             50.000000             0   0   0             50.000000           
+                    ------------------------------- --- --- --- -------------------------------
 
  These are also knows as under- and overfills.
 
     echo "NULL label
     > label label" | grt score -n -c
-    deletions: 0
-    ev_fragmented: 0
-    ev_fragmerged: 0
-    ev_merged: 0
-    correct: 1
-    re_merged: 0
-    re_fragmerged: 0
-    re_fragmented: 0
-    insertions: 0
+    --- --- --- --- -----------------------------------------------------------
+     D   F   F   M                               C                               M   F   F   I 
+     0   0   0   0                          100.000000                           0   0   0   0 
+                    ----------------------------------------------------------- --- --- --- ---
 
   Deletions are errors, where the ground truth event was not detected at all.
 
     echo "NULL NULL
     > label NULL
     > NULL NULL" | grt score -n -c 
-    deletions: 1
-    ev_fragmented: 0
-    ev_fragmerged: 0
-    ev_merged: 0
-    correct: 0
-    re_merged: 0
-    re_fragmerged: 0
-    re_fragmented: 0
-    insertions: 0
+    ----------------------------------------------------------- --- --- --- ---
+                                 D                               F   F   M   C   M   F   F   I 
+                            100.000000                           0   0   0   0   0   0   0   0 
+                                                                            --- --- --- --- ---
  
  A further source of errors are merges, denoting cases in which two or more ground truth events where predicted as only one event. Put it a different way, the predictor did not correctly separate the ground truth event. These events are counted separately for ground truth and prediction.
 
     echo "label label
     > NULL label
     > label label" | grt score -n -c
-    deletions: 0
-    ev_fragmented: 0
-    ev_fragmerged: 0
-    ev_merged: 2
-    correct: 0
-    re_merged: 1
-    re_fragmerged: 0
-    re_fragmented: 0
-    insertions: 0
+    --- --- --- ---------------------------------------- ---
+     D   F   F                     M                      C            M            F   F   I 
+     0   0   0                 66.666672                  0        33.333336        0   0   0 
+                                                         --- --------------------- --- --- ---
 
  And last but not least there is a combination of fragmentation and merging errors.
 
@@ -236,14 +213,7 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
     > label label
     > label NULL
     > label label" | grt score -n -c 
-    deletions: 0
-    ev_fragmented: 0
-    ev_fragmerged: 2
-    ev_merged: 0
-    correct: 0
-    re_merged: 0
-    re_fragmerged: 3
-    re_fragmented: 0
-    insertions: 0
-
-
+    --- --- ------------------------- --- ---
+     D   F             FM              M   C   M                   FM                   F   I 
+     0   0          40.000000          0   0   0               60.000004                0   0 
+                                          --- --- ------------------------------------ --- ---
