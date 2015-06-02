@@ -87,7 +87,7 @@ class energy_based:
 
         # the command line params
         self.threshold = args.threshold
-        self.intWinSize = args.int_win_size
+        self.intWinSize = args.window_size
 
         # the ground truth labels
         self.labels = {}
@@ -161,7 +161,7 @@ gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="inp
 
 eb_cmdline = subparser.add_parser('energy_based', help="energy based method")
 eb_cmdline.add_argument('-T', '--threshold', type=float, default=0, help="creates a new segment every time the threshold is crossed")
-eb_cmdline.add_argument('-I', '--int-win-size', type=int, default=1, help="size of the integration window")
+eb_cmdline.add_argument('-W', '--window-size', type=int, default=1, help="size of the integration window")
 eb_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
 
 args = cmdline.parse_args()
