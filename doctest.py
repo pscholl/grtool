@@ -41,6 +41,8 @@ def run_test(test, PATH, gdb=False):
             print ("  cmd '%s' FAILED:"% cmd)
             d = difflib.Differ().compare(res.split("\n"),out.split("\n"))
             print("\n".join(list(d)))
+            serr = p.stderr.read()
+            sys.stderr.write(serr)
         else:
             print ("  Test #%d: OK" % num)
 

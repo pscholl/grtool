@@ -58,7 +58,8 @@ class Group {
   } ead;
 
   uint64_t groundtruth_changed = 0,
-           prediction_changed  = 0;
+           prediction_changed  = 0,
+           total_frames        = 0;
 };
 
 /* some helper functions */
@@ -66,6 +67,7 @@ bool   value_differs(map<double,string>&, map<double,string>&);
 int    push_back_if_not_there(string &label, vector<string> &labelset);
 string centered(int, string, int DEFAULT=5);
 string centered(int, double, int DEFAULT=5);
+string centered(int, uint64_t, int DEFAULT=5);
 string meanstd(vector< double >);
 string mean(vector< double >);
 template< class T> vector<T>  diag(Matrix<T> &m);
@@ -233,6 +235,15 @@ void Group::add_prediction(string label, string prediction)
 
   (*confusion)[idxA][idxB] += 1;
 
+  /* events are hit when both labels are NULL, with one exception handled
+   * when a double-NULL was encountered */
+  if ( (last_label!=label && last_prediction!=prediction) ||
+       (label=="NULL" && prediction=="NULL") ) {
+    calculate_ead();
+    prediction_changed = groundtruth_changed = 0;
+    last_prediction = last_label = "NULL";
+  }
+
   /* and then we also calculate the more in-depth analysis of Ward et.al.
    * - Performance Metrics for Activity Recognition.
    *
@@ -241,16 +252,10 @@ void Group::add_prediction(string label, string prediction)
   groundtruth_changed += label!=last_label;
   prediction_changed  += prediction!=last_prediction;
 
+  // DEBUG
   // cerr << last_label << "\t" << label << "\t\t";
   // cerr << last_prediction << "\t" << prediction << "\t\t";
   // cerr << groundtruth_changed << "\t" << prediction_changed << endl;
-
-  /* events are hit when both labels are NULL, with one exception handled
-   * when a double-NULL was encountered */
-  if ( label=="NULL" && (label==prediction || label==last_prediction && prediction_changed>1) ) {
-    calculate_ead();
-    prediction_changed = groundtruth_changed = 0;
-  }
 
   /* compress label sequences into one last_label */
   last_label      = label;
@@ -259,40 +264,33 @@ void Group::add_prediction(string label, string prediction)
 
 void Group::calculate_ead()
 {
-  if ( groundtruth_changed==prediction_changed && groundtruth_changed==0 )
+  if ( prediction_changed==0 && groundtruth_changed==0 )
     return;
 
   groundtruth_changed -= floor(groundtruth_changed/2);
   prediction_changed  -= floor(prediction_changed/2);
 
-  if (prediction_changed==0) { // deletion
-    ead.deletions++;
-    return;
-  }
-
-  // special case, if this is a hard boundary insertions
-  ead.insertions     += last_prediction=="NULL";
-  prediction_changed -= last_prediction=="NULL";
-
-  //cerr << groundtruth_changed << "\t" << prediction_changed << endl;
+  // DEBUG
+  // cerr << groundtruth_changed << "\t" << prediction_changed << endl;
 
   /* now for each of the error cases */
-  if ( prediction_changed == groundtruth_changed && prediction_changed == 1 ) {
-    ead.correct++;
-  } else if ( groundtruth_changed == 1 && prediction_changed > 1 ) {
-    ead.ev_fragmented++;
-    ead.re_fragmented += prediction_changed;
-  } else if ( groundtruth_changed == 1 && prediction_changed == 0) {
+  if (prediction_changed == 0 && groundtruth_changed == 1) { // deletion
     ead.deletions++;
   } else if ( groundtruth_changed == 0 && prediction_changed == 1) {
     ead.insertions++;
+  } else if ( groundtruth_changed == 1 && prediction_changed < 2 ) {
+    ead.correct++;
+  } else if ( groundtruth_changed == 1 && prediction_changed > 1 ) {
+    ead.ev_fragmented += groundtruth_changed;
+    ead.re_fragmented += prediction_changed;
   } else if ( groundtruth_changed > 1 && prediction_changed == 1) {
     ead.ev_merged += groundtruth_changed;
-    ead.re_merged++;
+    ead.re_merged += prediction_changed;
   } else if ( groundtruth_changed > 1 && prediction_changed > 1) {
     ead.ev_fragmerged += groundtruth_changed;
     ead.re_fragmerged += prediction_changed;
-  }
+  } else
+    cerr << "this never happened" << endl;
 }
 
 void Group::calculate_score(double beta)
@@ -486,19 +484,21 @@ string Group::to_string(cmdline::parser &c, string tag) {
       cout << endl;
     }
 
-    cout << string(tab_size +1, ' ');
-    cout << centered(TAB_SIZE, meanstd(recall));
-    cout << centered(TAB_SIZE, meanstd(precision));
-    cout << centered(TAB_SIZE, meanstd(Fbeta));
-    cout << centered(TAB_SIZE, meanstd(NPV));
-    cout << centered(TAB_SIZE, meanstd(TNR));
-    cout << endl;
+    cout << string(tab_size+1, ' ');
+    cout << centered(TAB_SIZE-1, meanstd(recall)) << " "
+         << centered(TAB_SIZE-1, meanstd(precision)) << " "
+         << centered(TAB_SIZE-1, meanstd(Fbeta)) << " "
+         << centered(TAB_SIZE-1, meanstd(NPV)) << " "
+         << centered(TAB_SIZE-1, meanstd(TNR)) << " "
+         << endl;
   }
 
   /* print EAD */
   if (!c.exist("no-ead")) {
     if (!c.exist("no-confusion") || !c.exist("no-score"))
       cout << endl;
+
+    //calculate_ead();
 
     uint64_t ev_total = ead.deletions + ead.ev_fragmented + ead.ev_fragmerged +
                         ead.ev_merged + ead.correct,
@@ -512,41 +512,51 @@ string Group::to_string(cmdline::parser &c, string tag) {
              rm = ead.re_merged / total, rfm = ead.re_fragmerged / total,
              rf = ead.re_fragmented / total, i = ead.insertions / total;
 
-    cout << string(d*LINE_SIZE   +3, u'-')   << " " <<
-            string(ef*LINE_SIZE  +3, '-')  << " " <<
-            string(efm*LINE_SIZE +3, '-') << " " <<
-            string(em*LINE_SIZE  +3, '-')  << " " <<
-            string(c*LINE_SIZE   +3, '-')   << endl;
+    cout << string(d*LINE_SIZE   +4, u'-')   << " " <<
+            string(ef*LINE_SIZE  +4, '-')  << " " <<
+            string(efm*LINE_SIZE +4, '-') << " " <<
+            string(em*LINE_SIZE  +4, '-')  << " " <<
+            string(c*LINE_SIZE   +4, '-')   << endl;
 
-    cout << centered(d*LINE_SIZE   +3,"D",3) << " " <<
-            centered(ef*LINE_SIZE  +3,"F",3) << " " <<
-            centered(efm*LINE_SIZE +3,"FM",3) << " " <<
-            centered(em*LINE_SIZE  +3,"M",3) << " " <<
-            centered(c*LINE_SIZE   +3,"C",3) << " " <<
-            centered(rm*LINE_SIZE  +3,"M",3) << " " <<
-            centered(rfm*LINE_SIZE +3,"FM",3) << " " <<
-            centered(rf*LINE_SIZE  +3,"F",3) << " " <<
-            centered(i*LINE_SIZE   +3,"I",3) << endl;
+    cout << centered(d*LINE_SIZE   +4,"D",4) << " " <<
+            centered(ef*LINE_SIZE  +4,"F",4) << " " <<
+            centered(efm*LINE_SIZE +4,"FM",4) << " " <<
+            centered(em*LINE_SIZE  +4,"M",4) << " " <<
+            centered(c*LINE_SIZE   +4,"C",4) << " " <<
+            centered(rm*LINE_SIZE  +4,"M",4) << " " <<
+            centered(rfm*LINE_SIZE +4,"FM",4) << " " <<
+            centered(rf*LINE_SIZE  +4,"F",4) << " " <<
+            centered(i*LINE_SIZE   +4,"I",4) << endl;
 
-    cout << centered(d*LINE_SIZE   +3,100*d,3) << " " <<
-            centered(ef*LINE_SIZE  +3,100*ef,3) << " " <<
-            centered(efm*LINE_SIZE +3,100*efm,3) << " " <<
-            centered(em*LINE_SIZE  +3,100*em,3) << " " <<
-            centered(c*LINE_SIZE   +3,100*c,3) << " " <<
-            centered(rm*LINE_SIZE  +3,100*rm,3) << " " <<
-            centered(rfm*LINE_SIZE +3,100*rfm,3) << " " <<
-            centered(rf*LINE_SIZE  +3,100*rf,3) << " " <<
-            centered(i*LINE_SIZE   +3,100*i,3) << endl;
+    cout << centered(d*LINE_SIZE   +4,100*d,4) << " " <<
+            centered(ef*LINE_SIZE  +4,100*ef,4) << " " <<
+            centered(efm*LINE_SIZE +4,100*efm,4) << " " <<
+            centered(em*LINE_SIZE  +4,100*em,4) << " " <<
+            centered(c*LINE_SIZE   +4,100*c,4) << " " <<
+            centered(rm*LINE_SIZE  +4,100*rm,4) << " " <<
+            centered(rfm*LINE_SIZE +4,100*rfm,4) << " " <<
+            centered(rf*LINE_SIZE  +4,100*rf,4) << " " <<
+            centered(i*LINE_SIZE   +4,100*i,4) << endl;
 
-    cout << string(d*LINE_SIZE   +3, ' ')   << " " <<
-            string(ef*LINE_SIZE  +3, ' ')  << " " <<
-            string(efm*LINE_SIZE +3, ' ') << " " <<
-            string(em*LINE_SIZE  +3, ' ')  << " " <<
-            string(c*LINE_SIZE   +3, '-')   << " " <<
-            string(rm*LINE_SIZE  +3, '-')  << " " <<
-            string(rfm*LINE_SIZE +3, '-') << " " <<
-            string(rf*LINE_SIZE  +3, '-')  << " " <<
-            string(i*LINE_SIZE   +3, '-')   << endl;
+    cout << centered(d*LINE_SIZE   +4,ead.deletions,4) << " " <<
+            centered(ef*LINE_SIZE  +4,ead.ev_fragmented,4) << " " <<
+            centered(efm*LINE_SIZE +4,ead.ev_fragmerged,4) << " " <<
+            centered(em*LINE_SIZE  +4,ead.ev_merged,4) << " " <<
+            centered(c*LINE_SIZE   +4,ead.correct,4) << " " <<
+            centered(rm*LINE_SIZE  +4,ead.re_merged,4) << " " <<
+            centered(rfm*LINE_SIZE +4,ead.re_fragmerged,4) << " " <<
+            centered(rf*LINE_SIZE  +4,ead.re_fragmented,4) << " " <<
+            centered(i*LINE_SIZE   +4,ead.insertions,4) << endl;
+
+    cout << string(d*LINE_SIZE   +4, ' ')   << " " <<
+            string(ef*LINE_SIZE  +4, ' ')  << " " <<
+            string(efm*LINE_SIZE +4, ' ') << " " <<
+            string(em*LINE_SIZE  +4, ' ')  << " " <<
+            string(c*LINE_SIZE   +4, '-')   << " " <<
+            string(rm*LINE_SIZE  +4, '-')  << " " <<
+            string(rfm*LINE_SIZE +4, '-') << " " <<
+            string(rf*LINE_SIZE  +4, '-')  << " " <<
+            string(i*LINE_SIZE   +4, '-')   << endl;
 
     //cout << "deletions: " << ead.deletions << endl;
     //cout << "ev_fragmented: " << ead.ev_fragmented << endl;
@@ -565,7 +575,8 @@ string Group::to_string(cmdline::parser &c, string tag) {
 string centered(int tab_size, string val, int DEFAULT) {
   stringstream ss;
   if (tab_size < DEFAULT) tab_size = DEFAULT;
-  if (val.size() > tab_size-DEFAULT+1) val.resize(tab_size-DEFAULT+1);
+  //if (val.size() > tab_size-DEFAULT+1) val.resize(tab_size-DEFAULT+1);
+  if (val.size() > tab_size) val.resize(tab_size);
 
   int pre = (tab_size - val.size()) / 2,
      post =  tab_size - val.size() - pre;
@@ -575,6 +586,10 @@ string centered(int tab_size, string val, int DEFAULT) {
 }
 
 string centered(int tab_size, double value, int DEFAULT) {
+  return centered(tab_size, to_string(value), DEFAULT);
+}
+
+string centered(int tab_size, uint64_t value, int DEFAULT) {
   return centered(tab_size, to_string(value), DEFAULT);
 }
 

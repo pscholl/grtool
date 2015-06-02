@@ -78,7 +78,7 @@ These are a few example on the input and output data of the scoring. Let's start
     ------------ ----------------- ----------------- ----------------- ----------------- -----------------
     right_swipe       0.500000          1.000000          0.666667          0.500000          1.000000     
     left_swipe        1.000000          0.666667          0.800000          1.000000          0.500000     
-                     0.75/0.25       0.833333/0.166    0.733333/0.066      0.75/0.25         0.75/0.25     
+                     0.75/0.25     0.833333/0.166667 0.733333/0.066666     0.75/0.25         0.75/0.25     
 
 We have four lines of input, i.e. four predictions in total that need to be scored. They are made of a left_swipe, right_swipe label. The left hand side of the input is the ground truth label, which is gathered by a wizard-of-oz like system, and the right hand side is the prediction of the model. You can see that we have one misclassification on line two, which is reflected in the recall, precision and F-score, as well as in the confusion matrix. Reporting of the overall scores (and leaving only the confusion matrix) can be turned off.
 
@@ -108,7 +108,7 @@ Most often you want to test your machine learning model on multiple parameter an
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
     left_swipe                            0.000000                            1.000000          0.750000     
     right_swipe         0.666667          1.000000          0.800000          0.000000                       
-                     0.333333/0.333       0.5/0.5           0.4/0.4           0.5/0.5         0.375/0.375    
+                   0.333333/0.333333      0.5/0.5           0.4/0.4           0.5/0.5         0.375/0.375    
     
     participant 0        recall          precision           Fbeta              NPV               TNR        
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
@@ -132,7 +132,7 @@ As you can see, results are now reported for each input tag after the complete i
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
     left_swipe                            0.000000                            1.000000          0.750000     
     right_swipe         0.666667          1.000000          0.800000          0.000000                       
-                     0.333333/0.333       0.5/0.5           0.4/0.4           0.5/0.5         0.375/0.375    
+                   0.333333/0.333333      0.5/0.5           0.4/0.4           0.5/0.5         0.375/0.375    
     
     participant 0        recall          precision           Fbeta              NPV               TNR        
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
@@ -146,8 +146,7 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
 
  For continuous AR the classical statistic measure can be misleading. Ward et.al. proposed additional error measures which allow for a clearer picture of error on an event instead of frame level. These errors can include fragmentation, i.e. when multiple predictions (separated by NULL predictions) split the same ground truth label sequence:
 
-    echo "NULL NULL
-    > label NULL
+    echo "label NULL
     > label label
     > label NULL
     > label label
@@ -155,53 +154,59 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
     > label label
     > NULL  label
     > NULL  NULL" | grt score -n -c
-    --- ----------------- --- --- ---
-     D          F          F   M   C   M   F                        F                        I 
-     0      25.000000      0   0   0   0   0                    75.000000                    0 
-                                  --- --- --- --------------------------------------------- ---
-
+    ---- ------------------ ---- ---- ----
+     D           F           FM   M    C    M    FM                        F                         I  
+    0.00     25.000000      0.00 0.00 0.00 0.00 0.00                   75.000000                    0.00
+     0           1           0    0    0    0    0                         3                         0  
+                                      ---- ---- ---- ---------------------------------------------- ----
+  
  In the example above, the left hand side (marked by the top line) amounts to the percentage of errors in ground truth events, the right hand side for error in the predictions.
 
  Another possible source of non-serious error, are timing errors. These describe cases where the boundaries of ground truth labels were missed slightly.
 
-    echo "NULL NULL
-    > label NULL
+    echo "label NULL
     > label label
     > label NULL
     > NULL  label" | grt score -n -c
-    --- --- --- --- -------------------------------
-     D   F   F   M                 C                 M   F   F                 I               
-     0   0   0   0             50.000000             0   0   0             50.000000           
-                    ------------------------------- --- --- --- -------------------------------
+    ---- ---- ---- ---- --------------------------------
+     D    F    FM   M                  C                  M    FM   F                  I                
+    0.00 0.00 0.00 0.00            50.000000             0.00 0.00 0.00            50.000000            
+     0    0    0    0                  1                  0    0    0                  1                
+                        -------------------------------- ---- ---- ---- --------------------------------
 
  These are also knows as under- and overfills.
 
     echo "NULL label
     > label label" | grt score -n -c
-    --- --- --- --- -----------------------------------------------------------
-     D   F   F   M                               C                               M   F   F   I 
-     0   0   0   0                          100.000000                           0   0   0   0 
-                    ----------------------------------------------------------- --- --- --- ---
+    ---- ---- ---- ---- ------------------------------------------------------------
+     D    F    FM   M                                C                                M    FM   F    I  
+    0.00 0.00 0.00 0.00                          100.000000                          0.00 0.00 0.00 0.00
+     0    0    0    0                                1                                0    0    0    0  
+                        ------------------------------------------------------------ ---- ---- ---- ----
 
+     
   Deletions are errors, where the ground truth event was not detected at all.
 
-    echo "NULL NULL
-    > label NULL
+    echo "label NULL
     > NULL NULL" | grt score -n -c 
-    ----------------------------------------------------------- --- --- --- ---
-                                 D                               F   F   M   C   M   F   F   I 
-                            100.000000                           0   0   0   0   0   0   0   0 
-                                                                            --- --- --- --- ---
+    ------------------------------------------------------------ ---- ---- ---- ----
+                                 D                                F    FM   M    C    M    FM   F    I  
+                             100.000000                          0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+                                 1                                0    0    0    0    0    0    0    0  
+                                                                                ---- ---- ---- ---- ----
+  
+
  
  A further source of errors are merges, denoting cases in which two or more ground truth events where predicted as only one event. Put it a different way, the predictor did not correctly separate the ground truth event. These events are counted separately for ground truth and prediction.
 
     echo "label label
     > NULL label
     > label label" | grt score -n -c
-    --- --- --- ---------------------------------------- ---
-     D   F   F                     M                      C            M            F   F   I 
-     0   0   0                 66.666672                  0        33.333336        0   0   0 
-                                                         --- --------------------- --- --- ---
+    ---- ---- ---- ----------------------------------------- ----
+     D    F    FM                      M                      C             M             FM   F    I  
+    0.00 0.00 0.00                 66.666672                 0.00       33.333336        0.00 0.00 0.00
+     0    0    0                       2                      0             1             0    0    0  
+                                                             ---- ---------------------- ---- ---- ----
 
  And last but not least there is a combination of fragmentation and merging errors.
 
@@ -213,7 +218,9 @@ When reading input from a pipe, intermediate scores will also be reported, i.e. 
     > label label
     > label NULL
     > label label" | grt score -n -c 
-    --- --- ------------------------- --- ---
-     D   F             FM              M   C   M                   FM                   F   I 
-     0   0          40.000000          0   0   0               60.000004                0   0 
-                                          --- --- ------------------------------------ --- ---
+    ---- ---- -------------------------- ---- ----
+     D    F               FM              M    C    M                    FM                    F    I  
+    0.00 0.00         40.000000          0.00 0.00 0.00               60.000004               0.00 0.00
+     0    0               2               0    0    0                     3                    0    0  
+                                              ---- ---- ------------------------------------- ---- ----
+ 

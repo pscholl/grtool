@@ -32,7 +32,6 @@ class groundtruth:
             self.label = label
             self.count = 0
             s += "\n"
-
         s += label + "\t"
         s += "\t".join(data)
         s += "\n"
