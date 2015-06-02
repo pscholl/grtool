@@ -41,6 +41,7 @@ class ScatterPlot:
 
         return self.sc
 
+
 class LinePlotWithLabels:
     def __init__(self, labels, data):
         self.vspans = [] # for drawing labels
@@ -105,6 +106,85 @@ class LinePlotWithLabels:
         labels.pop()
         return self.arts
 
+
+class LabelPlot:
+    def __init__(self, labels, data):
+        self.vspans = [] # for drawing labels
+
+        # make 2 subplots with fixed ratio
+        gs = gridspec.GridSpec(2,1, height_ratios=[1, 1])
+
+        self.labelAxes = []
+        self.labelAxes.append(plt.subplot(gs[0]))
+        self.labelAxes.append(plt.subplot(gs[1]))
+        self.labelAxes[0].set_ylabel('Ground truth')
+        self.labelAxes[0].set_yticks([])
+        self.labelAxes[0].set_yticklabels([])
+
+        self.labelAxes[1].set_ylabel('Data')
+        self.labelAxes[1].set_yticks([])
+        self.labelAxes[1].set_yticklabels([])
+
+        self.labelAxes[0].set_xticklabels([])
+
+        # add lines to the arts
+        plt.tight_layout()
+
+    def __call__(self,frameno,gtLabels,dtLabels):
+        #dtLabels = gtLabels
+        # update plot data
+        gtLabels.append(None)
+        dtLabels.append(None)
+
+        # update labels
+        self.labels = list(set(gtLabels + dtLabels))
+        self.cm  = mp.cm.get_cmap("jet", len(self.labels)+1)
+
+        # update x axis for label plot
+        self.labelAxes[0].set_xlim([frameno-len(gtLabels), frameno])
+        self.labelAxes[1].set_xlim([frameno-len(dtLabels), frameno])
+
+        # remove all vspans and add updated ones
+        for span in self.vspans:
+            span.remove()
+        self.vspans = []
+
+        offset = frameno - len(dtLabels)
+
+        # calculate end index of each vspan block
+        gtSpans  = [0] + [x+1 for x in range(len(gtLabels)-1) if gtLabels[x]!=gtLabels[x+1]] + [len(gtLabels)-1]
+        dtSpans  = [0] + [x+1 for x in range(len(dtLabels)-1) if dtLabels[x]!=dtLabels[x+1]] + [len(dtLabels)-1]
+        gtSpanDiffs  = [(s2-s1) for (s1,s2) in zip(gtSpans[:-1], gtSpans[1:])]
+        dtSpanDiffs  = [(s2-s1) for (s1,s2) in zip(dtSpans[:-1], dtSpans[1:])]
+
+        # collect label indices
+        myGtlabels = [l1 for l1,l2 in zip(gtLabels,gtLabels[1:]) if l1!=l2]
+        myDtlabels = [l1 for l1,l2 in zip(dtLabels,gtLabels[1:]) if l1!=l2]
+        gtli=[self.labels.index(l) for l in myGtlabels]
+        dtli=[self.labels.index(l) for l in myDtlabels]
+
+        # create vspans and annotations
+        self.vspans = [\
+                self.labelAxes[0].axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
+                for x1,x2,c in zip(gtSpans[:-1],gtSpans[1:],self.cm(gtli)) ]
+
+        self.vspans += [\
+                self.labelAxes[0].annotate(label, (x1+0.5*sd,0.5), xycoords=("data", "axes fraction"), rotation=90)\
+                for label,x1,sd in zip(myGtlabels,gtSpans,gtSpanDiffs) ]
+
+        self.vspans += [\
+                self.labelAxes[1].axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
+                for x1,x2,c in zip(dtSpans[:-1],dtSpans[1:],self.cm(dtli)) ]
+
+        self.vspans += [\
+                self.labelAxes[1].annotate(label, (x1+0.5*sd,0.5), xycoords=("data", "axes fraction"), rotation=90)\
+                for label,x1,sd in zip(myDtlabels,dtSpans,dtSpanDiffs) ]
+
+        gtLabels.pop()
+        dtLabels.pop()
+        return []
+
+
 class LinePlot:
     def __init__(self, labels, data):
         self.vspans = [] # for drawing labels
@@ -140,6 +220,7 @@ class LinePlot:
                 for label,x1 in zip(mylabels,spans) ]
         labels.pop()
         return self.arts
+
 
 class XYPlot:
     def __init__(self, labels, data):
@@ -188,9 +269,11 @@ class XYPlot:
                 self.annotations.append(a)
         return self.arts
 
+
 plotters = {
         'xy'            : XYPlot,
         'line'          : LinePlot,
+        'labels'        : LabelPlot,
         'lineLabels'    : LinePlotWithLabels,
         'scatter'       : ScatterPlot, }
 
@@ -249,6 +332,7 @@ class TextLineAnimator(Thread):
                 self.labels.pop(0)
 
         labels,data = self.labels,self.data
+
         if isclass(self.plotter) and len(self.data) == 0:
             return []
 
@@ -289,6 +373,9 @@ class TextLineAnimator(Thread):
             except ValueError: pass
             try: self.queue.put((line[0], [float(x) for x in line[1:]]))
             except ValueError: pass
+            try: self.queue.put((line[0], line[1]))
+            except ValueError: pass
+
 
         #
         # propagate that we read input completly
