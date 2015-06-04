@@ -371,11 +371,12 @@ class TextLineAnimator(Thread):
             line = line.strip().split()
 
             #
-            # add label and data item to the queue
+            # add label and data item to the queue, make sure to "continue"
+            # once we have parsed the input in one of the possible formats
             #
             try: self.queue.put((None, [float(x) for x in line])); continue
             except ValueError: pass
-            try: self.queue.put((line[0], [float(x) for x in line[1:]]))
+            try: self.queue.put((line[0], [float(x) for x in line[1:]])); continue
             except ValueError: pass
             try: self.queue.put((line[0], line[1]))
             except ValueError: pass
