@@ -3,6 +3,7 @@
 
 import argparse,sys,subprocess,shlex,tempfile,os,shutil,re
 from datetime import timedelta as td
+from string import whitespace
 from select import select
 from struct import Struct, error
 from math import ceil,floor
@@ -13,6 +14,7 @@ SRT = re.compile(r'(\d+).\n?'
         r'(?P<end>\d{2}:\d{2}:\d{2},\d{3}).\n?'
         r'(?P<text>.+?)(\n\n?|$)', re.DOTALL|re.MULTILINE)
 ASS = re.compile(r'Dialogue: (.+)')
+WS  = re.compile(r'\s+')
 
 def unpack_to_str(files, default="NULL", style="Default", do_flush=True, stream=[]):
     """ unpacks a .mkv file to a string representation, if it contains an audio
@@ -76,7 +78,7 @@ def unpack_to_str(files, default="NULL", style="Default", do_flush=True, stream=
 
             while (not e is None and tic<e) and len(buf)>0:
                 label = l if tic>=b else default
-                print(label,*buf.pop(),sep="\t")
+                print(WS.sub('_',label),*buf.pop(),sep="\t")
                 tic += 1
     except error:
         pass # happens when we read the whole file
