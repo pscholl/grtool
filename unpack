@@ -80,16 +80,17 @@ def unpack_to_str(files, default="NULL", style="Default", do_flush=True, stream=
                 label = l if tic>=b else default
                 print(WS.sub('_',label),*buf.pop(),sep="\t")
                 tic += 1
-    except error:
+    except error as e:
         pass # happens when we read the whole file
     except:
         raise
     finally:
-        while len(buf)>0 and do_flush:
-            print("NULL",*buf.pop(),sep="\t")
-        ffmpeg.terminate()
-        data.close()
-        subtitle.close()
+        if 'buf' in vars():
+            while len(buf)>0 and do_flush:
+                print("NULL",*buf.pop(),sep="\t")
+            ffmpeg.terminate()
+            data.close()
+            subtitle.close()
         shutil.rmtree(tmpdir)
 
 if __name__ == '__main__':
