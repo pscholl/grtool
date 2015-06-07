@@ -23,6 +23,8 @@ def run_test(test, PATH, gdb=False):
     for cmd, res in cmd_results:
         # create a temp dir to work in
         tdir=mkdtemp()
+        os.rmdir(tdir)
+        shutil.copytree(os.path.join(cwd,os.path.dirname(test)),tdir)
         os.chdir(tdir)
 
         cmd = cmd.replace("\n    > ", "\n").replace("\n    >","\n").strip()

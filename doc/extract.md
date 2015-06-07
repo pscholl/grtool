@@ -110,4 +110,15 @@
     pipetting	3
     pipetting	3
 
+ or for the new version
+
+    echo "inverting 1 1 1
+    > inverting 0 0 0
+    > pipetting 2 2 2
+    > pipetting 2 2 2 " | grt extract "m v(1,2) v(1+2+3) v(1*2+3)"
+    inverting	0
+    inverting	1
+    pipetting	3
+    pipetting	3
+
 
