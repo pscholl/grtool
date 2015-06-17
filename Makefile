@@ -1,6 +1,6 @@
-CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -O3
+CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -fpermissive -O0 # -O3 
 LDLIBS=-lstdc++ -lcrfsuite `pkg-config --libs grt`
-ALL=grt train predict info score preprocess extract pack
+ALL=grt train predict info score preprocess extract extract_old pack
 
 all: $(ALL) *.h
 train: train.o grt_crf.o
@@ -21,6 +21,7 @@ install: $(ALL) #install-doc
 	$(INSTALL_PROGRAM) -D preprocess "$(DESTDIR)$(BINDIR)/grt-preprocess"
 	$(INSTALL_PROGRAM) -D postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
 	$(INSTALL_PROGRAM) -D extract "$(DESTDIR)$(BINDIR)/grt-extract"
+	$(INSTALL_PROGRAM) -D extract_old "$(DESTDIR)$(BINDIR)/grt-extract-old"
 	$(INSTALL_PROGRAM) -D score "$(DESTDIR)$(BINDIR)/grt-score"
 	$(INSTALL_PROGRAM) -D info "$(DESTDIR)$(BINDIR)/grt-info"
 	$(INSTALL_PROGRAM) -D plot "$(DESTDIR)$(BINDIR)/grt-plot"
