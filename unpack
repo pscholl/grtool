@@ -16,7 +16,28 @@ SRT = re.compile(r'(\d+).\n?'
 ASS = re.compile(r'Dialogue: (.+)')
 WS  = re.compile(r'\s+')
 
-def unpack_to_str(files, default="NULL", style="Default", do_flush=True, stream=[]):
+def group_files(files, stream=[]):
+    """ collects files into groups of subtitle and audio tracks. Tracks have to
+    be ordered for that, i.e. given the list of files and stream names there can
+    only be groups of two matching audio and subtitle tracks.
+    """
+    # get stream id and metadata from each input
+    ms = ((subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT).decode("utf-8"),f) for f in files)
+    ms = ((re.search("Stream #(\d+:\d+)(\(.*?\))?: (?:(?:(Audio): .*, (\d+) Hz, (\d+.\d+))|(?:(Subtitle): ))", str(line)),f) for (s,f) in ms for line in s.split("\n"))
+    ms = ((x.groups(),f) for (x,f) in ms if x)
+    ms = [(f,id, name[1:-1] if name else "", int(rate) if rate else None, sum(int(x) for x in c.split('.')) if c else None, t1 or t2) for ((id,name,t1,rate,c,t2),f) in ms]
+    ns = [(f,i,n,r,c,t) for (f,i,n,r,c,t) in ms if len(stream)==0 or n in stream]
+
+    # check if we have any
+    if len(ns) == 0:
+        raise Exception("no input files after selection, have you specified any selectors?\nPossible values are:\n %s"%"\n ".join([n for (f,i,n,r,c,t) in ms]))
+
+    if len(ns)%2 != 0:
+        raise Exception("uneven number of input streams")
+
+    return [(a,b) if a[-1]=="Audio" else (b,a) for a,b in zip(ms[0::2],ms[1::2])]
+
+def unpack_to_str(audio,sub, default="NULL", style="Default", do_flush=True):
     """ unpacks a .mkv file to a string representation, if it contains an audio
     and subtitle track. Without a subtitle track just unpacks an audio track
     with the default label.
@@ -28,43 +49,29 @@ def unpack_to_str(files, default="NULL", style="Default", do_flush=True, stream=
         os.mkfifo(data)
         os.mkfifo(subtitle)
 
-        # get stream id and metadata from each input
-        ms = (subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT).decode("utf-8") for f in files)
-        ms = (re.search("Stream #(\d+:\d+)(\(.*?\))?: (?:(?:Audio: .*, (\d+) Hz, (\d+.\d+))|(?:Subtitle: ))", str(line)) for s in ms for line in s.split("\n"))
-        ms = (x.groups() for x in ms if x)
-        ms = [(id,name[1:-1] if name else "",int(rate) if rate else None,sum(int(x) for x in c.split('.')) if c else None) for (id,name,rate,c) in ms]
+        audio,audio_stream,_,rate,channels,_ = audio
+        sub,sub_stream,_,_,_,_ = sub
 
-        # now select the streams, either by name-matching with stream or by selecting the first
-        # audio track.
-        if len(ms) == 0: raise Exception("unable to probe audio input files, are there any?")
-        rate,num_channels = list(ms)[0][2],list(ms)[0][3]
-        stream_ids = ""
-
-        if len(stream) > 0:
-            ms = [(i,n,r,c) for i,n,r,c in ms if n in stream]
-            if len(ms)!=len(stream):
-                raise Exception("unable to find streams in inputs")
-            stream_ids = " ".join(["-c:%s copy"%i for i,n,r,c in ms])
-
-        cmd = "ffmpeg %s %s -y -f ass %s -y -f f32le %s"%(" -i ".join([""]+files),stream_ids,subtitle,data)
+        cmd    = "ffmpeg -i %s -y -f:%s f32le %s -i %s -y -f:%s ass %s"%(audio,audio_stream,data,sub,sub_stream,subtitle)
         ffmpeg = subprocess.Popen(cmd,shell=True)
 
-        subtitle,data = open(subtitle,"r"), open(data,"rb")
-        tic,fmt,buf   = 0, Struct("%df"%num_channels), []
+        data,subtitle = open(data,"rb"), open(subtitle,"r")
+        tic,fmt,buf   = 0, Struct("%df"%channels), []
         b,e,l         = None,None,None
 
         def ticks(s):
             h,m,s,ms = [int(x) for x in s.replace('.',':').split(':')]
-            return ceil((h*60*60*1000 + m*60*1000 + s*1000 + ms) / (1000/rate))
+            return ceil((h*60*60*1000 + m*60*1000 + s*1000 + ms*10) / (1000./rate))
 
         while True:
             r,_,_ = select([data,subtitle],[],[],10)
 
             if data in r:
-                buf.append([str(x) for x in fmt.unpack(data.read(fmt.size))])
+                d = data.read(fmt.size)
+                buf.append([str(x) for x in fmt.unpack(d)])
 
             if subtitle in r and (e is None or tic>=e):
-                match = ASS.match(subtitle.readline())
+                match = ASS.search(subtitle.readline())
                 if match:
                     _,_b,_e,s,_,_,_,_,_,l = match.group(1).split(',')
 
@@ -102,4 +109,5 @@ if __name__ == '__main__':
     cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*")
     args = cmdline.parse_args()
 
-    unpack_to_str(args.files,args.default,args.style,args.no_flush, args.stream)
+    for audio,sub in group_files(args.files,args.stream):
+        unpack_to_str(audio,sub,args.default,args.style,args.no_flush)
