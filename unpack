@@ -1,113 +1,178 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-import argparse,sys,subprocess,shlex,tempfile,os,shutil,re
+import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json
 from datetime import timedelta as td
-from string import whitespace
+from string import whitespace as ws
 from select import select
 from struct import Struct, error
-from math import ceil,floor
-from sys import stderr
 
-SRT = re.compile(r'(\d+).\n?'
-        r'(?P<start>\d{2}:\d{2}:\d{2},\d{3}) --> '
-        r'(?P<end>\d{2}:\d{2}:\d{2},\d{3}).\n?'
-        r'(?P<text>.+?)(\n\n?|$)', re.DOTALL|re.MULTILINE)
-ASS = re.compile(r'Dialogue: (.+)')
-WS  = re.compile(r'\s+')
+def ass2rate(s,rate):
+    h,m,s = [float(x) for x in s.split(':')]
+    return int( (24*60*h+60*m+s) * rate )
 
-def group_files(files, stream=[]):
-    """ collects files into groups of subtitle and audio tracks. Tracks have to
-    be ordered for that, i.e. given the list of files and stream names there can
-    only be groups of two matching audio and subtitle tracks.
-    """
-    # get stream id and metadata from each input
-    ms = ((subprocess.check_output("ffprobe %s"%f,shell=True,stderr=subprocess.STDOUT).decode("utf-8"),f) for f in files)
-    ms = ((re.search("Stream #(\d+:\d+)(\(.*?\))?: (?:(?:(Audio): .*, (\d+) Hz, (\d+.\d+))|(?:(Subtitle): ))", str(line)),f) for (s,f) in ms for line in s.split("\n"))
-    ms = ((x.groups(),f) for (x,f) in ms if x)
-    ms = [(f,id, name[1:-1] if name else "", int(rate) if rate else None, sum(int(x) for x in c.split('.')) if c else None, t1 or t2) for ((id,name,t1,rate,c,t2),f) in ms]
-    ns = [(f,i,n,r,c,t) for (f,i,n,r,c,t) in ms if len(stream)==0 or n in stream]
+def unpack_to_str(audios,sub,default,style,flush,verbose=False):
+    # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
+    # and merge all stream. The amerge complex filter can't be used since it can
+    # not be taught to use the soxr resampler (the default one does not work)
+    # Do this only if resampling is neccesary! Drop all frames after the shortest
+    # stream
+    files = list(set(f for (d,f) in audios))
+    ins   = [py3k(os.pipe()) for x in files]
+    outs  = [py3k(os.pipe()) for x in audios]
+    subp  =  py3k(os.pipe()) if sub else None
 
-    # check if we have any
-    if len(ns) == 0:
-        raise Exception("no input files after selection, have you specified any selectors?\nPossible values are:\n %s"%"\n ".join([n for (f,i,n,r,c,t) in ms]))
+    rate  = max([int(d['sample_rate']) for (d,f) in audios])
+    flush = flush if sub  else True
 
-    if len(ns)%2 != 0:
-        raise Exception("uneven number of input streams")
+    cmd  = 'ffmpeg'
+    cmd += '' if verbose else ' -hide_banner -loglevel quiet'
+    cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
+    cmd += '' if not sub else ' -map %d:%d -f ass pipe:%d'%(sub[0]['file_index'],sub[0]['index'],subp[1])
 
-    return [(a,b) if a[-1]=="Audio" else (b,a) for a,b in zip(ms[0::2],ms[1::2])]
+    for (d,f),(_,w) in zip(audios,outs):
+        cmd += ' -map %d:%d'%(d['file_index'],d['index'])
+        cmd += ' -f f32le -ar %f'%rate
+        cmd += '' if len(files)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
+        cmd += ' pipe:%d'%w
 
-def unpack_to_str(audio,sub, default="NULL", style="Default", do_flush=True):
-    """ unpacks a .mkv file to a string representation, if it contains an audio
-    and subtitle track. Without a subtitle track just unpacks an audio track
-    with the default label.
-    """
-    tmpdir = tempfile.mkdtemp()
-    data,subtitle = os.path.join(tmpdir,"data"),os.path.join(tmpdir,"sub")
+    # cmdline built, now copy all files to their respective w parts of in,
+    # and read the results for r parts of outs. Do the same for the sub
+    sys.stderr.write(cmd+"\n")
+    pid = os.fork()
 
-    try:
-        os.mkfifo(data)
-        os.mkfifo(subtitle)
+    if not pid:
+        for (_,w) in ins: os.close(w)
+        for (r,_) in outs+([subp] if sub else []): os.close(r)
 
-        audio,audio_stream,_,rate,channels,_ = audio
-        sub,sub_stream,_,_,_,_ = sub
+        cmd = cmd.split()
+        #cmd = ['strace','-eread,write']+cmd
+        #cmd = "ls -l /proc/self/fd".split()
+        os.execvp(cmd[0],cmd)
+    else:
+        for (r,_) in ins: os.close(r)
+        for (_,w) in outs+([subp] if sub else []): os.close(w)
 
-        cmd    = "ffmpeg -i %s -y -f:%s f32le %s -i %s -y -f:%s ass %s"%(audio,audio_stream,data,sub,sub_stream,subtitle)
-        ffmpeg = subprocess.Popen(cmd,shell=True)
+        subr = os.fdopen(subp[0],'r') if sub else None
+        ins  = [os.fdopen(w,'wb',buffering=2**16) for (_,w) in ins]
+        outs = [os.fdopen(r,'rb',buffering=2**16) for (r,_) in outs]
 
-        data,subtitle = open(data,"rb"), open(subtitle,"r")
-        tic,fmt,buf   = 0, Struct("%df"%channels), []
-        b,e,l         = None,None,None
+        # store the number of bytes to be read from each pipe
+        toread = [ d['channels']*4 for d,_ in audios ]
 
-        def ticks(s):
-            h,m,s,ms = [int(x) for x in s.replace('.',':').split(':')]
-            return ceil((h*60*60*1000 + m*60*1000 + s*1000 + ms*10) / (1000./rate))
+        # keep track of the current label, read from the sub stream
+        tic,b,e,label = 0,0,float("inf") if not sub else float("-inf"),default
+        default = re.sub('\s+','_',default)
 
         while True:
-            r,_,_ = select([data,subtitle],[],[],10)
+            readset = files+outs if not subr else files+outs+[subr]
+            r,w,_ = select(readset, ins, [])
+            rw = [(f,i) for f,i in zip(files,ins) if (f in r and i in w)]
 
-            if data in r:
-                d = data.read(fmt.size)
-                buf.append([str(x) for x in fmt.unpack(d)])
+            if subr in r and e < tic:
+                # some new subtitle can be read
+                srt = subr.readline()
 
-            if subtitle in r and (e is None or tic>=e):
-                match = ASS.search(subtitle.readline())
-                if match:
-                    _,_b,_e,s,_,_,_,_,_,l = match.group(1).split(',')
+                if len(srt) == 0:
+                    subr.close()
+                    subr = None
+                    continue
 
-                    if style is not None and s!=style:
-                        continue
+                if not "Dialogue: " in srt: continue
+                _,beg,end,s,_,_,_,_,_,l= srt.split(',')
+                if style is not None and style != s: continue
+                label,beg,end = re.sub('\s+','_',l.strip()),ass2rate(beg,rate),ass2rate(end,rate)
+                if beg<e: raise Exception("found overlapping labels at %f secs"%(beg/rate))
+                b,e = beg,end
 
-                    b,e = ticks(_b),ticks(_e)
+            if all(o in r for o in outs):
+                # all outputs can be read
+                bufs = [i.read(l) for i,l in zip(outs,toread)]
 
-                    if b<tic:
-                        raise Exception("overlapping labels are not supported")
+                if any(len(b)==0 for b in bufs):
+                    break
 
-            while (not e is None and tic<e) and len(buf)>0:
-                label = l if tic>=b else default
-                print(WS.sub('_',label),*buf.pop(),sep="\t")
+                bufs = [struct.unpack("%df"%(l/4),b) for b,l in zip(bufs,toread)]
+                bufs = ' '.join(str(x) for buf in bufs for x in buf)
+
+                print(label if b<tic<e else default,' ',bufs)
                 tic += 1
-    except error as e:
-        pass # happens when we read the whole file
-    except:
-        raise
-    finally:
-        if 'buf' in vars():
-            while len(buf)>0 and do_flush:
-                print("NULL",*buf.pop(),sep="\t")
-            ffmpeg.terminate()
-            data.close()
-            subtitle.close()
-        shutil.rmtree(tmpdir)
+
+                if subr is None and not flush:
+                    break
+
+            elif len(rw):
+                # we can pipe some part of the file into ffmpeg
+                written = [i.write(f.read(2**10)) for f,i in rw]
+
+                # remove the completly read files from the input set
+                if any(o==0 for o in written):
+                    [(f.close(),o.close()) for f,o,l in zip(files,ins,written) if not l]
+                    files = [f for f,_,l in zip(files,ins,written) if l]
+                    ins   = [o for _,o,l in zip(files,ins,written) if l]
+
+        pid,status = os.waitpid(pid,0)
+
+def py3k(tup):
+    """ brain-deadness of py3k """
+    for x in tup: os.set_inheritable(x,True)
+    return tup
+
+def group(files):
+    sub,result,filecount = None,[],0
+
+    for streams in files:
+        for desc,fd in streams:
+            desc['file_index'] = filecount
+
+            if desc['codec_type'] == 'subtitle':
+                sub = (desc,fd)
+            elif desc['codec_type'] == 'audio':
+                result.append( (desc,fd) )
+            else:
+                raise Exception("got unhandled codec_type %s"%desc['codec_type'])
+
+        if sub:
+            yield result,sub
+            sub,result,filecount = None,[],0
+        else:
+            filecount += 1
+
+    # stuff without subtitle
+    if len(result):
+        yield result,None
+
+
+def probe(buf):
+    cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams -".split()
+    cmd = subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    o,e = cmd.communicate(buf)
+    return json.loads(o.decode("utf-8"))['streams']
 
 if __name__ == '__main__':
     cmdline = argparse.ArgumentParser('unpacks .mkv file (using ffmpeg)')
-    cmdline.add_argument('files', type=str, nargs='+', help="input files")
+    cmdline.add_argument('files', type=str, default=["-"], nargs='*',       help="input files")
     cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
     cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
     cmdline.add_argument('-n', '--no-flush', action="store_false",          help="if specified stops output after the last label")
     cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*")
+    cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
     args = cmdline.parse_args()
 
-    for audio,sub in group_files(args.files,args.stream):
-        unpack_to_str(audio,sub,args.default,args.style,args.no_flush)
+    # we open each file here already and create an input buffer
+    # for probing each input and then writing the read data to
+    # ffmpeg in order to not have to read something twice
+    files = ( open(f,"rb",buffering=int(2*1e6)) for f in args.files )
+    files = [ (probe(f.peek(int(2*1e6))),f) for f in files ]
+
+    # checks if audio or subtitle stream
+    okay = lambda d: d['codec_type']=='subtitle' or\
+            args.stream==[] and d['codec_type']=='audio' or\
+            'LANGUAGE' in d['tags'].keys() and d['tags']['LANGUAGE'] in args.stream or\
+                'NAME' in d['tags'].keys() and d['tags']['NAME'] in args.stream
+
+    # filter out all streams which are not neccesary or selected
+    files = [[(s,f) for s in ss if okay(s)] for (ss,f) in files ]
+
+    for audio,sub in group(files):
+        unpack_to_str(audio,sub,args.default,args.style,args.no_flush,args.verbose)
