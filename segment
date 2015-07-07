@@ -114,7 +114,7 @@ class energy_based:
 
         # write data, delayed by (intWinSize / 2)
         s += label + "\t"
-        s += "\t".join(self.buffer[self.intWinSize / 2])
+        s += "\t".join(self.buffer[int(self.intWinSize / 2)])
 
         # if a segment is reached (the threshold was crossed), make a line break
         if ((energy > self.threshold) is self.wasBelowThreshold): # XNOR
