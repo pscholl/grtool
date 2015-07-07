@@ -106,13 +106,19 @@ def to_binary(r):
     chunk = chunk.split()
     return chunk[0],struct.pack("<%df"%len(chunk[1:]),*(float(f) for f in chunk[1:])),len(chunk)-1
 
-def pack_grt(i,rates,names,output,media,passthrough=False):
+def py3k(tup):
+    """ brain-deadness of py3k """
+    for x in tup: os.set_inheritable(x,True)
+    return tup
+
+
+def pack_grt(i,rates,names,output,media,verbose=False):
     """ reads lines of data and interprets them in grt format, i.e.:
 
           label v0 v1 v2 v3 ... vn
 
         where label is any non-whitescape string, vn are floats of values.
-        Values will be packed into a .flac file, and labels encoded into a
+        Values will be packed into a .wavpack file, and labels encoded into a
         subtitle stream.
 
         Additional media files will also be mux'ed into the output file.
@@ -120,18 +126,9 @@ def pack_grt(i,rates,names,output,media,passthrough=False):
     assert len(i)==len(rates)
 
     # one pipe for each input file and one for the subtitle stream
-    r,w = zip(*[os.pipe() for f in i])
-    sub = os.pipe()
-    chn = os.pipe()
-
-    try: # py3k brain-deadliness, windows behaviour as default
-        for p in r: os.set_inheritable(p,True)
-        for p in w: os.set_inheritable(p,True)
-        os.set_inheritable(sub[1],True)
-        os.set_inheritable(sub[0],True)
-        os.set_inheritable(chn[1],True)
-        os.set_inheritable(chn[0],True)
-    except: pass
+    r,w = zip(*[py3k(os.pipe()) for f in i])
+    sub = py3k(os.pipe())
+    chn = py3k(os.pipe())
 
     # this is a little involved, since we need to read the first
     # lines of all inputs to know the channel layout to give for
@@ -155,32 +152,35 @@ def pack_grt(i,rates,names,output,media,passthrough=False):
         with os.fdopen(chn[0],"r") as f:
             channels=eval(f.readline())
 
-        # copy in all media files, re-encode pipe input as flac files,
+        # copy in all media files, re-encode pipe input as wavpak files,
         # the labels stream from srt to ass format.
-        cmd = ["ffmpeg"]
+        cmd = "ffmpeg -hide_banner -loglevel quiet".split() if not verbose else ["ffmpeg"]
         cmd.extend( arg for f in media for arg in ["-i", f] )
         cmd.extend( arg for (fd,c,rate) in zip(r,channels,rates) for arg in ("-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i pipe:%d"%(c,c,rate,fd)).split() )
         cmd.extend( ("-f srt -i pipe:%d"%sub[0]).split() )
         cmd.extend( arg for s in range(len(media)+len(r)+1) for arg in ("-map %d:0:%d"%(s,s)).split() )
-        cmd.extend( "-c:a wavpack -c:v copy -c:s ass -y".split() )
+        cmd.extend( "-c:a wavpack -c:v copy -c:s ass -y -f matroska".split() )
         cmd.append( output )
         #print(" ".join(cmd))
         os.execvp(cmd[0], cmd)
 
 if __name__ == "__main__":
     cmdline = argparse.ArgumentParser("packs grt data (read from stdin) and additional media files into .mkv file")
-    cmdline.add_argument('-i', '--input', type=str, default=[], action="append", help="grt input file to convert to flac/ass file, multiple can be given, if none given defaults to stdin")
+    cmdline.add_argument('-i', '--input', type=str, default=[], action="append",
+            help="grt input file to convert to wavpak/ass file, multiple can be given, if none given defaults to stdin")
     cmdline.add_argument('-n', '--name',  type=str, default=[], action="append", help="names for the input files to be put into the mkv file")
     cmdline.add_argument('-r', '--rate',  type=float, default=[], action="append", help="a rate (in Hz) must be given for each input")
     cmdline.add_argument('-m', '--media', type=str, default=[], action="append",  help="additional file to add, multiple can be given")
-    cmdline.add_argument('output', type=str, help="file to pack into")
-    cmdline.add_argument('-p', '--passthrough', action="store_true", help="tee stdin on stdout, useful for recordings")
+    cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
+    cmdline.add_argument('output', type=str, default="-", help="file to pack into")
     args = cmdline.parse_args()
 
-    if len(args.input)==0:
+    if len(args.input)==0 and len(args.media)==0:
         args.input = ["-"]
 
     # make sure that a rate is specified for each input
+    print( len(args.rate), len(args.input))
+
     if len(args.rate) != len(args.input):
         sys.stderr.write("for each input (-i) argument you need to specify the recording rate (-r)\n")
         sys.exit(-1)
@@ -188,4 +188,4 @@ if __name__ == "__main__":
     # either read stdin or open all input files
     i = [(open(f,"r") if f!='-' else sys.stdin) for f in args.input]
 
-    pack_grt(i,args.rate,args.name,args.output,args.media,args.passthrough)
+    pack_grt(i,args.rate,args.name,args.output,args.media,args.verbose)
