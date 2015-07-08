@@ -110,6 +110,24 @@ read_matrix(vector<string> filenames, matrix_t *m)
 char*
 zcr(matrix_t *m, char *s, size_t max)
 {
+  double results[m->dimv] = {0};
+    bool signs[m->dimv];
+  size_t n = 0;
+
+  for (size_t j=0; j<m->dimv; j++)
+    signs[j] = signbit(m->vals[j]);
+
+  for (size_t i=0; i<m->diml; i++)
+    for (size_t j=0; j<m->dimv; j++) {
+      bool sign = signbit(m->vals[i*m->dimv + j]);
+      results[j] += signs[j] != sign;
+      signs[j] = sign;
+    }
+
+  for (size_t j=0; j<m->dimv; j++)
+    n += snprintf(s+n, max-n, "%g\t", results[j]);
+
+  return s;
 }
 
 double*
@@ -130,7 +148,6 @@ mean(matrix_t *m, char *s, size_t max)
 {
   double results[m->dimv] = {0}; _mean(m, results);
   size_t n=0;
-
 
   for (size_t j=0; j<m->dimv; j++)
     n += snprintf(s+n, max-n, "%g\t", results[j]);
@@ -270,10 +287,14 @@ median(matrix_t *m, char* s, size_t max)
 char*
 timedomain(matrix_t *m, char* s, size_t max)
 {
+# define calc(f) f(m, s+strlen(s), max-strlen(s))
+
   mean(m, s, max);
-  variance(m, s+strlen(s), max-strlen(s));
-  range(m, s+strlen(s), max-strlen(s));
-  median(m, s+strlen(s), max-strlen(s));
+  calc(variance);
+  calc(range);
+  calc(median);
+  calc(zcr);
+
   return s;
 }
 
