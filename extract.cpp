@@ -285,6 +285,29 @@ median(matrix_t *m, char* s, size_t max)
 }
 
 char*
+rms(matrix_t *m, char* s, size_t max)
+{
+  double results[m->dimv+1];
+  size_t n=0;
+
+  for (size_t i=0; i<m->diml; i++) {
+    for (size_t j=0; j<m->dimv; j++)
+      results[j] += pow(m->vals[i*m->dimv + j],2);
+
+    for (size_t j=0; j<m->dimv; j++)
+      results[m->dimv] += results[j];
+  }
+
+  for (size_t j=0; j<m->dimv+1; j++)
+    results[j] = sqrt(results[j]);
+
+  for (size_t j=0; j<m->dimv+1; j++)
+    n += snprintf(s+n, max-n, "%g\t", results[j]);
+
+  return s;
+}
+
+char*
 timedomain(matrix_t *m, char* s, size_t max)
 {
 # define calc(f) f(m, s+strlen(s), max-strlen(s))
@@ -294,6 +317,7 @@ timedomain(matrix_t *m, char* s, size_t max)
   calc(range);
   calc(median);
   calc(zcr);
+  calc(rms);
 
   return s;
 }
@@ -339,6 +363,7 @@ struct extractor {
   {"v", "variance", "compute variance of each axis", variance},
   {"e", "median", "compute median of each axis", median},
   {"z", "zcr", "zero-crossing rate", zcr},
+  {"s", "rms", "root-mean squared over each and all axis", rms},
   {"t", "time", "shorthand for all time-domain features: mean,variance,range,median", timedomain}
 };
 // a list of active extractors
