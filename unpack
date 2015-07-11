@@ -78,7 +78,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
         subr = os.fdopen(subp[0],'r') if sub else None
         ins  = [os.fdopen(w,'wb',buffering=2**12) for (_,w) in ins]
         outs = [os.fdopen(r,'rb',buffering=2**12) for (r,_) in outs]
-        merg = [Queue()] * len(outs)
+        merg = [Queue(maxsize=2**24)] * len(outs)
 
         # copy over input files into ffmpeg, and enqueue all input pipes
         i = [T(target=cp,args=(i,o)) for i,o in zip(files,ins)]
@@ -182,7 +182,7 @@ if __name__ == '__main__':
     # checks if audio or subtitle stream
     okay = lambda d: d['codec_type']=='subtitle' or\
             args.stream==[] and d['codec_type']=='audio' or\
-            'tags' in d.keys() and (\
+            'tags' in d.keys() and d['codec_type']=='audio' and (\
                    'LANGUAGE' in d['tags'].keys() and d['tags']['LANGUAGE'] in args.stream or\
                        'NAME' in d['tags'].keys() and d['tags']['NAME'] in args.stream)
 
