@@ -31,11 +31,10 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     # Do this only if resampling is neccesary! Drop all frames after the shortest
     # stream
     files = list(set(f for (d,f) in audios))
+    subasfile = sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in audios)
 
-    # one special case when files does not contain the subfile
-    if sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in audios):
-        print(files)
-        print(sub[1])
+    # a special case, when the subtitle is in its own file
+    if subasfile:
         files.append(sub[1])
 
     ins   = [py3k(os.pipe()) for x in files]
@@ -53,8 +52,10 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     for (d,f),(_,w) in zip(audios,outs):
         cmd += ' -map %d:%d'%(d['file_index'],d['index'])
         cmd += ' -f f32le -ar %f'%rate
-        cmd += '' if len(files)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
+        cmd += '' if (len(files)-subasfile)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
         cmd += ' pipe:%d'%w
+
+    print(cmd)
 
     # cmdline built, now copy all files to their respective w parts of in,
     # and read the results for r parts of outs. Do the same for the sub
