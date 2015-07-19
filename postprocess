@@ -27,9 +27,21 @@ if __name__=="__main__":
             sys.exit(-1)
 
         window = []
+
+        def select_first_most_common(l):
+            l = list(l)
+            c = collections.Counter(l)
+            m = max(c.values())
+            c = [k for k,v in c.most_common() if v==m]
+            c = [k for k in l if k in c]
+            return c[0]
+
         def print_window(window):
             l1 = collections.Counter(l1 for (l1,l2) in window).most_common(1)[0][0]
             l2 = collections.Counter(l2 for (l1,l2) in window).most_common(1)[0][0]
+
+            l1 = select_first_most_common(l1 for (l1,l2) in window)
+            l2 = select_first_most_common(l2 for (l1,l2) in window)
             print (l1,l2)
 
             if not args.no_warn:
