@@ -141,6 +141,10 @@ def pack_grt(i,rates,names,output,media,verbose=False):
         w,sub = [os.fdopen(x,"wb") for x in w],os.fdopen(sub[1],"w")
         process(i,w,sub,chn[1],rates[0])
         pid, status = os.waitpid(pid,0)
+
+        if status!=0:
+            sys.stderr.write("ERROR: ffmpeg command failed, re-run with -v?\n")
+
         return status
 
     else: # ffmpeg process
@@ -151,6 +155,9 @@ def pack_grt(i,rates,names,output,media,verbose=False):
         channels = []
         with os.fdopen(chn[0],"r") as f:
             channels=eval(f.readline())
+
+        if any(c>6 for c in channels):
+            sys.stderr.write("WARNING: more than 6 channels on input, this will probably not work\n")
 
         # copy in all media files, re-encode pipe input as wavpak files,
         # the labels stream from srt to ass format.

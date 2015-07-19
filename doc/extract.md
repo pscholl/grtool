@@ -31,9 +31,11 @@
     grt extract list
     usage: extract [options] ... <feature-extractor>
     options:
-      -v, --verbose      verbosity level: 0-4 (int [=0])
-      -h, --help         print this message
-      -q, --no-header    do not print the header
+      -v, --verbose        verbosity level: 0-4 (int [=0])
+      -h, --help           print this message
+      -q, --no-header      do not print the header
+      -z, --z-normalize    z-normalize ( (x-mean(x))/std(x) ) all samples
+      -o, --o-normalize    o-normalize, compute x_i - x_0, i.e. remove the first component from each sample
     
     Available Extractors:
     
@@ -41,7 +43,11 @@
      range (r): compute range (min/max and their difference
      variance (v): compute variance of each axis
      median (e): compute median of each axis
+     zcr (z): zero-crossing rate
+     rms (s): root-mean squared over each and all axis
      time (t): shorthand for all time-domain features: mean,variance,range,median
+
+    
 
  We could then decide to extract mean and range from our input. This would result in the following command line:
 
@@ -55,14 +61,13 @@
 
  For each input dimension, the feature will be calculated and printed on the output. The mean extractor returns two dimensions, while the range extractor gives the maximum, minimum and the span of each input axis. This results in an eight-dimensional feature vector as output.
 
- So, this aggregates multiple fragments into one frame. Frames are separated by empty lines into fragments. For the following input we will get two output frames!
+ So, this aggregates multiple segments into one frame. Frames are separated by empty lines into segments. The following examples will aggregate the two segments into two frames!
 
     echo "inverting 1 1
     > inverting 0 0
     >
     > pipetting 2 3
-    > pipetting 2 2 " | grt e "m r"
-    inverting	0
-    inverting	1
-    pipetting	3
-    pipetting	3
+    > pipetting 2 2 " | grt e m
+    # mean	
+    inverting	0.5	0.5	
+    pipetting	2	2.5	

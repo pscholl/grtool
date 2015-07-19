@@ -43,8 +43,8 @@ data again.
     > abc 2 2 2
     > cde 3 4 5 
     > tfe 6 7 8" | grt pack -r 2 test.mkv && grt unpack test.mkv
-    abc 1 1 2
-    abc 2 2 2
-    cde 3 4 5 
-    tfe 6 7 8
+    abc   1.000000 1.000000 2.000000 
+    abc   2.000000 2.000000 2.000000 
+    cde   3.000000 4.000000 5.000000 
+    tfe   6.000000 7.000000 8.000000 
 
