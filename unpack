@@ -55,8 +55,6 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
         cmd += '' if (len(files)-subasfile)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
         cmd += ' pipe:%d'%w
 
-    print(cmd)
-
     # cmdline built, now copy all files to their respective w parts of in,
     # and read the results for r parts of outs. Do the same for the sub
     if verbose:
@@ -162,6 +160,14 @@ def probe(buf):
     o,e = cmd.communicate(buf)
     return json.loads(o.decode("utf-8"))['streams']
 
+def sid(s):
+    if 'LANGUAGE' in s['tags'].keys():
+        return s['tags']['LANGUAGE']
+    elif 'NAME' in s['tags'].keys():
+        return s['tags']['NAME']
+    else:
+        return None
+
 if __name__ == '__main__':
     cmdline = argparse.ArgumentParser('unpacks .mkv file (using ffmpeg)')
     cmdline.add_argument('files', type=str, default=["-"], nargs='*',       help="input files")
@@ -179,6 +185,7 @@ if __name__ == '__main__':
     sopen = lambda f: os.fdopen(sys.stdin.fileno(),'rb',buffering=2**21)
     files = (iopen(f) if f != '-' else sopen(f) for f in args.files )
     files = [ (probe(f.peek(int(2*1e6))),f) for f in files ]
+    sids  = [ sid(s) for (ss,f) in files for s in ss if s['codec_type']=='audio' ]
 
     # checks if audio or subtitle stream
     okay = lambda d: d['codec_type']=='subtitle' or\
@@ -187,8 +194,14 @@ if __name__ == '__main__':
                    'LANGUAGE' in d['tags'].keys() and d['tags']['LANGUAGE'] in args.stream or\
                        'NAME' in d['tags'].keys() and d['tags']['NAME'] in args.stream)
 
+
     # filter out all streams which are not neccesary or selected
     files = [[(s,f) for s in ss if okay(s)] for (ss,f) in files ]
 
     for audio,sub in group(files):
+        if not audio:
+            err = "no data stream selected, possible are: %s\n"%str(sids)
+            sys.stderr.write(err)
+            sys.exit(-1)
+
         unpack_to_str(audio,sub,args.default,args.style,args.no_flush,args.verbose)
