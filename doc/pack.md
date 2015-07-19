@@ -30,3 +30,8 @@
 :   add a title for each added stream, default: filename
  
 # EXAMPLES
+
+    echo "abc 1 1 2\
+    abc 2 2 2\
+    cde 3 4 5\
+    tfe 6 7 8" | grt pack -i - -r 2 test.mkv

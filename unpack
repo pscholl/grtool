@@ -8,6 +8,9 @@ from string import whitespace as ws
 from struct import Struct, error
 from queue import Queue
 
+we_are_reading = True
+
+
 def ass2rate(s,rate):
     h,m,s = [float(x) for x in s.split(':')]
     return int( (24*60*h+60*m+s) * rate )
@@ -18,11 +21,14 @@ def cp(i,o,BUFSIZE=4096,n=-1):
     o.close(); i.close()
 
 def pc(i,m,size):
+    global we_are_reading
     st,fmt = Struct("%df"%size),"%f "*size
     while True:
         buf = i.read(st.size)
         if not len(buf): break
         else: m.put(fmt % st.unpack(buf))
+    we_are_reading = False
+    m.put("")
 
 def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
@@ -30,6 +36,8 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     # not be taught to use the soxr resampler (the default one does not work)
     # Do this only if resampling is neccesary! Drop all frames after the shortest
     # stream
+    global we_are_reading
+
     files = list(set(f for (d,f) in audios))
     subasfile = sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in audios)
 
@@ -90,9 +98,9 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
         default = re.sub('\s+','_',default.strip())
         t,b,e,l = 0,0,float("inf") if not sub else float("-inf"),default
 
-        # read out the input pipes, and the subfile if given
-        while all(t.is_alive() for t in o) or not any(q.empty() for q in merg):
-            if sub and e<t:
+        # read the input pipes, and the subfile if given
+        while we_are_reading:
+            if sub and e<=t:
                 srt = subr.readline()
 
                 if not len(srt):
@@ -118,8 +126,10 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
                 b,e = beg,end
 
             line = ' '.join(q.get() for q in merg)
-            print(l if b<t<=e else default, ' ', line)
-            t += 1
+
+            if we_are_reading:
+                print(l if b<=t<e else default, ' ', line)
+                t += 1
 
         pid,status = os.waitpid(pid,0)
 
@@ -161,7 +171,9 @@ def probe(buf):
     return json.loads(o.decode("utf-8"))['streams']
 
 def sid(s):
-    if 'LANGUAGE' in s['tags'].keys():
+    if not 'tags' in s.keys():
+        return None
+    elif 'LANGUAGE' in s['tags'].keys():
         return s['tags']['LANGUAGE']
     elif 'NAME' in s['tags'].keys():
         return s['tags']['NAME']

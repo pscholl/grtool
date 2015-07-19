@@ -218,8 +218,6 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
   // DecisionTree
   // GMM
   // MinDist
-  // RandomForests
-  // SVM
   // Softmax
   // SwipeDetector
 
