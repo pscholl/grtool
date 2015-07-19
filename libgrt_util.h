@@ -237,6 +237,25 @@ class CerrLogger : public Observer< GRT::TrainingLogMessage >,
   }
 };
 
+// trim from start
+static inline std::string &ltrim(std::string &s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+        return s;
+}
+
+// trim from end
+static inline std::string &rtrim(std::string &s) {
+        s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+        return s;
+}
+
+// trim from both ends
+static inline std::string &trim(std::string &s) {
+        return ltrim(rtrim(s));
+}
+
+
+
 static bool is_running = true;
   /* enable logging output */
 void set_verbosity(int level) {
@@ -300,16 +319,30 @@ FeatureExtraction *loadFeatureExtractionFromFile(string &file) {
   return feature;
 }
 
-Classifier *loadClassifierFromFile(string &file)
+Classifier *loadClassifierFromFile(istream &file)
 {
   ErrorLog err;
   Classifier *classifier = NULL;
   bool errlog = err.getLoggingEnabled();
   ErrorLog::enableLogging(false);
 
+  // for input pipes we need to buffer, so load the file completly into
+  // memory or until an empty line has been read.
+  stringstream ss;
+  string line;
+
+  while (getline(file,line)) {
+    if (trim(line)=="") break;
+    ss << line << endl;
+  }
+
   for (string c : Classifier::getRegisteredClassifiers()) {
-    classifier = Classifier::createInstanceFromString(c);
-    if (c != "ParticleClassifier" && classifier->loadModelFromFile(file))
+    classifier  = Classifier::createInstanceFromString(c);
+
+    stringstream in(ss.str());
+    bool loaded = classifier->loadModelFromFile(in);
+
+    if (c != "ParticleClassifier" && loaded)
       break;
     if (classifier != NULL) delete classifier;
     classifier = NULL;

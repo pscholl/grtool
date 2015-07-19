@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add        ("likelihood", 'l', "print label_prediction likelihood instead of label and prediction");
-  c.footer     ("<classifier-model-file> [filename]...");
+  c.footer     ("[classifier-model-file] [filename]...");
 
   /* parse the classifier-common arguments */
   if (!c.parse(argc,argv,true) || c.exist("help")) {
@@ -18,12 +18,11 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  /* handling of TERM and INT signal and set verbosity */
-  //set_running_indicator(&is_running);
   set_verbosity(c.get<int>("verbose"));
 
   /* load a classification model */
-  string model_file = c.rest().size() > 0 ? c.rest()[0] : "";
+  ifstream fin; fin.open(c.rest().size() ? c.rest()[0] : "");
+  istream &model = c.rest().size() ? fin : cin;
 
   /* prepare input */
   string data_type = c.get<string>("type");
@@ -31,22 +30,17 @@ int main(int argc, char *argv[])
   istream &in = grt_fileinput(c,1);
 
   /* read and predict on input */
-  Classifier *classifier = NULL; // TODO this needs to be loaded from stdin for piped cases!
+  Classifier *classifier = loadClassifierFromFile(model);
+
+  if (classifier == NULL) {
+    cerr << "unable to load classification model giving up" << endl;
+    return -1;
+  }
+
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
     string s_prediction, s_label;
     bool result = false;
-
-    /* load the classifier only after the first data has arrived, so
-     * we give the preceding command (when used in a pipe) enough time
-     * to write the classifier to disk */
-    for (int i=0; i<255*255 && classifier==NULL; i++, usleep(10*100))
-      classifier = loadClassifierFromFile(model_file);
-
-    if (classifier == NULL) {
-      cerr << "unable to load classification model " << model_file << " giving up" << endl;
-      return -1;
-    }
 
     switch(io.type) {
     case TIMESERIES:

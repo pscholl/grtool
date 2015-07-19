@@ -223,23 +223,16 @@ bool CRF::reset() {
 bool CRF::clear() { reset(); }
 bool CRF::print() const {}
 
-bool CRF::saveModelToFile(fstream &f) const {
+bool CRF::saveModelToFile(ostream &f) const {
   std::ifstream in(tmpFileName, ios::binary);
 
   // TODO remove tmpfile
-
-  if (!f.is_open()) {
-    errorLog << "saveModelToFile() - output file not open" << endl;
-    return false;
-  }
-
   if (!in.good()) {
     errorLog << "saveModelToFile() - model has not been trained yet" << endl;
     return false;
   }
 
   f << in.rdbuf();
-  f.close();
   in.close();
 
   return true;

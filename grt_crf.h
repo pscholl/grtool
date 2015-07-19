@@ -27,7 +27,7 @@ public:
   virtual bool reset();
   virtual bool clear();
   virtual bool print() const;
-  virtual bool saveModelToFile(fstream& ) const override;
+  virtual bool saveModelToFile(ostream& ) const override;
   virtual bool loadModelFromFile(string);
 
   using MLBase::saveModelToFile;

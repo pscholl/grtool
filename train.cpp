@@ -21,7 +21,7 @@ int main(int argc, const char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 1);
   c.add        ("help",       'h', "print this message");
   c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "unlabelled"));
-  c.add<string>("output",     'o', "store trained classifier in file", true);
+  c.add<string>("output",     'o', "store trained classifier in file", false);
   c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
   c.footer     ("<classifier or file> [input-data]...");
 
@@ -50,14 +50,11 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
-  if (!c.exist("output")) {
-    cerr << "please provide an output file" << endl;
-    return -1;
-  }
-
   /* check if we can open the output file */
-  fstream test(c.get<string>("output"), ios_base::out);
-  if (!test.good()) {
+  ofstream test(c.get<string>("output"), ios_base::out);
+  ostream &output = c.exist("output") ? test : cout;
+
+  if (c.exist("output") && !test.good()) {
     cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" as output" << endl;
     return -1;
   }
@@ -124,17 +121,15 @@ int main(int argc, const char *argv[])
   for (int i=1; i<io.labelset.size(); i++)
     classifier->setClassNameForLabel(i, io.labelset[i]);
 
-  /* re move the output file first */
-  stringstream ss (c.get<string>("output")); ss << ".tmp";
-  remove(c.get<string>("output").c_str());
-  if (!classifier->save(ss.str())) {
+  if (!classifier->saveModelToFile(output)){
     cerr << "saving to " << c.get<string>("output") << " failed" << endl;
     return -1;
-  } else if (!c.exist("output")) {
-    // TODO classifier->saveModelToFile(o); to output stream so it can be picked
-    // by pipe
   }
-  rename(ss.str().c_str(), c.get<string>("output").c_str());
+
+  if (!c.exist("output"))
+    cout << endl; // mark the end of the classifier if piping
+  else
+    test.close();
 
   /* if there is testdataset we need to print this now */
   if (input_limit < 1.) {
@@ -395,7 +390,9 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       p.get<double>("C"),
       false, 0);
   } else {
-    o = loadClassifierFromFile(name);
+    fstream fin; fin.open(name);
+    o = loadClassifierFromFile(fin);
+    fin.close();
   }
 
   if (o != NULL)
