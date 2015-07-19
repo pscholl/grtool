@@ -82,11 +82,11 @@ def process(i,o,sub,chn,rate):
 
             o[idx].write(data)
 
-    srt = "%d\n%d:%d:%d,%d --> %d:%d:%d,%d\n%s\n"%(\
-            num,s/(rate*3600), s/(rate*60), s/(rate), (s%rate)/rate*1000,\
-            e/(rate*3600), e/(rate*60), e/(rate), (e%rate)/rate*1000,\
-            l.strip())
-    sub.write(srt)
+    #srt = "%d\n%d:%d:%d,%d --> %d:%d:%d,%d\n%s\n"%(\
+    #        num,s/(rate*3600), s/(rate*60), s/(rate), (s%rate)/rate*1000,\
+    #        e/(rate*3600), e/(rate*60), e/(rate), (e%rate)/rate*1000,\
+    #        l.strip())
+    #sub.write(srt)
     close(sub,[])
 
 
@@ -161,7 +161,6 @@ def pack_grt(i,rates,names,output,media,verbose=False):
         cmd.extend( arg for s in range(len(media)+len(r)+1) for arg in ("-map %d:0:%d"%(s,s)).split() )
         cmd.extend( "-c:a wavpack -c:v copy -c:s ass -y -f matroska".split() )
         cmd.append( output )
-        #print(" ".join(cmd))
         os.execvp(cmd[0], cmd)
 
 if __name__ == "__main__":
@@ -179,7 +178,7 @@ if __name__ == "__main__":
         args.input = ["-"]
 
     # make sure that a rate is specified for each input
-    print( len(args.rate), len(args.input))
+    #print( len(args.rate), len(args.input))
 
     if len(args.rate) != len(args.input):
         sys.stderr.write("for each input (-i) argument you need to specify the recording rate (-r)\n")
