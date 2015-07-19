@@ -47,7 +47,7 @@
 
 # EXAMPLES
 
- This an example of using the ClassLabelChangeFilter.
+ This an example of the majority filter, which will ouput the major label over an N-sized window with an overlap. Note that the default overlap is 50%, which is why the last line is repeated.
 
     echo "NULL NULL
     > label label
@@ -59,5 +59,4 @@
     label label
     label some_prediction
     some_prediction some_prediction
-    
-    grt 
+    some_prediction some_prediction

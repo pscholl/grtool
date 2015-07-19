@@ -129,12 +129,10 @@ This implementation is based on the crfsuite.
     > cde 2
     >
     > abc 1
-    > abc 1" | grt train CRF -t timeseries -o test.crf -n .5
+    > abc 1" | grt train CRF -t timeseries -o test.crf -n 2
     # timeseries
-    abc	1
-    abc	1
-    
-    cde	2
+    abc 1
+    abc 1
 
 ## Making a non-random split
  In case you do not want to use stratified random split from your data as the training sequence (for example when your data is too large to fit into memory) you can use the N-first samples of your input sequence for training. Achieved by supplying a number greater than 1 to the -n option:

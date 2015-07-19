@@ -16,6 +16,7 @@
  The output of this file can be directly piped to the *grt score* command for further examination.
 
 # OPTIONS
+
 -h, --help
 :   Print a help message.
  
@@ -33,5 +34,5 @@
 
 # EXAMPLES
 
-    echo "" | grt predict my-model.hmm
-    ...
+    
+    

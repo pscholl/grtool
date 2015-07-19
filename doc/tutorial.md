@@ -64,23 +64,3 @@
     NULL	NULL
     testing	testing
     
-
- You can also suppress the output of the NULL label altogether (with the -n switch), useful for interactive use.
-
-    echo "# timeseries
-    > testing 1 
-    > testing 1 
-    > testing 1 
-    > testing 1 
-    > 
-    > NULL 2
-    > NULL 2
-    > 
-    > NULL 2
-    > NULL 2
-    > 
-    > testing 1
-    > testing 1" | grt train HMM -S 2 -n 2 -o test.hmm | grt predict test.hmm -n
-    testing	testing
-    
-
