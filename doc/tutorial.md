@@ -29,7 +29,7 @@
     grt info -h
     usage: info [options] ... [filename]...
     options:
-      -t, --type       force classification, regression or timeseries input (string [=])
+      -t, --type       force input type (string [=classification]{classification,regression,timeseries,auto})
       -v, --verbose    verbosity level: 0-4 (int [=0])
       -h, --help       print this message
 
@@ -47,7 +47,7 @@
  This is supported by a special label in the data stream, which is called "NULL".
  This label will not be learned as a classification output, but will be used to set the rejection treshold.
 
-    echo "# timeseries
+    echo "# just some random data
     > testing 1 
     > testing 1 
     > testing 1 
@@ -60,7 +60,7 @@
     > NULL 2
     > 
     > testing 1
-    > testing 1" | grt train HMM -S 2 -n 2 -o test.hmm | grt predict test.hmm
+    > testing 1" | grt train HMM -S 2 -n 2 | grt predict
     NULL	NULL
     testing	testing
     

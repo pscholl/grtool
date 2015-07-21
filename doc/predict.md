@@ -23,9 +23,6 @@
 -v, --verbose [level 0-4]
 :   Tell the command to be more verbose about its execution.
 
--t, --type [classification, timeseries, regression, unlabelled]
-:   Force the interpretation of the input format to be one of the list.
-
 -s, --segment [N]
 :   greedy confidence segmentation, capture a window of at least N samples and consume samples until the classifier rejects the window as NULL, defaults to 0 which disables this
 

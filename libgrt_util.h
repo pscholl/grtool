@@ -100,8 +100,9 @@ class CsvIOSample {
 
         ss >> label;
         vector<double> sample;
-        while (ss >> d)
-          sample.push_back(d);
+        string val;
+        while (ss >> val) // this also handles nan and infs correctly
+          sample.push_back(strtod(val.c_str(),NULL));
 
         if (sample.size() == 0)
           continue;

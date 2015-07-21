@@ -4,7 +4,7 @@
 int main(int argc, char *argv[]) 
 {
   cmdline::parser c;
-  c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
+  c.add<string>("type",       't', "force input type", false, "classification", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.footer     ("[filename]...");

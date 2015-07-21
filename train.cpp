@@ -20,7 +20,6 @@ int main(int argc, const char *argv[])
 
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 1);
   c.add        ("help",       'h', "print this message");
-  c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "unlabelled"));
   c.add<string>("output",     'o', "store trained classifier in file", false);
   c.add<float> ("num-samples",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
   c.footer     ("<classifier or file> [input-data]...");
@@ -69,8 +68,7 @@ int main(int argc, const char *argv[])
   }
 
   /* now start to read input samples */
-  string type = c.get<string>("type");
-  CsvIOSample io(type);
+  CsvIOSample io( classifier->getTimeseriesCompatible() ? "timeseries" : "classification" );
   CollectDataset dataset;
 
   /* check if the number of input is limited */
@@ -132,15 +130,16 @@ int main(int argc, const char *argv[])
     test.close();
 
   /* if there is testdataset we need to print this now */
+  bool first = true;
   if (input_limit < 1.) {
     switch(io.type) {
     case TIMESERIES:
-      cout << "# timeseries";
       for (auto sample : t_testdata.getClassificationData()) {
         string label = t_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         MatrixDouble &matrix = sample.getData();
         for (int i=0; i<matrix.getNumRows(); i++) {
-          cout << endl << label;
+          if (first) {cout << label; first = false;}
+          else {cout << endl << label;}
           for (int j=0; j<matrix.getNumCols(); j++)
             cout << "\t" << matrix[i][j];
         }
@@ -148,12 +147,12 @@ int main(int argc, const char *argv[])
       }
       break;
     case CLASSIFICATION:
-      cout << "# classification" << endl;
       for (auto sample : c_testdata.getClassificationData()) {
         string label = c_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         cout << label;
         for (auto val : sample.getSample())
           cout << "\t" << val;
+
         cout << endl;
       }
       break;
@@ -162,12 +161,6 @@ int main(int argc, const char *argv[])
       return -1;
     }
   } else if (input_limit > 1.) {
-    string type = "";
-    switch(io.type) {
-    case TIMESERIES: type="timeseries"; break;
-    case CLASSIFICATION: type="classification"; break;
-    }
-    cout << "# " << type << endl;
     string line;
     while (getline(in, line))
       cout << line << endl;
@@ -325,7 +318,7 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
 
     HMM *h = new HMM(
       /* hmmtype */ HMM_DISCRETE,
-      /* hmmodel */ find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
+      /* hmmodel */ find(list.begin(), list.end(), p.get<string>("hmmtype")) - list.begin(),
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
       /* useNull */ true);
@@ -341,7 +334,7 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
 
     HMM *h = new HMM(
       /* hmmtype */ HMM_CONTINUOUS,
-      /* hmmodel */ find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
+      /* hmmodel */ find(list.begin(), list.end(), p.get<string>("hmmtype")) - list.begin(),
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
       /* useNull */ false);
@@ -471,7 +464,7 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
         p.get<int>("min-samples-per-node"),
         p.get<int>("max-depth"),
         p.exist("remove-features"),
-        find(list.begin(), list.end(), p.get<string>("kernel")) - list.begin(),
+        find(list.begin(), list.end(), p.get<string>("training-mode")) - list.begin(),
         p.get<int>("num-split"),
         false);
 

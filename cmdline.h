@@ -838,7 +838,7 @@ public:
     std::string full_description(const std::string &desc){
       return
         desc+" ("+detail::readable_typename<T>()+
-        (this->need?"":" [="+detail::default_value<T>(this->def)+"] ")+
+        (this->need?"":" [="+detail::default_value<T>(this->def)+"]")+
         reader.desc()
         +")";
     }

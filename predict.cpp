@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
 
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
-  c.add<string>("type",       't', "force classification, regression or timeseries input", false, "", cmdline::oneof<string>("classification", "regression", "timeseries", "auto"));
   c.add        ("likelihood", 'l', "print label_prediction likelihood instead of label and prediction");
   c.footer     ("[classifier-model-file] [filename]...");
 
@@ -24,23 +23,32 @@ int main(int argc, char *argv[])
   ifstream fin; fin.open(c.rest().size() ? c.rest()[0] : "");
   istream &model = c.rest().size() ? fin : cin;
 
-  /* prepare input */
-  string data_type = c.get<string>("type");
-  CsvIOSample io(data_type);
-  istream &in = grt_fileinput(c,1);
-
   /* read and predict on input */
   Classifier *classifier = loadClassifierFromFile(model);
 
-  if (classifier == NULL) {
-    cerr << "unable to load classification model giving up" << endl;
-    return -1;
-  }
+  /* prepare input */
+  string data_type = classifier->getTimeseriesCompatible() ? "timeseries" : "classification";
+  CsvIOSample io(data_type);
+  istream &in = grt_fileinput(c,1);
 
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
     string s_prediction, s_label;
     bool result = false;
+
+    /* load the classifier only after the first data has arrived, so
+     * we give the preceding command (when used in a pipe) enough time
+     * to write the classifier to disk */
+    if (classifier == NULL && c.rest().size() > 0)
+      for (int i=0; i<255*255 && classifier==NULL; i++, usleep(10*100)) {
+        ifstream fin(c.rest()[0]);
+        classifier = loadClassifierFromFile(fin);
+      }
+
+    if (classifier == NULL) {
+      cerr << "unable to load classification model giving up" << endl;
+      return -1;
+    }
 
     switch(io.type) {
     case TIMESERIES:
