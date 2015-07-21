@@ -176,6 +176,7 @@ int main(int argc, const char *argv[])
 }
 
 string list_classifiers() {
+  vector<string> exclude = {"HMM", "BAG"};
   vector<string> names = Classifier::getRegisteredClassifiers();
   stringstream ss;
   string name;
@@ -184,7 +185,8 @@ string list_classifiers() {
   cout << "cHMM (timeseries)" << endl;
 
   for (auto name : names)  {
-    if ("HMM" == name) continue;
+    if (find(exclude.begin(),exclude.end(),name)!=exclude.end())
+      continue;
     Classifier *c = Classifier::createInstanceFromString(name);
     if (c->getTimeseriesCompatible())
       ss << name << " (timeseries" << (c->getSupportsNullRejection() ? ",null rejection)" : ")") << endl;
@@ -192,6 +194,8 @@ string list_classifiers() {
 
   for (auto name : names)  {
     Classifier *c = Classifier::createInstanceFromString(name);
+    if (find(exclude.begin(),exclude.end(),name)!=exclude.end())
+      continue;
     if (!c->getTimeseriesCompatible())
       ss << name << (c->getSupportsNullRejection() ? " (null rejection)" : "") << endl;
   }
@@ -207,17 +211,14 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
   Classifier *o = NULL;
 
   // TODO
-  // ANBC
-  // AdaBoost
-  // BAG
   // DecisionTree
-  // GMM
   // MinDist
   // Softmax
   // SwipeDetector
 
   if ( "HMM" == name ) {
-    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "leftright", cmdline::oneof<string>("leftright", "ergodic"));
+#   define HMM_TYPE "ergodic", "leftright"
+    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "leftright", cmdline::oneof<string>(HMM_TYPE));
 
     p.add<double>("delta",          0, "delta for leftright model, default: 1", false, 1);
     p.add<int>   ("num-states",   'S', "number of states", false, 10);
@@ -225,30 +226,31 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<int>   ("max-epochs",     0, "maximum number of epochs during training", false, 1000);
     p.add<float> ("min-change",     0, "minimum change before abortion", false, 1.0e-5);
   } else if ( "cHMM" == name ) {
-    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "ergodic", cmdline::oneof<string>("leftright", "ergodic"));
+    p.add<string>("hmmtype",      'T', "either 'ergodic' or 'leftright' (default: ergodic)",  false, "ergodic", cmdline::oneof<string>(HMM_TYPE));
 
     p.add<int>   ("comitteesize",  0, "number of models used for prediction, default: 10", false, 10);
     p.add<double>("delta",         0, "delta for leftright model, default: 1", false, 1);
     p.add<int>   ("downsample",    0, "downsample factor, default: 5", false, 5);
   } else if ( "CRF" == name ) {
     p.add<string>("algorithm",   'A', "learning algorithm for training", false, "lbfgs", cmdline::oneof<string>("lbfgs", "l2sgd", "ap", "pa", "arow"));
-    p.add<double>("minfreq",       0, "minimum frequency of features", false, 0.);
+    p.add<double>("minfreq",      0, "minimum frequency of features", false, 0.);
     p.add        ("states",      'S', "generate all possible states");
     p.add        ("transitions", 'T', "generate all possible transitions");
 
     // TODO
   } else if ( "KNN" == name ) {
-    p.add<string>("distance",         'D', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>("euclidean", "cosine", "manhattan"));
+#   define KNN_DISTANCE "euclidean", "cosine", "manhattan"
+    p.add<string>("distance",         'D', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>(KNN_DISTANCE));
     p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
     p.add<int>   ("K-neighbors",      'K', "number of neighbors used in classification (if 0 search for optimum)", false, 0);
     p.add<int>   ("min-K",             0, "only used during search", false, 2);
     p.add<int>   ("max-K",             0, "only used during search", false, 20);
   } else if ( "DTW" == name ) {
-    p.add<double>("null-coefficient", 'N', "delta for NULL-class rejection, 0.0 means off", false, 0.0);
-    p.add<string>("rejection-mode",   'R', "NULL-class rejection mode, one of 'template', 'likelihood' or 'template_and_likelihood'", false, "template", cmdline::oneof<string>("template", "likelihood", "template_and_likelihood"));
+#   define DTW_REJECTION_MODE "template", "class", "template_class"
+    p.add<double>("null-coefficient", 'N', "multiplier for NULL-class rejection, 0.0 means off", false, 0.0);
+    p.add<double>("null-threshold",   'T', "likelihood threshold for CLASS rejection modes, 0.0 means off", false, 0.0);
+    p.add<string>("rejection-mode",   'R', "NULL-class rejection mode", false, "template", cmdline::oneof<string>(DTW_REJECTION_MODE));
     p.add<double>("warping-radius",   'W', "limit the warping to this radius (0 means disabled, 1 is maximum)", false, 0, cmdline::range(0.,1.));
-    p.add        ("offset-by-first",  'O', "offset all samples by first sample, helps DTW when not using normalization");
-    p.add<int>   ("downsample",        0, "downsample factor, default: 5", false, 5);
   } else if ( "FiniteStateMachine" == name ) {
     p.add<int>   ("num-particles",        'N', "number of particles", false, 200);
     p.add<int>   ("num-clusters",         'M', "number of clusters per state", false, 10);
@@ -261,21 +263,43 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<double>("phase-sigma",          'P', "phase sigma", false, 0.1);
     p.add<double>("velocity-sigma",       'V', "velocity sigma", false, 0.01);
   } else if ( "RandomForests" == name) {
+#   define RF_TRAINING "random", "iterative"
     p.add<int>   ("forest-size",          'N', "number of trees in the forest", false, 10);
     p.add<int>   ("num-split",            'S', "number of split to search", false, 100);
     p.add<int>   ("num-samples",          'M', "number of samples for non-leaf nodes", false, 5);
     p.add<int>   ("max-depth",            'D', "maximum depth of the tree", false, 10);
-    p.add<string>("rejection-mode",       'R', "NULL-class rejection mode, one of 'template', 'likelihood' or 'template_and_likelihood'", false, "template", cmdline::oneof<string>("template", "likelihood", "template_and_likelihood"));
+    p.add<string>("training-mode",        'T', "training mode", false, "random", cmdline::oneof<string>(RF_TRAINING));
     p.add        ("remove-features",      'F', "remove features at each split");
-    p.add<string>("training",             'T', "training mode (iterative or best)", false, "best", cmdline::oneof<string>("iterative","best"));
   } else if ( "SVM" == name ) {
-    p.add<string>("kernel",               'K', "kernel type (linear,poly,rbf,sigmoid,precomputed, defaults to linear)", false, "linear", cmdline::oneof<string>("linear","poly","rbf","sigmoid","precomputed"));
-    p.add<string>("type",                 'T', "svm type (C_SVC,NU_SVC,ONE_CLASS,EPSILONS_VR,NU_SVR, defaults to C_CVS)", false,"C_SVC", cmdline::oneof<string>("C_SVC","NU_SVC", "ONE_CLASS","EPSILON_SVR","NU_SVR"));
-    p.add<double>("gamma",                'G', "set to 0. to auto-calculate, default: 0.", false, 0, cmdline::range(0,1));
+#   define SVM_KERNELS "linear","poly","rbf","sigmoid","precomputed"
+#   define SVM_TYPES   "C_SVC","NU_SVC","ONE_CLASS","EPSILON_SVR","NU_SVR"
+    p.add<string>("kernel",               'K', "kernel type", false, "linear", cmdline::oneof<string>(SVM_KERNELS));
+    p.add<string>("type",                 'T', "svm type", false,"C_SVC", cmdline::oneof<string>(SVM_TYPES));
+    p.add<double>("gamma",                'G', "set to 0. to auto-calculate", false, 0, cmdline::range(0,1));
     p.add<int>   ("degree",               'D', "SVM degree parameter", false, 3);
     p.add<double>("coef0",                'O', "SVM coef0 parameter", false, 0);
     p.add<double>("nu",                   'M', "SVM nu parameter", false, 0.5);
     p.add<double>("C",                    'C', "SVM C parameter", false, 1);
+  } else if ( "ANBC" == name ) {
+    p.add<double>("null-coef",            'N', "null rejection coefficient, default: 0 (not used)", false, 0);
+  } else if ( "GMM" == name ) {
+    p.add<int>   ("mixtures",             'M', "num of mixtures", false, 3);
+    p.add<double>("null-coef",            'N', "null rejection coefficient, default: 0 (not used)", false, 0);
+    p.add<int>   ("max-iterations",       'I', "num of iterations", false, 10000);
+    p.add<double>("epsilon",              'E', "minimum change between iteration", false, .1);
+  } else if ( "AdaBoost" == name ) {
+#   define ADABOOST_TYPES "MAX_POSITIVE_VALUE","MAX_VALUE"
+#   define ADABOOST_CLASS "DS","RBF"
+    p.add<double>("null-coef",            'N', "null rejection coefficient, default: 0 (not used)", false, 0);
+    p.add<int>   ("max-iterations",       'I', "num of iterations", false, 10000);
+    p.add<string>("prediction-type",     'T', "predicition method" , false,"MAX_POSITIVE_VALUE", cmdline::oneof<string>(ADABOOST_TYPES));
+    p.add<string>("weak-classifier",      'C', "weak classifier to be boosted", false, "DS", cmdline::oneof<string>(ADABOOST_CLASS));
+
+    p.add<int>   ("num-steps",            'S', "(RBF/DS) number of steps for rbf", false, 100);
+
+    p.add<double>("pos-tresh",            'P', "(RBF) positive classification treshhold", false, .9);
+    p.add<double>("min-alpha",            'L', "(RBF) lower alpha threshold", false, .001);
+    p.add<double>("max-alpha",            'H', "(RBF) higher alpha threshold", false, 1);
   }
 
   if (c.exist("help")) {
@@ -289,9 +313,11 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
   }
 
   if ( "HMM" == name ) {
+    vector<string> list = {HMM_TYPE};
+
     HMM *h = new HMM(
       /* hmmtype */ HMM_DISCRETE,
-      /* hmmodel */ p.get<string>("hmmtype").find("ergodic")  == string::npos,
+      /* hmmodel */ find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
       /* useNull */ true);
@@ -303,9 +329,11 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
 
     o = h;
   } else if ( "cHMM" == name ) {
+    vector<string> list = {HMM_TYPE};
+
     HMM *h = new HMM(
       /* hmmtype */ HMM_CONTINUOUS,
-      /* hmmodel */ p.get<string>("hmmtype").find("ergodic")  == string::npos,
+      /* hmmodel */ find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
       /* delta */   p.get<double>("delta"),
       /* scaling */ false,
       /* useNull */ false);
@@ -339,7 +367,7 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
 
     o = k;
   } else if ( "DTW" == name ) {
-    vector<string> list = {"template","likelihoods","template_and_likelihood"};
+    vector<string> list = {DTW_REJECTION_MODE};
     o = new DTW(
       /* useScaling */ false,
       /* useNullRejection */ p.get<double>("null-coefficient")!=0,
@@ -347,9 +375,10 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       /* rejectionMode */ find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
       /* constrainWarpingPath */ p.get<double>("warping-radius")!=0,
       /* radius */ p.get<double>("warping-radius"),
-      /* offsetUsingFirstSample */ p.exist("offset-by-first"),
-      /* useSmoothing */ true,
-      /* smoothingFactor */ p.get<int>("downsample"));
+      /* offsetUsingFirstSample */ false,
+      /* useSmoothing */ false,
+      /* smoothingFactor */ 0,
+      /* nullRjectionLikelihoodThreshold */ p.get<double>("null-threshold"));
   } else if ( "FiniteStateMachine" == name ) {
     o = new FiniteStateMachine(
       p.get<int>("num-particles"),
@@ -364,19 +393,19 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       p.get<double>("phase-sigma"),
       p.get<double>("velocity-sigma"));
   } else if ( "RandomForests" == name ) {
-    vector<string> list = {"iterative", "best"};
+    vector<string> list = {RF_TRAINING};
     o = new RandomForests(
       DecisionTreeClusterNode(),
       p.get<int>   ("forest-size"),
       p.get<int>   ("num-split"),
       p.get<int>   ("num-samples"),
       p.get<int>   ("max-depth"),
-      find(list.begin(), list.end(), p.get<string>("rejection-mode")) - list.begin(),
+      find(list.begin(), list.end(), p.get<string>("training-mode")) - list.begin(),
       p.exist("remove-features"),
       true);
   } else if ( "SVM" == name ) {
-    vector<string> kernel_list = {"linear","poly","rbf","sigmoid","precomputed"};
-    vector<string> type_list = {"C_SVC","NU_SVC", "ONE_CLASS","EPSILON_SVR","NU_SVR"};
+    vector<string> kernel_list = {SVM_KERNELS};
+    vector<string> type_list = {SVM_TYPES};
     o = new SVM(
       find(kernel_list.begin(), kernel_list.end(), p.get<string>("kernel")) - kernel_list.begin(),
       find(type_list.begin(), type_list.end(), p.get<string>("type")) - type_list.begin(),
@@ -389,6 +418,44 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       p.get<double>("nu"),
       p.get<double>("C"),
       false, 0);
+  } else if ( "ANBC" == name ) {
+    o = new ANBC(true,p.get<double>("null-coef")!=0,p.get<double>("null-coef"));
+  } else if ( "GMM" == name ) {
+    o = new GMM(p.get<int>("mixtures"),
+      true,
+      p.get<double>("null-coef")!=0,
+      p.get<double>("null-coef"),
+      p.get<int>("max-iterations"),
+      p.get<double>("epsilon"));
+  } else if ( "AdaBoost" == name ) {
+    vector<string> types = {ADABOOST_TYPES};
+    UINT type = find(types.begin(),types.end(),p.get<string>("prediction-type")) - types.begin();
+
+    if( "DS" == p.get<string>("weak-classifier") ) {
+      o = new AdaBoost(
+        DecisionStump(p.get<int>("num-steps")),
+        true,
+        p.get<double>("null-coef")!=0,
+        p.get<double>("null-coef"),
+        p.get<int>("max-iterations"),
+        type);
+    } else if ("RBF" == p.get<string>("weak-classifier") ) {
+      o = new AdaBoost(
+        RadialBasisFunction(
+          p.get<int>("num-steps"),
+          p.get<double>("pos-tresh"),
+          p.get<double>("min-alpha"),
+          p.get<double>("max-alpha")),
+        true,
+        p.get<double>("null-coef")!=0,
+        p.get<double>("null-coef"),
+        p.get<int>("max-iterations"),
+        type);
+    } else {
+      cerr << "unknown weak classifier in AdaBoost got: " << p.get<string>("weak-classifier") << endl;
+      exit(-1);
+    }
+
   } else {
     fstream fin; fin.open(name);
     o = loadClassifierFromFile(fin);
