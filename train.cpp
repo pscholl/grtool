@@ -176,7 +176,7 @@ int main(int argc, const char *argv[])
 }
 
 string list_classifiers() {
-  vector<string> exclude = {"HMM", "BAG"};
+  vector<string> exclude = {"HMM", "BAG", "SwipeDetector"};
   vector<string> names = Classifier::getRegisteredClassifiers();
   stringstream ss;
   string name;
@@ -209,12 +209,6 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
 {
   cmdline::parser p;
   Classifier *o = NULL;
-
-  // TODO
-  // DecisionTree
-  // MinDist
-  // Softmax
-  // SwipeDetector
 
   if ( "HMM" == name ) {
 #   define HMM_TYPE "ergodic", "leftright"
@@ -288,7 +282,7 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<int>   ("max-iterations",       'I', "num of iterations", false, 10000);
     p.add<double>("epsilon",              'E', "minimum change between iteration", false, .1);
   } else if ( "AdaBoost" == name ) {
-#   define ADABOOST_TYPES "MAX_POSITIVE_VALUE","MAX_VALUE"
+#   define ADABOOST_TYPES "max_positive", "max"
 #   define ADABOOST_CLASS "DS","RBF"
     p.add<double>("null-coef",            'N', "null rejection coefficient, default: 0 (not used)", false, 0);
     p.add<int>   ("max-iterations",       'I', "num of iterations", false, 10000);
@@ -300,6 +294,20 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<double>("pos-tresh",            'P', "(RBF) positive classification treshhold", false, .9);
     p.add<double>("min-alpha",            'L', "(RBF) lower alpha threshold", false, .001);
     p.add<double>("max-alpha",            'H', "(RBF) higher alpha threshold", false, 1);
+  } else if ( "DecisionTree" == name ) {
+#   define DT_TRAINING "iterative", "random"
+    p.add<int>   ("min-samples-per-node", 'M', "minimum number of samples per node before becoming a lead node", false, 5);
+    p.add<int>   ("max-depth",            'D', "maximum depth of the tree", false, 10);
+    p.add        ("remove-features",      'F', "remove features at each split");
+    p.add<string>("training-mode",        'T', "training mode", false, "iterative", cmdline::oneof<string>(DT_TRAINING));
+    p.add<int>   ("num-split",            'S', "number of splitting nodes to search", false, 100);
+  } else if ( "MinDist" == name ) {
+    p.add<double>("null-coef",            'N', "null rejection coefficient", false, 10);
+    p.add<int>("num-clusters",            'C', "number of clusters", false, 10);
+  } else if ( "Softmax" == name ) {
+    p.add<double>("learning-rate",        'R', "learning rate for training", false, .1);
+    p.add<double>("min-change",           'C', "minimum change between steps", false, 1e-10);
+    p.add<double>("max-epochs",           'E', "maximum number of epochs", false, 1000);
   }
 
   if (c.exist("help")) {
@@ -456,6 +464,27 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
       exit(-1);
     }
 
+  } else if ( "DecisionTree" == name ) {
+    vector<string> list = {DT_TRAINING};
+
+    o = new DecisionTree(DecisionTreeNode(),
+        p.get<int>("min-samples-per-node"),
+        p.get<int>("max-depth"),
+        p.exist("remove-features"),
+        find(list.begin(), list.end(), p.get<string>("kernel")) - list.begin(),
+        p.get<int>("num-split"),
+        false);
+
+  } else if ( "MinDist" == name ) {
+    o = new MinDist(false,
+        p.get<double>("null-coef")!=0,
+        p.get<double>("null-coef"),
+        p.get<int>("num-clusters"));
+  } else if ( "Softmax" == name ) {
+    o = new Softmax(false,
+        p.get<double>("learning-rate"),
+        p.get<double>("min-change"),
+        p.get<double>("max-epochs"));
   } else {
     fstream fin; fin.open(name);
     o = loadClassifierFromFile(fin);
