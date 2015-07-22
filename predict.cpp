@@ -19,6 +19,12 @@ int main(int argc, char *argv[])
 
   set_verbosity(c.get<int>("verbose"));
 
+  /* wait until first data has arrived before trying to read the
+   * classifier, to catch cases where the training has not yet been
+   * completed, and he classifier has not yet been written to disk */
+  istream &in = grt_fileinput(c,1);
+  in.peek(); // block until data there
+
   /* load a classification model */
   ifstream fin; fin.open(c.rest().size() ? c.rest()[0] : "");
   istream &model = c.rest().size() ? fin : cin;
@@ -26,29 +32,25 @@ int main(int argc, char *argv[])
   /* read and predict on input */
   Classifier *classifier = loadClassifierFromFile(model);
 
+  if (classifier == NULL && c.rest().size() > 0)
+    for (int i=0; i<255*255 && classifier==NULL; i++, usleep(10*100)) {
+      ifstream fin(c.rest()[0]);
+      classifier = loadClassifierFromFile(fin);
+    }
+
+  if (classifier == NULL) {
+    cerr << "unable to load classification model giving up" << endl;
+    return -1;
+  }
+
   /* prepare input */
   string data_type = classifier->getTimeseriesCompatible() ? "timeseries" : "classification";
   CsvIOSample io(data_type);
-  istream &in = grt_fileinput(c,1);
 
   while( in >> io && is_running ) {
     UINT prediction = 0, label = 0;
     string s_prediction, s_label;
     bool result = false;
-
-    /* load the classifier only after the first data has arrived, so
-     * we give the preceding command (when used in a pipe) enough time
-     * to write the classifier to disk */
-    if (classifier == NULL && c.rest().size() > 0)
-      for (int i=0; i<255*255 && classifier==NULL; i++, usleep(10*100)) {
-        ifstream fin(c.rest()[0]);
-        classifier = loadClassifierFromFile(fin);
-      }
-
-    if (classifier == NULL) {
-      cerr << "unable to load classification model giving up" << endl;
-      return -1;
-    }
 
     switch(io.type) {
     case TIMESERIES:
