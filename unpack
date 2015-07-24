@@ -10,7 +10,6 @@ from queue import Queue
 
 we_are_reading = True
 
-
 def ass2rate(s,rate):
     h,m,s = [float(x) for x in s.split(':')]
     return int( (24*60*h+60*m+s) * rate )
@@ -99,7 +98,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
         t,b,e,l = 0,0,float("inf") if not sub else float("-inf"),default
 
         # read the input pipes, and the subfile if given
-        while we_are_reading:
+        while we_are_reading or not any(q.empty() for q in merg):
             if sub and e<=t:
                 srt = subr.readline()
 
@@ -127,7 +126,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
 
             line = ' '.join(q.get() for q in merg)
 
-            if we_are_reading:
+            if line != '':
                 print(l if b<=t<e else default, ' ', line)
                 t += 1
 
