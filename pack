@@ -24,7 +24,7 @@ def process(i,o,sub,chn,rate):
 
         for fd in r:
             idx = i.index(fd)
-            if not channels[idx] is None: continue
+            if channels[idx]: continue
             label,data,c = to_binary(fd)
             if c == -1: continue
 
@@ -34,7 +34,8 @@ def process(i,o,sub,chn,rate):
             if fd==labelstream:
                 l,e = label,1
 
-    chn.write(str(channels)+"\n"); chn.close()
+    has_sub = l is not None
+    chn.write(str((channels,has_sub))+"\n"); chn.close()
 
     while sum([len(x) for x in buf]): # emtpy buffers
         _,w,_ = select([],o,[])
@@ -61,7 +62,7 @@ def process(i,o,sub,chn,rate):
             if data == b"": # empty line
                 continue
 
-            if fd == labelstream and label != l:
+            if has_sub and fd == labelstream and label != l:
                 srt = "%d\n%d:%d:%d,%d --> %d:%d:%d,%d\n%s\n\n"%(\
                     num,s/(rate*3600), s/(rate*60), s/(rate), (s%rate)/rate*1000,\
                     e/(rate*3600), e/(rate*60), e/(rate), (e%rate)/rate*1000,\
@@ -78,7 +79,6 @@ def process(i,o,sub,chn,rate):
             if c!=channels[idx]:
                 sys.stderr.write("ERROR: dimensionality differs: is %d should be %d\n"%(c,channels[idx]))
                 sys.exit(-1)
-
 
             o[idx].write(data)
 
@@ -104,7 +104,10 @@ def to_binary(r):
         return [],b"",-1
 
     chunk = chunk.split()
-    return chunk[0],struct.pack("<%df"%len(chunk[1:]),*(float(f) for f in chunk[1:])),len(chunk)-1
+    try: # return without label
+        return None,struct.pack("<%df"%len(chunk),*(float(f) for f in chunk)),len(chunk)
+    except:
+        return chunk[0],struct.pack("<%df"%len(chunk[1:]),*(float(f) for f in chunk[1:])),len(chunk)-1
 
 def py3k(tup):
     """ brain-deadness of py3k """
@@ -154,7 +157,7 @@ def pack_grt(i,rates,names,output,media,verbose=False):
         # wait for parents to send the number of channels for each input channel
         channels = []
         with os.fdopen(chn[0],"r") as f:
-            channels=eval(f.readline())
+            channels,has_sub=eval(f.readline())
 
         if any(c>6 for c in channels):
             sys.stderr.write("WARNING: more than 6 channels on input, this will probably not work\n")
@@ -164,10 +167,12 @@ def pack_grt(i,rates,names,output,media,verbose=False):
         cmd = "ffmpeg -hide_banner -loglevel quiet".split() if not verbose else ["ffmpeg"]
         cmd.extend( arg for f in media for arg in ["-i", f] )
         cmd.extend( arg for (fd,c,rate) in zip(r,channels,rates) for arg in ("-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i pipe:%d"%(c,c,rate,fd)).split() )
-        cmd.extend( ("-f srt -i pipe:%d"%sub[0]).split() )
-        cmd.extend( arg for s in range(len(media)+len(r)+1) for arg in ("-map %d:0:%d"%(s,s)).split() )
+        if not has_sub: os.close(sub[0])
+        else: cmd.extend( ("-f srt -i pipe:%d"%sub[0]).split() )
+        cmd.extend( arg for s in range(len(media)+len(r)+has_sub) for arg in ("-map %d:0:%d"%(s,s)).split() )
         cmd.extend( "-c:a wavpack -c:v copy -c:s ass -y -f matroska".split() )
         cmd.append( output )
+        if verbose: print(" ".join(cmd))
         os.execvp(cmd[0], cmd)
 
 if __name__ == "__main__":
