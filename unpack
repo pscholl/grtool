@@ -24,10 +24,10 @@ def pc(i,m,size):
     st,fmt = Struct("%df"%size),"%f "*size
     while True:
         buf = i.read(st.size)
-        if not len(buf): break
+        if len(buf)!=st.size: break
         else: m.put(fmt % st.unpack(buf))
     we_are_reading = False
-    m.put("")
+    #m.put("")
 
 def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
@@ -35,7 +35,6 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     # not be taught to use the soxr resampler (the default one does not work)
     # Do this only if resampling is neccesary! Drop all frames after the shortest
     # stream
-    global we_are_reading
 
     files = list(set(f for (d,f) in audios))
     subasfile = sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in audios)
@@ -59,7 +58,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     for (d,f),(_,w) in zip(audios,outs):
         cmd += ' -map %d:%d'%(d['file_index'],d['index'])
         cmd += ' -f f32le -ar %f'%rate
-        cmd += '' if (len(files)-subasfile)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
+        cmd += '' if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
         cmd += ' pipe:%d'%w
 
     # cmdline built, now copy all files to their respective w parts of in,
@@ -84,7 +83,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
         subr = os.fdopen(subp[0],'r') if sub else None
         ins  = [os.fdopen(w,'wb',buffering=2**12) for (_,w) in ins]
         outs = [os.fdopen(r,'rb',buffering=2**12) for (r,_) in outs]
-        merg = [Queue(maxsize=2**24)] * len(outs)
+        merg = [Queue(maxsize=2**24) for o in outs]
 
         # copy over input files into ffmpeg, and enqueue all input pipes
         i = [T(target=cp,args=(i,o)) for i,o in zip(files,ins)]
@@ -185,7 +184,7 @@ if __name__ == '__main__':
     cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
     cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
     cmdline.add_argument('-n', '--no-flush', action="store_false",          help="if specified stops output after the last label")
-    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*")
+    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given ")
     cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
     args = cmdline.parse_args()
 
