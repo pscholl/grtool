@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
     if (prediction == 0) s_prediction = "NULL";
 
     if (c.exist("likelihood"))
-      cout << s_label << "_" << s_prediction << "\t" << classifier->getMaximumLikelihood() << endl;
+      cout << s_label << "\t" << s_prediction << "\t" << classifier->getMaximumLikelihood() << endl;
     else
       cout << s_label << "\t" << s_prediction << endl;
   }

@@ -12,6 +12,10 @@ timeseries and frames
 
  in timeseries classification mode an empty line constitues the end of the current frame and the start of a new frame
 
+# Testing
+
+ make DESTDIR=test test
+
 ## Examples
 
 ## Building

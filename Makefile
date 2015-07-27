@@ -6,7 +6,6 @@ all: $(ALL) *.h
 train: train.o grt_crf.o
 predict: predict.o grt_crf.o
 
-
 # Installation targets
 PREFIX=/usr
 BINDIR=$(PREFIX)/bin

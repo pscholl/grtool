@@ -128,8 +128,8 @@ int main(int argc, char *argv[])
   unordered_map<string,Group> groups;
            map<double,string> scores;
   string line, tag="None", prediction, label;
-  regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)"),
-      untagged ("(\\w+)\\s+(\\w+)");
+  regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)\\s*.*"),
+      untagged ("(\\w+)\\s+(\\w+)\\s*.*");
   smatch match;
 
   while (getline(in,line)) {
@@ -495,51 +495,55 @@ string Group::to_string(cmdline::parser &c, string tag) {
              rm = ead.re_merged / total, rfm = ead.re_fragmerged / total,
              rf = ead.re_fragmented / total, i = ead.insertions / total;
 
-    cout << string(d*LINE_SIZE   +4, u'-')   << " " <<
-            string(ef*LINE_SIZE  +4, '-')  << " " <<
-            string(efm*LINE_SIZE +4, '-') << " " <<
-            string(em*LINE_SIZE  +4, '-')  << " " <<
-            string(c*LINE_SIZE   +4, '-')   << endl;
+    if (total > 0) {
+      cout << string(d*LINE_SIZE   +4, u'-')   << " " <<
+              string(ef*LINE_SIZE  +4, '-')  << " " <<
+              string(efm*LINE_SIZE +4, '-') << " " <<
+              string(em*LINE_SIZE  +4, '-')  << " " <<
+              string(c*LINE_SIZE   +4, '-')   << endl;
 
-    cout << centered(d*LINE_SIZE   +4,"D",4) << " " <<
-            centered(ef*LINE_SIZE  +4,"F",4) << " " <<
-            centered(efm*LINE_SIZE +4,"FM",4) << " " <<
-            centered(em*LINE_SIZE  +4,"M",4) << " " <<
-            centered(c*LINE_SIZE   +4,"C",4) << " " <<
-            centered(rm*LINE_SIZE  +4,"M",4) << " " <<
-            centered(rfm*LINE_SIZE +4,"FM",4) << " " <<
-            centered(rf*LINE_SIZE  +4,"F",4) << " " <<
-            centered(i*LINE_SIZE   +4,"I",4) << endl;
+      cout << centered(d*LINE_SIZE   +4,"D",4) << " " <<
+              centered(ef*LINE_SIZE  +4,"F",4) << " " <<
+              centered(efm*LINE_SIZE +4,"FM",4) << " " <<
+              centered(em*LINE_SIZE  +4,"M",4) << " " <<
+              centered(c*LINE_SIZE   +4,"C",4) << " " <<
+              centered(rm*LINE_SIZE  +4,"M",4) << " " <<
+              centered(rfm*LINE_SIZE +4,"FM",4) << " " <<
+              centered(rf*LINE_SIZE  +4,"F",4) << " " <<
+              centered(i*LINE_SIZE   +4,"I",4) << endl;
 
-    cout << centered(d*LINE_SIZE   +4,100*d,4) << " " <<
-            centered(ef*LINE_SIZE  +4,100*ef,4) << " " <<
-            centered(efm*LINE_SIZE +4,100*efm,4) << " " <<
-            centered(em*LINE_SIZE  +4,100*em,4) << " " <<
-            centered(c*LINE_SIZE   +4,100*c,4) << " " <<
-            centered(rm*LINE_SIZE  +4,100*rm,4) << " " <<
-            centered(rfm*LINE_SIZE +4,100*rfm,4) << " " <<
-            centered(rf*LINE_SIZE  +4,100*rf,4) << " " <<
-            centered(i*LINE_SIZE   +4,100*i,4) << endl;
+      cout << centered(d*LINE_SIZE   +4,100*d,4) << " " <<
+              centered(ef*LINE_SIZE  +4,100*ef,4) << " " <<
+              centered(efm*LINE_SIZE +4,100*efm,4) << " " <<
+              centered(em*LINE_SIZE  +4,100*em,4) << " " <<
+              centered(c*LINE_SIZE   +4,100*c,4) << " " <<
+              centered(rm*LINE_SIZE  +4,100*rm,4) << " " <<
+              centered(rfm*LINE_SIZE +4,100*rfm,4) << " " <<
+              centered(rf*LINE_SIZE  +4,100*rf,4) << " " <<
+              centered(i*LINE_SIZE   +4,100*i,4) << endl;
 
-    cout << centered(d*LINE_SIZE   +4,ead.deletions,4) << " " <<
-            centered(ef*LINE_SIZE  +4,ead.ev_fragmented,4) << " " <<
-            centered(efm*LINE_SIZE +4,ead.ev_fragmerged,4) << " " <<
-            centered(em*LINE_SIZE  +4,ead.ev_merged,4) << " " <<
-            centered(c*LINE_SIZE   +4,ead.correct,4) << " " <<
-            centered(rm*LINE_SIZE  +4,ead.re_merged,4) << " " <<
-            centered(rfm*LINE_SIZE +4,ead.re_fragmerged,4) << " " <<
-            centered(rf*LINE_SIZE  +4,ead.re_fragmented,4) << " " <<
-            centered(i*LINE_SIZE   +4,ead.insertions,4) << endl;
+      cout << centered(d*LINE_SIZE   +4,ead.deletions,4) << " " <<
+              centered(ef*LINE_SIZE  +4,ead.ev_fragmented,4) << " " <<
+              centered(efm*LINE_SIZE +4,ead.ev_fragmerged,4) << " " <<
+              centered(em*LINE_SIZE  +4,ead.ev_merged,4) << " " <<
+              centered(c*LINE_SIZE   +4,ead.correct,4) << " " <<
+              centered(rm*LINE_SIZE  +4,ead.re_merged,4) << " " <<
+              centered(rfm*LINE_SIZE +4,ead.re_fragmerged,4) << " " <<
+              centered(rf*LINE_SIZE  +4,ead.re_fragmented,4) << " " <<
+              centered(i*LINE_SIZE   +4,ead.insertions,4) << endl;
 
-    cout << string(d*LINE_SIZE   +4, ' ')   << " " <<
-            string(ef*LINE_SIZE  +4, ' ')  << " " <<
-            string(efm*LINE_SIZE +4, ' ') << " " <<
-            string(em*LINE_SIZE  +4, ' ')  << " " <<
-            string(c*LINE_SIZE   +4, '-')   << " " <<
-            string(rm*LINE_SIZE  +4, '-')  << " " <<
-            string(rfm*LINE_SIZE +4, '-') << " " <<
-            string(rf*LINE_SIZE  +4, '-')  << " " <<
-            string(i*LINE_SIZE   +4, '-')   << endl;
+      cout << string(d*LINE_SIZE   +4, ' ')   << " " <<
+              string(ef*LINE_SIZE  +4, ' ')  << " " <<
+              string(efm*LINE_SIZE +4, ' ') << " " <<
+              string(em*LINE_SIZE  +4, ' ')  << " " <<
+              string(c*LINE_SIZE   +4, '-')   << " " <<
+              string(rm*LINE_SIZE  +4, '-')  << " " <<
+              string(rfm*LINE_SIZE +4, '-') << " " <<
+              string(rf*LINE_SIZE  +4, '-')  << " " <<
+              string(i*LINE_SIZE   +4, '-')   << endl;
+    } else {
+      cout << "total is zero" << endl;
+    }
 
     //cout << "deletions: " << ead.deletions << endl;
     //cout << "ev_fragmented: " << ead.ev_fragmented << endl;

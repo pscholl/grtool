@@ -204,7 +204,6 @@ if __name__ == '__main__':
                    'LANGUAGE' in d['tags'].keys() and d['tags']['LANGUAGE'] in args.stream or\
                        'NAME' in d['tags'].keys() and d['tags']['NAME'] in args.stream)
 
-
     # filter out all streams which are not neccesary or selected
     files = [[(s,f) for s in ss if okay(s)] for (ss,f) in files ]
 
