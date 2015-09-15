@@ -218,13 +218,6 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     p.add<int>   ("comitteesize",  0, "number of models used for prediction, default: 10", false, 10);
     p.add<double>("delta",         0, "delta for leftright model, default: 1", false, 1);
     p.add<int>   ("downsample",    0, "downsample factor, default: 5", false, 5);
-  } else if ( "CRF" == name ) {
-    p.add<string>("algorithm",   'A', "learning algorithm for training", false, "lbfgs", cmdline::oneof<string>("lbfgs", "l2sgd", "ap", "pa", "arow"));
-    p.add<double>("minfreq",      0, "minimum frequency of features", false, 0.);
-    p.add        ("states",      'S', "generate all possible states");
-    p.add        ("transitions", 'T', "generate all possible transitions");
-
-    // TODO
   } else if ( "KNN" == name ) {
 #   define KNN_DISTANCE "euclidean", "cosine", "manhattan"
     p.add<string>("distance",         'D', "either 'euclidean', 'cosine' or 'manhatten'", false, "euclidean", cmdline::oneof<string>(KNN_DISTANCE));
@@ -343,14 +336,6 @@ Classifier *apply_cmdline_args(string name,cmdline::parser& c,int num_dimensions
     checkedarg(h->setDownsampleFactor, int, "downsample");
 
     o = h;
-  } else if ( "CRF" == name ) {
-    CRF *c = new CRF(
-        p.get<string>("algorithm"),
-        p.get<double>("minfreq"),
-        p.exist("states"),
-        p.exist("transitions"));
-
-    o = c;
   } else if ( "KNN" == name ) {
     KNN *k = new KNN(
       /* K */           p.get<int>("K-neighbors"),

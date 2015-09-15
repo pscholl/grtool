@@ -1,10 +1,10 @@
 CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -fpermissive -O3
-LDLIBS=-lstdc++ -lcrfsuite `pkg-config --libs grt`
+LDLIBS=-lstdc++ `pkg-config --libs grt`
 ALL=grt train predict info score preprocess extract extract_old 
 
 all: $(ALL) *.h
-train: train.o grt_crf.o
-predict: predict.o grt_crf.o
+#train: train.o grt_crf.o
+#predict: predict.o grt_crf.o
 
 # Installation targets
 PREFIX=/usr

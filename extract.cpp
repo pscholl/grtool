@@ -383,44 +383,39 @@ int main(int argc, const char *argv[]) {
 
   bool parse_ok = c.parse(argc, argv, false)  && !c.exist("help");
 
-  /* load the extractor and check wether we need to list them */
-  string str_extractor = "list",
-            input_file = "-";
+  if (c.rest().size()==0)
+    c.rest().push_back("list");
 
-  if (c.rest().size() > 0) {
-    str_extractor = c.rest()[0];
-    c.rest().erase(c.rest().begin());
-  }
-
-  // either list all extractor and exit or build a functional 
+  // either list all extractor and exit or build a functional
   // to compute the features
-  if (str_extractor == "list") {
-    cout << c.usage() << endl;
-    printf("Available Extractors:\n\n");
-    for (size_t i=0; i<sizeof(extractors)/sizeof(extractors[0]); i++) {
-      struct extractor e = extractors[i];
-      printf(" %s (%s): %s\n", e.name, e.shorthand, e.desc);
-    }
-    return 0;
-  } else {
-    char *tmp = strdup(str_extractor.c_str());
-    for (char *tok=strsep(&tmp,DELIM);tok && strlen(tok);tok=strsep(&tmp,DELIM))
-    {
-      size_t i=0;
+  for (uint32_t j=0; j<c.rest().size(); j++) {
+    string str_extractor = c.rest()[j];
+
+    if (str_extractor == "list") {
+      cout << c.usage() << endl;
+      printf("Available Extractors:\n\n");
+      for (size_t i=0; i<sizeof(extractors)/sizeof(extractors[0]); i++) {
+        struct extractor e = extractors[i];
+        printf(" %s (%s): %s\n", e.name, e.shorthand, e.desc);
+      }
+      return 0;
+    } else {
+      uint32_t i;
+
       for (i=0; i<sizeof(extractors)/sizeof(extractors[0]); i++) {
         struct extractor e = extractors[i];
-        if (strcmp(tok,e.shorthand)==0 || strcmp(tok,e.name)==0) {
+        if (strcmp(str_extractor.c_str(),e.shorthand)==0 ||
+            strcmp(str_extractor.c_str(),e.name)==0) {
           processors[num_processors++] = e;
           break;
         }
       }
 
       if (i==sizeof(extractors)/sizeof(extractors[0])) {
-        fprintf(stderr, "ERR: unknown extractor: '%s'\n", tok);
+        fprintf(stderr, "ERR: unknown extractor: '%s'\n", str_extractor.c_str());
         exit(-1);
       }
     }
-    free(tmp);
   }
 
   // parsing cmdline alright?
@@ -434,10 +429,6 @@ int main(int argc, const char *argv[]) {
     fprintf(stderr, "no extractors active, please specify at least one\n");
     exit(-1);
   }
-
-  // if there is no input file, use stdin
-  if (c.rest().size()==0)
-    c.rest().push_back("-");
 
   // some sanity checks for options
   if (c.exist("z-normalize") && c.exist("o-normalize")) {
@@ -456,7 +447,7 @@ int main(int argc, const char *argv[]) {
     printf("# %s\n",out);
   }
 
-  while ( read_matrix(c.rest(),&m) )
+  while ( read_matrix({"-"},&m) )
   {
     size_t n=0;
     if (m.diml == 0)
