@@ -62,6 +62,7 @@ template< class T> vector<T>  rowsum(Matrix<T> &m);
 template< class T> vector<T>  colsum(Matrix<T> &m);
 template< class T> Matrix<T>* resize_matrix(Matrix<T> *old, T newsize);
 template< class T> vector<T>  operator-(const std::vector<T> &a, const std::vector<T> &b);
+template< class T> vector<T>  operator+(const std::vector<T> &a, const std::vector<T> &b);
 template< class T> vector<T>  operator*(T a, const std::vector<T> &b);
 template< class T> vector<T>  operator-(T a, const std::vector<T> &b);
 template< class T> vector<T>  operator-(const std::vector<T> &b, T a);
@@ -283,7 +284,7 @@ void Group::calculate_score(double beta)
   // see https://en.wikipedia.org/wiki/Precision_and_recall
   vector<uint64_t> TP = diag( *confusion );
   vector<uint64_t> FP = rowsum(*confusion) - TP;
-  vector<uint64_t> TN = sum(*confusion) - colsum(*confusion);
+  vector<uint64_t> TN = sum(*confusion) - colsum(*confusion) - rowsum(*confusion) + TP;
   vector<uint64_t> FN = colsum(*confusion) - TP;
 
   recall.clear(); precision.clear(); Fbeta.clear();
@@ -666,12 +667,21 @@ int push_back_if_not_there(string &label, vector<string> &labelset)
  return std::find(labelset.begin(), labelset.end(), label) - labelset.begin();
 }
 
-template< class T> 
+template< class T>
 std::vector<T> operator-(const std::vector<T> &a, const std::vector<T> &b)
 {
   std::vector<T> res(a.size());
   for(size_t i=0; i<a.size(); ++i)
     res[i]=a[i]-b[i];
+  return res;
+}
+
+template< class T>
+std::vector<T> operator+(const std::vector<T> &a, const std::vector<T> &b)
+{
+  std::vector<T> res(a.size());
+  for(size_t i=0; i<a.size(); ++i)
+    res[i]=a[i]+b[i];
   return res;
 }
 
