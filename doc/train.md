@@ -8,14 +8,15 @@
 
 # SYNOPSIS
  grt train [-h|--help] [-v|--verbose \<level\>] [-o|--output \<file\>]
-           [-n|--num-samples \<n\>] \<algorithm or file\> [input-data]
+           [-n|--num-samples \<n\>] [-i|--training-input \<file\>] 
+           \<algorithm\> [input-data]
 
  grt train list
 
 # DESCRIPTION
  The train command estimates parameters for the various machine learning algorithms contained in the Gesture Recongition Toolkit (GRT), i.e. it trains the algorithm for specific data. Listing the available algorithms can be achieved by providing the 'list' command. Algorithm-specifc paramaters can be listed by providing the algorithm's name on the command line and the '-h' command.
 
- This program can pass through the feature vectors for prediction directly after training, i.e. for building a cross-validation pipe. Per default all data is consumed in training and the trained algorithm written to the file provided by the '-o' switch. You can use the '-n' switch to limit the data used for training, the remaining input data will then be printed on the standard output. The argument supplied to this option can either range from 0 to 1, in which case it will interpreted as a percentage. If given an integer larger than 1, this amount of samples will be used for training. When giving a percentage as input data, the whole input needs to be kept in memory. See the examples below for more details.
+ This program can pass through the feature vectors for prediction directly after training, i.e. for building a cross-validation pipe. Per default all data is consumed in training and the trained algorithm written to the file provided by the '-o' switch. You can use the '-n' switch to limit the data used for training or reading training data from a file different than standard input, the remaining input data will then be printed on the standard output. The argument supplied to this option can either range from 0 to 1, in which case it will interpreted as a percentage. Any other number will be interpreted as an absolute number. When giving a percentage as input data, the whole input needs to be kept in memory. See the examples below for more details. Alternatively an input file (-i) can be given for reading training data from. Both option are mutually exclusive.
 
  Depending on the classifier you chose, input is handled differently. Normal classifiers work on line-by-line basis. That means one line is read and classified/trained on. Timeseries compatible ones (e.g. HMM, listed when using grt train list) read lines until an empty line is encountered and classify/train on that block!
 
@@ -30,7 +31,7 @@
 :   Store the trained classifier in <file>.
 
 -n, --num-samples <n>
-:   Limit the number of samples to n. If n is in the range of (0,1] it will be interpreted as a percentage of a random stratified split, if larger than 1 it designates the absolute number of training samples.
+:   Given a number between (0,1] it will be interpreted as a fraction of input. Anything larger as an absolute number.
 
 # CLASSIFIER SPECIFIC OPTIONS
 
@@ -92,9 +93,6 @@ A classifier that just stores all samples during training. For classification th
 -R, --rejection-mode
 :   Kind of NULL class rejection. One of template, likelihood or treshold_and_likelihood. Defaults to template.
 
-## CRF - Linear Conditional Random Fields
-This implementation is based on the crfsuite.
-
 ## Finite Sate Machine
 
 ## Particle Classifier
@@ -114,7 +112,7 @@ This implementation is based on the crfsuite.
 
  The output of this command can then be used as the test-set, which is also the reason for the comment line at to the top. Which instructs the next command (most probably the predict command) that a time-series is about to follow.
 
-## Training a CRF
+## Training a KNN
  Let us do the same as we did in the last example, but this time with a condtional random field.
 
     echo "abc 1
@@ -123,7 +121,7 @@ This implementation is based on the crfsuite.
     > cde 2
     >
     > abc 1
-    > abc 1" | grt train CRF -o test.crf -n 2
+    > abc 1" | grt train DTW -o test.crf -n 2
     abc 1
     abc 1
 
@@ -136,7 +134,14 @@ This implementation is based on the crfsuite.
     > cde 2
     >
     > abc 1
-    > abc 1" | grt train CRF -o test.crf -n 2
+    > abc 1" | grt train DTW -o test.crf -n 2
+    abc 1
+    abc 1
+
+## Doing a Cross-Validation with separate training input
+
+    echo "abc 1
+    > abc 1" | grt train DTW <(echo "abc 1\nabc 1") -o test.knn
     abc 1
     abc 1
 

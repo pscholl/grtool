@@ -29,7 +29,7 @@ def run_test(test, PATH, gdb=False):
 
         cmd = cmd.replace("\n    > ", "\n").replace("\n    >","\n").strip()
         res = res.replace("\n    ", "\n")
-        p   = Popen(cmd,shell=True,stdout=PIPE,stderr=PIPE,universal_newlines=True)
+        p   = Popen(cmd,shell=True,executable='/bin/bash',stdout=PIPE,stderr=PIPE,universal_newlines=True)
         err = p.wait()
         out = p.stdout.read()
 
