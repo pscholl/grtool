@@ -149,11 +149,13 @@ _mean(matrix_t *m, double *results)
 char*
 mean(matrix_t *m, char *s, size_t max)
 {
-  double results[m->dimv];  _mean(m, results);
+  double results[m->dimv];
   size_t n=0;
 
   for (size_t i=0; i<m->dimv; i++)
     results[i] = 0;
+
+  _mean(m, results);
 
   for (size_t j=0; j<m->dimv; j++)
     n += snprintf(s+n, max-n, "%g\t", results[j]);
@@ -164,10 +166,12 @@ mean(matrix_t *m, char *s, size_t max)
 double*
 _variance(matrix_t *m, double *results)
 {
-  double mean[m->dimv]; _mean(m, mean);
+  double mean[m->dimv];
 
   for (size_t i=0; i<m->dimv; i++)
     mean[i] = 0;
+
+  _mean(m, mean);
 
   for (size_t j=0; j<m->dimv; j++)
     results[j] = 0;
@@ -375,13 +379,13 @@ struct extractor {
   const char *shorthand, *name, *desc;
   process_call_t call;
 } extractors[] = {
-  {"m", "mean", "compute mean/average of each axis", mean},
-  {"r", "range", "compute range (min/max and their difference", range},
+  {"m", "mean",     "compute mean/average of each axis", mean},
+  {"r", "range",    "compute range (min/max) and their difference", range},
   {"v", "variance", "compute variance of each axis", variance},
-  {"e", "median", "compute median of each axis", median},
-  {"z", "zcr", "zero-crossing rate", zcr},
-  {"s", "rms", "root-mean squared over each and all axis", rms},
-  {"t", "time", "shorthand for all time-domain features: mean,variance,range,median", timedomain}
+  {"e", "median",   "compute median of each axis", median},
+  {"z", "zcr",      "zero-crossing rate", zcr},
+  {"s", "rms",      "root-mean squared over each and all axis", rms},
+  {"t", "time",     "shorthand for all time-domain features: mean,variance,range,median", timedomain}
 };
 // a list of active extractors
 size_t num_processors=0;

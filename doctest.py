@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import sys, os, re, difflib, shutil
 from subprocess import Popen, PIPE, call
 from tempfile import mkdtemp

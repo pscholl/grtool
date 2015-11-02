@@ -13,7 +13,7 @@ MANDIR=$(PREFIX)/share/man/
 DESTDIR=
 INSTALL_PROGRAM=install
 
-install: $(ALL) #install-doc
+install: $(ALL) install-doc
 	$(INSTALL_PROGRAM) -D grt "$(DESTDIR)$(BINDIR)/grt"
 	$(INSTALL_PROGRAM) -D train "$(DESTDIR)$(BINDIR)/grt-train"
 	$(INSTALL_PROGRAM) -D predict "$(DESTDIR)$(BINDIR)/grt-predict"
@@ -28,7 +28,7 @@ install: $(ALL) #install-doc
 	$(INSTALL_PROGRAM) -D pack "$(DESTDIR)$(BINDIR)/grt-pack"
 	$(INSTALL_PROGRAM) -D unpack "$(DESTDIR)$(BINDIR)/grt-unpack"
 
-install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/preprocess.1 doc/extract.1 doc/postprocess.1
+install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/preprocess.1 doc/extract.1 doc/postprocess.1 doc/unpack.1 doc/pack.1
 	$(INSTALL_PROGRAM) -D doc/grt.1 "$(DESTDIR)$(MANDIR)/man1/grt.1"
 	$(INSTALL_PROGRAM) -D doc/score.1 "$(DESTDIR)$(MANDIR)/man1/grt-score.1"
 	$(INSTALL_PROGRAM) -D doc/info.1 "$(DESTDIR)$(MANDIR)/man1/grt-info.1"

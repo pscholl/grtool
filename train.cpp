@@ -21,7 +21,6 @@ int main(int argc, const char *argv[])
   c.add        ("help",          'h', "print this message");
   c.add<string>("output",        'o', "store trained classifier in file", false);
   c.add<float> ("num-samples",   'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
-  c.add<string>("training-input",'i', "read training data from a file", false);
   c.footer     ("<classifier> [input-data]...");
 
   /* parse common arguments */
@@ -34,12 +33,6 @@ int main(int argc, const char *argv[])
     cout << c.usage() << endl;
     cout << list_classifiers();
     return 0;
-  }
-
-  if (c.rest().size() > 0 && c.exist("num-samples")) {
-    cerr << c.usage() << endl <<
-      "error: --num-sample (-n) can only be used if no input files are provided" << endl;
-    return -1;
   }
 
   /* add the classifier specific arguments */

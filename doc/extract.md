@@ -40,7 +40,7 @@
     Available Extractors:
     
      mean (m): compute mean/average of each axis
-     range (r): compute range (min/max and their difference
+     range (r): compute range (min/max) and their difference
      variance (v): compute variance of each axis
      median (e): compute median of each axis
      zcr (z): zero-crossing rate
@@ -54,7 +54,7 @@
     echo "inverting 1 1
     > inverting 0 0
     > pipetting 2 3
-    > pipetting 2 2" | grt extract "m range"
+    > pipetting 2 2" | grt extract m range
     # mean	range	
     pipetting	1.25	1.5	2	0	2	3	0	3	
 

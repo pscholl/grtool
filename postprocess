@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import os, sys, argparse, fileinput, collections, sys
@@ -60,7 +60,7 @@ def confidence_print_window(window, args):
     if len(g) > 1:
         sys.stderr.write("WARNING: ground truth labels (%s) merged!\n" % str(g))
 
-    print(list(g)[-1],l)
+    print(sorted(g)[-1],l)
 
 def score_print_window(window, args):
     try:
@@ -75,7 +75,7 @@ def score_print_window(window, args):
     if len(g) > 1:
         sys.stderr.write("WARNING: ground truth labels (%s) merged!\n" % str(g))
 
-    print(list(g)[-1],l)
+    print(sorted(g)[-1],l)
 
 def main_loop(print_window, args):
     # sanity check for supplied arguments

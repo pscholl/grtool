@@ -140,8 +140,3 @@ A classifier that just stores all samples during training. For classification th
 
 ## Doing a Cross-Validation with separate training input
 
-    echo "abc 1
-    > abc 1" | grt train DTW <(echo "abc 1\nabc 1") -o test.knn
-    abc 1
-    abc 1
-
