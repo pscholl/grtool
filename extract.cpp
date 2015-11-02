@@ -191,9 +191,14 @@ char*
 range(matrix_t *m, char* s, size_t max)
 {
   size_t n=0;
-  double maximum[m->dimv] = {-INFINITY},
-         minimum[m->dimv] = { INFINITY},
+  double maximum[m->dimv],
+         minimum[m->dimv],
          span[m->dimv];
+
+  for (size_t i=0; i<m->mdimv; i++)
+    maximum[m->dimv] = -INFINITY;
+  for (size_t i=0; i<m->mdimv; i++)
+    minimum[m->dimv] =  INFINITY;
 
   for (size_t i=0; i<m->diml; i++)
     for (size_t j=0; j<m->dimv; j++) {
