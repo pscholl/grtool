@@ -149,8 +149,11 @@ _mean(matrix_t *m, double *results)
 char*
 mean(matrix_t *m, char *s, size_t max)
 {
-  double results[m->dimv] = {0}; _mean(m, results);
+  double results[m->dimv];  _mean(m, results);
   size_t n=0;
+
+  for (size_t i=0; i<m->dimv; i++)
+    results[i] = 0;
 
   for (size_t j=0; j<m->dimv; j++)
     n += snprintf(s+n, max-n, "%g\t", results[j]);
@@ -161,7 +164,10 @@ mean(matrix_t *m, char *s, size_t max)
 double*
 _variance(matrix_t *m, double *results)
 {
-  double mean[m->dimv]={0}; _mean(m, mean);
+  double mean[m->dimv]; _mean(m, mean);
+
+  for (size_t i=0; i<m->dimv; i++)
+    mean[i] = 0;
 
   for (size_t j=0; j<m->dimv; j++)
     results[j] = 0;
@@ -180,8 +186,11 @@ _variance(matrix_t *m, double *results)
 char*
 variance(matrix_t *m, char* s, size_t max)
 {
-  double var[m->dimv]={0}; _variance(m, var);
+  double var[m->dimv]; _variance(m, var);
   size_t n=0;
+
+  for (size_t i=0; i<m->dimv; i++)
+    var[i] = 0;
 
   // and convert to string
   for (size_t j=0; j<m->dimv; j++)
