@@ -4,6 +4,7 @@
 import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json
 from threading import Thread as T
 from datetime import timedelta as td
+from select import select
 from string import whitespace as ws
 from struct import Struct, error
 from queue import Queue
@@ -29,6 +30,31 @@ def pc(i,m,size):
     we_are_reading = False
     #m.put("")
 
+# def read_sub(i):
+#     srt = i.readline()
+# 
+#     if not len(srt):
+#         i.close()
+#         return False
+# 
+#     if not "Dialogue: " in srt:
+#         return False
+# 
+#     _,beg,end,s,_,_,_,_,_,label = srt.split(',')
+# 
+#     if style and style != s:
+#         continue
+# 
+#     l = re.sub('\s+','_',label.strip())
+#     beg,end = ass2rate(beg,rate),ass2rate(end,rate)
+# 
+#     if beg < e:
+#         sys.stderr.write("ERR: found overlapping label at %f secs\n"%(beg/rate))
+#         sys.exit(-1)
+# 
+#     b,e = beg,end
+
+
 def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
@@ -40,16 +66,18 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     subasfile = sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in audios)
 
     # a special case, when the subtitle is in its own file
-    if subasfile:
-        files.append(sub[1])
+    if subasfile: files.append(sub[1])
 
+    # setup all input, output and subtitle pipes
     ins   = [py3k(os.pipe()) for x in files]
     outs  = [py3k(os.pipe()) for x in audios]
     subp  =  py3k(os.pipe()) if sub else None
 
+    # figure out the largest sample_rate for upsampling
     rate  = max([int(d['sample_rate']) for (d,f) in audios])
     flush = flush if sub  else True
 
+    # build the command line
     cmd  = 'ffmpeg'
     cmd += '' if verbose else ' -hide_banner -loglevel quiet'
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
@@ -63,18 +91,14 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
 
     # cmdline built, now copy all files to their respective w parts of in,
     # and read the results for r parts of outs. Do the same for the sub
-    if verbose:
-        sys.stderr.write(cmd+"\n")
+    if verbose: sys.stderr.write(cmd+"\n")
 
     pid = os.fork()
-
     if not pid:
         for (_,w) in ins: os.close(w)
         for (r,_) in outs+([subp] if sub else []): os.close(r)
 
         cmd = cmd.split()
-        #cmd = ['strace','-eread,write']+cmd
-        #cmd = "ls -l /proc/self/fd".split()
         os.execvp(cmd[0],cmd)
     else:
         for (r,_) in ins: os.close(r)
@@ -83,51 +107,77 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
         subr = os.fdopen(subp[0],'r') if sub else None
         ins  = [os.fdopen(w,'wb',buffering=2**12) for (_,w) in ins]
         outs = [os.fdopen(r,'rb',buffering=2**12) for (r,_) in outs]
-        merg = [Queue(maxsize=2**24) for o in outs]
 
-        # copy over input files into ffmpeg, and enqueue all input pipes
-        i = [T(target=cp,args=(i,o)) for i,o in zip(files,ins)]
-        o = [T(target=pc,args=(i,o,d['channels'])) for i,o,(d,_) in zip(outs,merg,audios)]
-
-        # start all the processes
-        for t in i+o: t.start()
+        # we need to know the number of channelsl for each track
+        # to calculate the number of bytes to read for each stream
+        chns = [int(d['channels']) for (d,f) in audios]
 
         # keep track of the one subtitle stream
-        default = re.sub('\s+','_',default.strip())
-        t,b,e,l = 0,0,float("inf") if not sub else float("-inf"),default
+        BUFSIZE  = 8192
+        default  = re.sub('\s+','_',default.strip())
+        t,b,e,l  = 0,0,float("inf") if not sub else float("-inf"),default
+        si,so    = outs+[subr], ins
+        inputmap = { k: [] for k in outs }
 
-        # read the input pipes, and the subfile if given
-        while we_are_reading or not any(q.empty() for q in merg):
-            if sub and e<=t:
-                srt = subr.readline()
+        # this is more or less the select loop
+        while len(si) > 0:
+            r,w,_ = select(si,so,[],.1)
 
-                if not len(srt):
-                    subr.close()
-                    sub=None
-                    if not flush: break
+            for o in w: # copy all input files to ffmpeg
+                i = files[ins.index(o)]
+                b = i.read(BUFSIZE)
+                if len(b)==0: i.close(); o.close(); so.remove(o)
+                else: o.write(b)
 
-                if not "Dialogue: " in srt:
-                    continue
+            if subr in r and e<=t:
+                l = subr.readline()
+                if len(l)==0: subr.close(); si.remove(subr);
 
-                _,beg,end,s,_,_,_,_,_,label = srt.split(',')
+            for i in [x for x in r if x is not subr]: # buffer all input files
+                print(i,si,r)
+                c = chns[outs.index(i)]
+                b = struct.unpack('%df'%(400*c),i.read(400*4*c))
+                s = [("%f "*c)%b[j:j+c] for j in range(0,len(b),c)]
+                #inputmap[i].extend(s)
 
-                if style and style != s:
-                    continue
+            print ([len(b) for b in inputmap.values()])
+            # see if our buffer has data from all tracks
+            while min(len(b) for b in inputmap.values()) > 0:
+                print( "".join(inputmap[track].pop() for track in outs) )
 
-                l = re.sub('\s+','_',label.strip())
-                beg,end = ass2rate(beg,rate),ass2rate(end,rate)
 
-                if beg < e:
-                    sys.stderr.write("ERR: found overlapping label at %f secs\n"%(beg/rate))
-                    sys.exit(-1)
+        # # read the input pipes, and the subfile if given
+        # while we_are_reading or not any(q.empty() for q in merg):
+        #     if sub and e<=t:
+        #         srt = subr.readline()
 
-                b,e = beg,end
+        #         if not len(srt):
+        #             subr.close()
+        #             sub=None
+        #             if not flush: break
 
-            line = ' '.join(q.get() for q in merg)
+        #         if not "Dialogue: " in srt:
+        #             continue
 
-            if line != '':
-                print(l if b<=t<e else default, ' ', line)
-                t += 1
+        #         _,beg,end,s,_,_,_,_,_,label = srt.split(',')
+
+        #         if style and style != s:
+        #             continue
+
+        #         l = re.sub('\s+','_',label.strip())
+        #         beg,end = ass2rate(beg,rate),ass2rate(end,rate)
+
+        #         if beg < e:
+        #             sys.stderr.write("ERR: found overlapping label at %f secs\n"%(beg/rate))
+        #             sys.exit(-1)
+
+        #         b,e = beg,end
+
+        #     line = ' '.join(q.get() for q in merg)
+
+        #     if line != '':
+        #         print(l if b<=t<e else default, ' ', line)
+        #         t += 1
 
         pid,status = os.waitpid(pid,0)
 

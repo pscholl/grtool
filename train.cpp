@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include "cmdline.h"
 #include "libgrt_util.h"
-#include "grt_crf.h"
 
 using namespace GRT;
 using namespace std;
