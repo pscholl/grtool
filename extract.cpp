@@ -110,9 +110,12 @@ read_matrix(vector<string> filenames, matrix_t *m)
 char*
 zcr(matrix_t *m, char *s, size_t max)
 {
-  double results[m->dimv] = {0};
+  double results[m->dimv];
     bool signs[m->dimv];
   size_t n = 0;
+
+  for (size_t i=0; i<m->dimv; i++)
+    results[m->dimv] = 0;
 
   for (size_t j=0; j<m->dimv; j++)
     signs[j] = signbit(m->vals[j]);
