@@ -1,4 +1,4 @@
-language: c
+language: c, c++
 script: make DESTDIR=$(pwd)/test test
 before_script:
   - git clone https://github.com/pscholl/grt
