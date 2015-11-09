@@ -1,4 +1,4 @@
-CPPFLAGS=`pkg-config --cflags grt` -g -std=gnu++11 -fpermissive -O3
+CPPFLAGS=`pkg-config --cflags grt` -g -std=c++11 -fpermissive -O3
 LDLIBS=-lstdc++ `pkg-config --libs grt`
 ALL=grt train predict info score preprocess extract extract_old 
 
