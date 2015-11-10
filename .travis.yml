@@ -1,9 +1,10 @@
+sudo: true
 language: cpp
 script: make DESTDIR=$(pwd)/test test
 before_script:
   - git clone https://github.com/pscholl/grt
   - cd grt/build
-  - cmake . && make install
+  - cmake . && sudo make install
 install:
 - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 addons:
