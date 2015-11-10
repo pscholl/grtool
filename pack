@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
-import argparse,sys,os,struct,subprocess,io,json
+import argparse,sys,os,struct,subprocess,io,json,traceback
 from threading import Thread as T
 from datetime import timedelta as td
 
@@ -220,15 +220,18 @@ def pack(ins,lbls,rate=[],name=[],label=[],media=[],verbose=False,output="-",see
 
 if __name__ == "__main__":
     cmdline = argparse.ArgumentParser("packs csv data and additional media into .mkv file using ffmpeg")
-    cmdline.add_argument('-o', '--output',type=str,   default="-", help="output file to write to")
+    cmdline.add_argument('-i', '--input', type=str,   default=[], action="append", help="input file, multiple can be given")
     cmdline.add_argument('-n', '--name',  type=str,   default=[], action="append", help="a name for each input/label/media file can be given, in the same order as arguments are supplied")
     cmdline.add_argument('-r', '--rate',  type=float, default=[], action="append", help="rate (in Hz) of each input file, mandatory")
     cmdline.add_argument('-m', '--media', type=str,   default=[], action="append", help="additional file to add, multiple can be given")
     cmdline.add_argument('-ss', '--seek', type=str,   default=[], action="append", help="provide an offset for media files to align them with subtitle timebase in (hh:mm:ss.ms) format")
     cmdline.add_argument('-l', '--label', type=str,   default=[], action="append", help="label files to be added")
     cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
-    cmdline.add_argument('input', type=str, default=['-'], nargs='*', help="file to pack into")
+    cmdline.add_argument('output', nargs='?', type=str, default='-', help="file to pack into")
     args = cmdline.parse_args()
+
+    if len(args.input) == 0:
+        args.input = ['-']
 
     # open all input files (output is opened by ffmpeg sub)
     i = [(open(f,'rb',buffering=2**21) if f!='-' else sys.stdin.buffer) for f in args.input]
