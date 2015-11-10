@@ -55,26 +55,25 @@ def pc(i,m,size):
 #     b,e = beg,end
 
 
-def unpack_to_str(audios,sub,default,style,flush,verbose=False):
+def unpack_to_str(streams,sub,default,style,flush,verbose=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
     # not be taught to use the soxr resampler (the default one does not work)
-    # Do this only if resampling is neccesary! Drop all frames after the shortest
-    # stream
+    # This is only done when resampling is neccesary.
 
-    files = list(set(f for (d,f) in audios))
-    subasfile = sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in audios)
+    files = list(set(f for (d,f) in streams))
+    subasfile = sub and not sub[0]['file_index'] in (d['file_index'] for (d,_) in streams)
 
     # a special case, when the subtitle is in its own file
     if subasfile: files.append(sub[1])
 
     # setup all input, output and subtitle pipes
     ins   = [py3k(os.pipe()) for x in files]
-    outs  = [py3k(os.pipe()) for x in audios]
+    outs  = [py3k(os.pipe()) for x in streams]
     subp  =  py3k(os.pipe()) if sub else None
 
     # figure out the largest sample_rate for upsampling
-    rate  = max([int(d['sample_rate']) for (d,f) in audios])
+    rate  = max([int(d['sample_rate']) for (d,f) in streams])
     flush = flush if sub  else True
 
     # build the command line
@@ -83,7 +82,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
     cmd += '' if not sub else ' -map %d:%d -f ass pipe:%d'%(sub[0]['file_index'],sub[0]['index'],subp[1])
 
-    for (d,f),(_,w) in zip(audios,outs):
+    for (d,f),(_,w) in zip(streams,outs):
         cmd += ' -map %d:%d'%(d['file_index'],d['index'])
         cmd += ' -f f32le -ar %f'%rate
         cmd += '' if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
@@ -110,7 +109,7 @@ def unpack_to_str(audios,sub,default,style,flush,verbose=False):
 
         # we need to know the number of channelsl for each track
         # to calculate the number of bytes to read for each stream
-        chns = [int(d['channels']) for (d,f) in audios]
+        chns = [int(d['channels']) for (d,f) in streams]
 
         # keep track of the one subtitle stream
         BUFSIZE  = 8192
