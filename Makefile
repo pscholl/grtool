@@ -14,19 +14,19 @@ DESTDIR=
 INSTALL_PROGRAM=install
 
 install: $(ALL) # install-doc
-	$(INSTALL_PROGRAM) -D grt "$(DESTDIR)$(BINDIR)/grt"
-	$(INSTALL_PROGRAM) -D train "$(DESTDIR)$(BINDIR)/grt-train"
-	$(INSTALL_PROGRAM) -D predict "$(DESTDIR)$(BINDIR)/grt-predict"
-	$(INSTALL_PROGRAM) -D preprocess "$(DESTDIR)$(BINDIR)/grt-preprocess"
-	$(INSTALL_PROGRAM) -D postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
-	$(INSTALL_PROGRAM) -D extract "$(DESTDIR)$(BINDIR)/grt-extract"
-	$(INSTALL_PROGRAM) -D extract_old "$(DESTDIR)$(BINDIR)/grt-extract-old"
-	$(INSTALL_PROGRAM) -D score "$(DESTDIR)$(BINDIR)/grt-score"
-	$(INSTALL_PROGRAM) -D info "$(DESTDIR)$(BINDIR)/grt-info"
-	$(INSTALL_PROGRAM) -D plot "$(DESTDIR)$(BINDIR)/grt-plot"
-	$(INSTALL_PROGRAM) -D segment "$(DESTDIR)$(BINDIR)/grt-segment"
-	$(INSTALL_PROGRAM) -D pack "$(DESTDIR)$(BINDIR)/grt-pack"
-	$(INSTALL_PROGRAM) -D unpack "$(DESTDIR)$(BINDIR)/grt-unpack"
+	$(INSTALL_PROGRAM) -D -T grt "$(DESTDIR)$(BINDIR)/grt"
+	$(INSTALL_PROGRAM) -D -T train "$(DESTDIR)$(BINDIR)/grt-train"
+	$(INSTALL_PROGRAM) -D -T predict "$(DESTDIR)$(BINDIR)/grt-predict"
+	$(INSTALL_PROGRAM) -D -T preprocess "$(DESTDIR)$(BINDIR)/grt-preprocess"
+	$(INSTALL_PROGRAM) -D -T postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
+	$(INSTALL_PROGRAM) -D -T extract "$(DESTDIR)$(BINDIR)/grt-extract"
+	$(INSTALL_PROGRAM) -D -T extract_old "$(DESTDIR)$(BINDIR)/grt-extract-old"
+	$(INSTALL_PROGRAM) -D -T score "$(DESTDIR)$(BINDIR)/grt-score"
+	$(INSTALL_PROGRAM) -D -T info "$(DESTDIR)$(BINDIR)/grt-info"
+	$(INSTALL_PROGRAM) -D -T plot "$(DESTDIR)$(BINDIR)/grt-plot"
+	$(INSTALL_PROGRAM) -D -T segment "$(DESTDIR)$(BINDIR)/grt-segment"
+	$(INSTALL_PROGRAM) -D -T pack "$(DESTDIR)$(BINDIR)/grt-pack"
+	$(INSTALL_PROGRAM) -D -T unpack "$(DESTDIR)$(BINDIR)/grt-unpack"
 
 install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/preprocess.1 doc/extract.1 doc/postprocess.1 doc/unpack.1 doc/pack.1
 	$(INSTALL_PROGRAM) -D doc/grt.1 "$(DESTDIR)$(MANDIR)/man1/grt.1"
