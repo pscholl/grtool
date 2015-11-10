@@ -10,6 +10,8 @@ def run_test(test, PATH, gdb=False):
     that is prefixed with ">" are command and arguments. Everything after that is the
     expected output.
     """
+    print ("%s:" % test)
+
     cmd_results = []
     with open(test) as f:
         re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}>.*\n)*)(( {4}.*\n)*)($|\s{0,3})")
@@ -19,7 +21,7 @@ def run_test(test, PATH, gdb=False):
         if PATH[0] != "/": PATH = os.path.join(os.getcwd(), PATH)
         os.environ["PATH"]="%s:%s"%(PATH,os.environ["PATH"])
 
-    cwd, num = os.getcwd(), 0
+    cwd, num, fail = os.getcwd(), 0, False
     for cmd, res in cmd_results:
         # create a temp dir to work in
         tdir=mkdtemp()
@@ -34,12 +36,14 @@ def run_test(test, PATH, gdb=False):
         out = p.stdout.read()
 
         if err != 0:
+            fail = True
             print ("  Test #%d: FAILED" % num)
             print ("  cmd '%s' failed with code: %d"% (cmd, err))
             serr = p.stderr.read()
             sys.stderr.write(serr)
             if gdb and "core dumped" in serr: call("coredumpctl gdb -1", shell=True)
         elif out != res and res.strip()!="":
+            fail = True
             print ("  cmd '%s' FAILED:"% cmd)
             d = difflib.Differ().compare(res.split("\n"),out.split("\n"))
             print("\n".join(list(d)))
@@ -51,6 +55,7 @@ def run_test(test, PATH, gdb=False):
         shutil.rmtree(tdir)
         num += 1
     os.chdir(cwd)
+    return fail
 
 if __name__ == "__main__":
     p = ArgumentParser("run bash code in markdown documents")
@@ -59,6 +64,4 @@ if __name__ == "__main__":
     p.add_argument('-g', '--gdb', action="store_true", help="run gdb on core dumping tests")
     args = p.parse_args()
 
-    for test in args.files:
-        print ("%s:" % test)
-        run_test(test, args.path, args.gdb)
+    sys.exit(any(run_test(test, args.path, args.gdb) for test in args.files))
