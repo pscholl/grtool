@@ -11,24 +11,22 @@ PREFIX=/usr
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man/
 DESTDIR=
-INSTALL_PROGRAM=cp
-MKDIR_PROGRAM=mkdir
+INSTALL_PROGRAM=install
 
 install: $(ALL) # install-doc
-	$(MKDIR_PROGRAM) -p "$(DESTDIR)/$(BINDIR)" || 0
-	$(INSTALL_PROGRAM) grt "$(DESTDIR)$(BINDIR)/grt"
-	$(INSTALL_PROGRAM) train "$(DESTDIR)$(BINDIR)/grt-train"
-	$(INSTALL_PROGRAM) predict "$(DESTDIR)$(BINDIR)/grt-predict"
-	$(INSTALL_PROGRAM) preprocess "$(DESTDIR)$(BINDIR)/grt-preprocess"
-	$(INSTALL_PROGRAM) postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
-	$(INSTALL_PROGRAM) extract "$(DESTDIR)$(BINDIR)/grt-extract"
-	$(INSTALL_PROGRAM) extract_old "$(DESTDIR)$(BINDIR)/grt-extract-old"
-	$(INSTALL_PROGRAM) score "$(DESTDIR)$(BINDIR)/grt-score"
-	$(INSTALL_PROGRAM) info "$(DESTDIR)$(BINDIR)/grt-info"
-	$(INSTALL_PROGRAM) plot "$(DESTDIR)$(BINDIR)/grt-plot"
-	$(INSTALL_PROGRAM) segment "$(DESTDIR)$(BINDIR)/grt-segment"
-	$(INSTALL_PROGRAM) pack "$(DESTDIR)$(BINDIR)/grt-pack"
-	$(INSTALL_PROGRAM) unpack "$(DESTDIR)$(BINDIR)/grt-unpack"
+	$(INSTALL_PROGRAM) -D -T grt "$(DESTDIR)$(BINDIR)/grt"
+	$(INSTALL_PROGRAM) -D -T train "$(DESTDIR)$(BINDIR)/grt-train"
+	$(INSTALL_PROGRAM) -D -T predict "$(DESTDIR)$(BINDIR)/grt-predict"
+	$(INSTALL_PROGRAM) -D -T preprocess "$(DESTDIR)$(BINDIR)/grt-preprocess"
+	$(INSTALL_PROGRAM) -D -T postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
+	$(INSTALL_PROGRAM) -D -T extract "$(DESTDIR)$(BINDIR)/grt-extract"
+	$(INSTALL_PROGRAM) -D -T extract_old "$(DESTDIR)$(BINDIR)/grt-extract-old"
+	$(INSTALL_PROGRAM) -D -T score "$(DESTDIR)$(BINDIR)/grt-score"
+	$(INSTALL_PROGRAM) -D -T info "$(DESTDIR)$(BINDIR)/grt-info"
+	$(INSTALL_PROGRAM) -D -T plot "$(DESTDIR)$(BINDIR)/grt-plot"
+	$(INSTALL_PROGRAM) -D -T segment "$(DESTDIR)$(BINDIR)/grt-segment"
+	$(INSTALL_PROGRAM) -D -T pack "$(DESTDIR)$(BINDIR)/grt-pack"
+	$(INSTALL_PROGRAM) -D -T unpack "$(DESTDIR)$(BINDIR)/grt-unpack"
 
 install-doc: doc/score.1 doc/train.1 doc/predict.1 doc/info.1 doc/grt.1 doc/preprocess.1 doc/extract.1 doc/postprocess.1 doc/unpack.1 doc/pack.1
 	$(INSTALL_PROGRAM) -D doc/grt.1 "$(DESTDIR)$(MANDIR)/man1/grt.1"
