@@ -13,7 +13,7 @@ MANDIR=$(PREFIX)/share/man/
 DESTDIR=
 INSTALL_PROGRAM=install
 
-install: $(ALL) install-doc
+install: $(ALL) # install-doc
 	$(INSTALL_PROGRAM) -D grt "$(DESTDIR)$(BINDIR)/grt"
 	$(INSTALL_PROGRAM) -D train "$(DESTDIR)$(BINDIR)/grt-train"
 	$(INSTALL_PROGRAM) -D predict "$(DESTDIR)$(BINDIR)/grt-predict"
