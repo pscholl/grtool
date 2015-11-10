@@ -17,4 +17,4 @@ addons:
     - g++-4.8
     - clang
     - ffmpeg
-    - python3.4
+    - python3.2
