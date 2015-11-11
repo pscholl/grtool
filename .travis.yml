@@ -3,7 +3,7 @@ dist: trusty
 language: cpp
 script: make DESTDIR=$(pwd)/test test
 before_script:
-  - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next
+  - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next -y
   - sudo apt-get update
   - sudo apt-get install ffmpeg
   - ffprobe
