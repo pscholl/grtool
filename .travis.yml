@@ -1,4 +1,5 @@
-sudo: true
+sudo: required
+dist: trusty
 language: cpp
 script: make DESTDIR=$(pwd)/test test
 before_script:
