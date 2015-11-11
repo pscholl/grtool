@@ -3,8 +3,10 @@ dist: trusty
 language: cpp
 script: make DESTDIR=$(pwd)/test test
 before_script:
-  - sudo aptitude -y -q install libav-tools
-  - /usr/bin/ffprobe
+  - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next
+  - sudo apt-get update
+  - sudo apt-get install ffmpeg
+  - ffprobe
     #  - rm -rf grt_master
     #  - git clone https://github.com/pscholl/grt grt_master
     #  - cd grt_master/build
