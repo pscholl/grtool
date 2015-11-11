@@ -4,8 +4,7 @@ language: cpp
 script: make DESTDIR=$(pwd)/test test
 before_script:
   - sudo aptitude -y -q install libav-tools
-  - sudo aptitude -y -q install ffmpeg
-  - ffprobe
+  - /usr/bin/ffprobe
     #  - rm -rf grt_master
     #  - git clone https://github.com/pscholl/grt grt_master
     #  - cd grt_master/build
