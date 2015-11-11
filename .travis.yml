@@ -5,7 +5,7 @@ script: make DESTDIR=$(pwd)/test test
 before_script:
   - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next -y
   - sudo apt-get update
-  - sudo apt-get install ffmpeg
+  - sudo apt-get -y -q install ffmpeg
   - ffprobe
     #  - rm -rf grt_master
     #  - git clone https://github.com/pscholl/grt grt_master
