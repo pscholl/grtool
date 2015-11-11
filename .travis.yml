@@ -4,10 +4,12 @@ language: cpp
 script: make DESTDIR=$(pwd)/test test
 before_script:
   - sudo aptitude -y -q install libav-tools
-  - rm -rf grt_master
-  - git clone https://github.com/pscholl/grt grt_master
-  - cd grt_master/build
-  - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
+  - sudo aptitude -y -q install ffmpeg
+  - ffprobe
+    #  - rm -rf grt_master
+    #  - git clone https://github.com/pscholl/grt grt_master
+    #  - cd grt_master/build
+    #  - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
 install:
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 addons:
