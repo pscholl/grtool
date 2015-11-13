@@ -99,7 +99,9 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
                         b,e,l = beg,end,label
 
                 except ValueError as err:
-                    if len(srt) == 0: subr.close(); si.remove(subr)
+                    if len(srt) == 0:
+                        beg,end,label = float('inf'), float('inf'), default
+                        subr.close(); si.remove(subr)
 
             for i in [x for x in r if x is not subr]:
                 c = chns[outs.index(i)]
@@ -109,11 +111,10 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
                 frame = struct.unpack('%df'%c, buf)
                 inputbuf[i].append(frame)
 
-            while all(len(v)>0 for v in inputbuf.values()):
-                t += 1
-                if e<=t: l = default
+            while all(len(v)>0 for v in inputbuf.values()) and t<=e:
                 bufs = [ str(y) for x in inputbuf.values() for y in x.pop(0)]
-                print (l," ".join(bufs))
+                print (l if (t>b and t<=e) else default," ".join(bufs))
+                t += 1
 
         pid,status = os.waitpid(pid,0)
 
