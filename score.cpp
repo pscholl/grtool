@@ -129,8 +129,8 @@ int main(int argc, char *argv[])
   unordered_map<string,Group> groups;
            map<double,string> scores;
   string line, tag="None", prediction, label;
-  regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)\\s*.*"),
-      untagged ("(\\w+)\\s+(\\w+)\\s*.*");
+  regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)\\s*.*", regex::extended),
+      untagged ("(\\w+)\\s+(\\w+)\\s*.*", regex::extended);
   smatch match;
 
   while (getline(in,line)) {
