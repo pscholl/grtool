@@ -22,6 +22,13 @@ timeseries and frames
 
 ## Installation
 
+ grtool requires of other projects to run properly.
+
+  - ffmpeg
+  - python3
+  - a recent version of gcc
+  - Gesture Recognition Toolkit
+
 ## Android
 
 ### Building

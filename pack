@@ -180,8 +180,8 @@ def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
 
     # read all input filter so far
     if verbose:
-        sys.stderr.write("reading input files...")
-        sys.stderr.flush()
+        sys.stdout.write("reading input files...")
+        sys.stdout.flush()
 
     while True:
         try: [f() for f in filters]
@@ -204,9 +204,9 @@ def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
     cmd += ["-y", output]
 
     if verbose:
-        sys.stderr.write("done\n")
-        sys.stderr.write(" ".join(cmd)+"\n")
-        sys.stderr.flush()
+        sys.stdout.write("done\n")
+        sys.stdout.write(" ".join(cmd)+"\n")
+        sys.stdout.flush()
 
     subprocess.check_call(cmd)
 
