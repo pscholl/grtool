@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8 -*-
+import argparse,sys,os,selectors,subprocess,json,struct,tempfile
+
+
+def creadline(i):
+    line = i.readline()
+    while line.startswith(b'#') and len(line)>0:
+        line = i.readline()
+    return line
+
+def issubtitle(f):
+    cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams".split() + f
+    o = subprocess.check_output(cmd)
+    s = json.loads(o.decode("utf-8"))
+    return 'streams' in s and s['streams'][0]['codec_type']=='subtitle'
+
+def ismedia(buf):
+    try:
+        cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams -".split()
+        subprocess.check_call(cmd)
+        return True
+    except CalledProcessError:
+        return False
+
+def py3k(tup):
+    """ brain-deadness of py3k """
+    for x in tup: os.set_inheritable(x,True)
+    return tup
+
+def isfloat(s):
+    try: return not float(s) is None
+    except: return None
+
+def peekline(f):
+    # get first non-comment line and split into fields
+    probe_buf = f.peek(2**12)
+    line = [l for l in probe_buf.decode('utf8').split('\n') if\
+            len(l.strip())!=0 and not l.startswith('#')][0]
+    if len(line) == 0:
+        raise Exception("unable to probe input file, does it conain data?")
+    return line.strip().split()
+
+class DataOnly():
+    def __init__(self, f, nfields, rate, name):
+        self.s   = struct.Struct('<%df'%nfields)
+        self.out = tempfile.NamedTemporaryFile(delete=False)
+        self.inf = f
+        self.rate = rate
+        self.name = name
+        self.cmd  = "-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i"%(nfields,nfields,rate)
+
+    def __call__(self, fields=None):
+        fields = fields or creadline(self.inf).split()
+        fields = [float(f) for f in fields]
+        self.out.write( self.s.pack(*fields) )
+
+    def ffmpeg(self):
+        self.out.close()
+        return self.cmd.split() + [self.out.name]
+
+    def finalize(self):
+        os.remove(self.out.name)
+
+class LabelOnly():
+    """ convert a label stream to an srt subtitle stream, extracting timecodes
+        with a fixed sampling rate.
+    """
+    def __init__(self, f, rate, name):
+        self.out = tempfile.NamedTemporaryFile(delete=False)
+        self.inf = f
+        self.rate = float(rate)
+        self.name = name
+        self.cmd  = "-f srt -i"
+        self.n,self.b,self.l = 0,0,None
+        self.count = 0
+
+    def totc(self, n):
+        tc = n/self.rate
+        return "%02d:%02d:%02d,%03d"%\
+               (tc/3600, (tc/60)%3600, tc%60, (tc*1000)%1000)
+
+    def __call__(self, fields=None):
+        fields = fields or creadline(self.inf).split()
+
+        if self.l != fields[0]:
+            srt = "%d\n%s --> %s\n%s\n\n"%\
+                  (self.count, self.totc(self.b), self.totc(self.n), self.l)
+            if self.l is not None:
+                self.out.write(srt.encode('utf8'))
+            self.b = self.n
+            self.l = fields[0]
+            self.count += 1
+
+        self.n += 1
+
+    def ffmpeg(self):
+        self.out.close()
+        return self.cmd.split() + [self.out.name]
+
+    def finalize(self):
+        os.remove(self.out.name)
+
+class LabelAndData():
+    def __init__(self, f, nfields, rate, name):
+        self.data  = DataOnly(f,nfields,rate,name)
+        self.label = LabelOnly(f,rate,name)
+        self.inf   = f
+        self.rate  = rate
+        self.name  = name
+
+    def __call__(self):
+        fields = creadline(self.inf).split()
+        self.data(fields[1:])
+        self.label(fields[:1])
+
+    def ffmpeg(self):
+        return self.data.ffmpeg() + self.label.ffmpeg()
+
+    def finalize(self):
+        self.data.finalize()
+        self.label.finalize()
+
+class Subtitle():
+    def __init__(self, f, name):
+        self.ifile = f
+        self.name  = name
+        self.cmd   = "-i"
+
+    def ffmpeg(self):
+        return self.cmd.split() + self.ifile
+
+    def finalize(self):
+        pass
+
+class Media():
+    def __init__(self, f, name):
+        self.ifile = f
+        self.name  = name
+        self.cmd   = "-i"
+
+    def ffmpeg(self):
+        return self.cmd.split() + self.ifile
+
+    def finalize(self):
+        pass
+
+def pack(ins,labels=[],rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
+    """ ffmpeg is used to pack everything into one .mkv file, to do this we need a
+        pipe for each input file (that gets converted into binary) and a pipe for
+        each label stream. There is special input file format (called grt), which
+        the first field is non-float string that serve as a label stream. Decide
+        for each file what is neccesary and generate the part of the neccesary
+        ffmpeg command line.
+
+        However, ffmpeg's ability to support sparse streaming input is limited,
+        and when using it directly ends up in a dead-lock. Therefore we create
+        temprorary files for each input, write them to the disk and the end
+        aggregate them into an .mkv file after SIGTERM or EOF.
+    """
+    # for each input file we build a transformation
+    filters = []
+
+    for infile in ins:
+        # these file can come in these formats:
+        #  1. data-only, white space separated floats
+        #  2. label and data, white space separated non-float and floats
+        #  3. label only, i.e. only one field which is non-float
+        fields = peekline(infile)
+        if len(fields)==1 and not isfloat(fields[0]):
+            filters.append( LabelOnly(infile, rate.pop(0), name.pop(0)) )
+        elif len(fields)>1 and not isfloat(fields[0]):
+            filters.append( LabelAndData(infile, len(fields)-1, rate.pop(0), name.pop(0)) )
+        elif len(fields)>1 and isfloat(fields[0]):
+            filters.append( DataOnly(infile, len(fields), rate.pop(0), name.pop(0)) )
+        else:
+            raise Exception("unable to handle data in this format: '%s'"%fields)
+
+    for infile in labels:
+        # these must be subtitle fiels, so we just check wether ffmpeg is able
+        # to gulp them
+        if not issubtitle(infile):
+            raise Exception("%s is not a subtitle file that ffmpeg can read"%infile)
+
+    for infile in media:
+        # also check for media
+        if not ismedia(infile):
+            raise Exception("%s is not a media format that ffmpeg can read"%infile)
+
+    # read all input filter so far
+    if verbose:
+        sys.stderr.write("reading input files...")
+        sys.stderr.flush()
+
+    while True:
+        try: [f() for f in filters]
+        except struct.error: break # when EOF is hit in one input
+
+    # now build the ffmpeg command line
+    cmd  = ['ffmpeg']
+    cmd += [] if verbose else '-hide_banner -loglevel quiet'.split()
+
+    for f in filters:
+        cmd += f.ffmpeg()
+
+    cmd += "-c:a wavpack -c:v copy -c:s srt".split()
+    cmd += ["-y", output]
+
+    if verbose:
+        sys.stderr.write("done\n")
+        sys.stderr.flush()
+
+    subprocess.check_call(cmd)
+
+    for f in filters:
+        f.finalize()
+
+if __name__ == "__main__":
+    cmdline = argparse.ArgumentParser("packs csv data and additional media into .mkv file using ffmpeg")
+    cmdline.add_argument('-i', '--input', type=str,   default=[], action="append", help="input file, multiple can be given")
+    cmdline.add_argument('-n', '--name',  type=str,   default=[], action="append", help="a name for each input/label/media file can be given, in the same order as arguments are supplied")
+    cmdline.add_argument('-r', '--rate',  type=float, default=[], action="append", help="rate (in Hz) of each input file, mandatory")
+    cmdline.add_argument('-m', '--media', type=str,   default=[], action="append", help="additional file to add, multiple can be given")
+    cmdline.add_argument('-ss', '--seek', type=str,   default=[], action="append", help="provide an offset for media files to align them with subtitle timebase in (hh:mm:ss.ms) format")
+    cmdline.add_argument('-l', '--label', type=str,   default=[], action="append", help="label files to be added")
+    cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
+    cmdline.add_argument('output', nargs='?', type=str, default='-', help="file to pack into")
+    args = cmdline.parse_args()
+
+    if len(args.input) == 0:
+        args.input = ['-']
+
+    i = [(open(f,'rb',buffering=2**21) if f!='-' else sys.stdin.buffer) for f in args.input]
+
+    pack(i,**vars(args))
+    sys.exit(-1)
+
+    try:
+        pack(i,l,**vars(args))
+    except IndexError as e:
+        sys.stderr.write("ERR: not enough rates supplied for inputs\n")
+        raise(e)
+        sys.exit(-1)
+    except Exception as e:
+        sys.stderr.write("ERR: %s\n"%str(e))
+        sys.exit(-1)
