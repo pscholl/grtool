@@ -77,8 +77,9 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         done     = False
 
         # this is more or less the select loop
-        while not done and len(si) > 0:
-            r,w,_ = select(si,so,[],.1)
+        while (not done or all(len(v)>0 for v in inputbuf.values())):
+            if done: r = [subr] if subr in si else []
+            else: r,w,_ = select(si,so,[],.1)
 
             for o in w: # ffmpeg is ready to receive new data
                 i = files[ins.index(o)]
@@ -97,21 +98,22 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
                         raise Exception("overlapping labels (%s,%s) at %s"%(label,l,begs))
                     elif style is None or style==s:
                         b,e,l = beg,end,label
-
                 except ValueError as err:
                     if len(srt) == 0:
                         beg,end,label = float('inf'), float('inf'), default
                         subr.close(); si.remove(subr)
 
-            for i in [x for x in r if x is not subr]:
-                c = chns[outs.index(i)]
-                buf = i.read(c*4)
-                if len(buf) == 0:
-                    done = True; continue
-                frame = struct.unpack('%df'%c, buf)
-                inputbuf[i].append(frame)
+            if not done:
+                for i in [x for x in r if x is not subr]:
+                    c = chns[outs.index(i)]
+                    buf = i.read(c*4)
+                    if len(buf) == 0:
+                        done = True;
+                        continue
+                    frame = struct.unpack('%df'%c, buf)
+                    inputbuf[i].append(frame)
 
-            while all(len(v)>0 for v in inputbuf.values()) and t<=e:
+            while all(len(v)>0 for v in inputbuf.values()) and (t<=e or not subr in si):
                 bufs = [ str(y) for x in inputbuf.values() for y in x.pop(0)]
                 print (l if (t>b and t<=e) else default," ".join(bufs))
                 t += 1
