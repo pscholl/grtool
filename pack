@@ -1,231 +1,225 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
-import argparse,sys,os,struct,subprocess,io,json,traceback
-from threading import Thread as T
-from datetime import timedelta as td
+import argparse,sys,os,selectors,subprocess,json,struct,tempfile
 
-def readline_comment(i):
-    for line in i:
-        line = line.strip()
-        if line.startswith(b'#') or len(line)==0:
-            continue
-        yield line
 
-def issubtitle(buf):
-    cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams -".split()
-    cmd = subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
-    o,e = cmd.communicate(buf)
-    s   = json.loads(o.decode("utf-8"))
-    return 'streams' in s and s['streams'][0]['codec_type']=='subtitle'
-
-def py3k(tup):
-    """ brain-deadness of py3k """
-    for x in tup: os.set_inheritable(x,True)
-    return tup
+def creadline(i):
+    line = i.readline()
+    while line.startswith(b'#') and len(line)>0:
+        line = i.readline()
+    return line
 
 def isfloat(s):
     try: return not float(s) is None
     except: return None
 
-def cp(i,o,BUFSIZE=4096,n=-1):
-    o = os.fdopen(o,'wb')
-    while n!=0:
-        n = o.write(i.read(BUFSIZE))
-    o.close(); i.close()
+def peekline(f):
+    # get first non-comment line and split into fields
+    probe_buf = f.peek(2**12)
+    line = [l for l in probe_buf.decode('utf8').split('\n') if\
+            len(l.strip())!=0 and not l.startswith('#')][0]
+    if len(line) == 0:
+        raise Exception("unable to probe input file, does it conain data?")
+    return line.strip().split()
 
-class SRT:
-    def __init__(self,rate):
-        self.b,self.e,self.l = 0,1,None
-        self.rate = float(rate)
-        self.i = -1
+class DataOnly():
+    def __init__(self, f, nfields, rate, name):
+        self.s   = struct.Struct('<%df'%nfields)
+        self.out = tempfile.NamedTemporaryFile(delete=False)
+        self.inf = f
+        self.rate = rate
+        self.name = name
+        self.cmd  = "-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i"%(nfields,nfields,rate)
+        self.streams = 1
 
-    def srt(self):
-        self.i += 1
-        b,e = self.b/self.rate,self.e/self.rate
-        return "%d\n%02d:%02d:%02d,%03d --> %02d:%02d:%02d,%03d\n%s\n\n"%(
-            self.i,
-            b/3600, (b/60)%3600, b%60, (b*1000)%1000,
-            e/3600, (e/60)%3600, e%60, (e*1000)%1000,
-            self.l.decode("utf8"))
-
-    def __call__(self, fields):
-        if fields is None: return self.srt()
-        s,label = "", fields[0]
-        self.l = label if self.l is None else self.l
-        if label!=self.l:
-            s = self.srt()
-            self.l,self.b = label,self.e
-        self.e += 1
-        return s
-
-class CSRT:
-    def __init__(self):
-        self.i = 0
-
-    def __call__(self,fields):
-        assert len(fields)==3
-        l,b,e = fields[0],float(fields[1]),float(fields[2])
-        b,e = b/1000., e/1000. # assume milli-seconds
-        self.i += 1
-
-        return "%d\n%02d:%02d:%02d,%03d --> %02d:%02d:%02d,%03d\n%s\n\n"%(
-            self.i,
-            b/3600, (b/60)%3600, b%60, (b*1000)%1000,
-            e/3600, (e/60)%3600, e%60, (e*1000)%1000,
-            l.decode("utf8"))
-
-class PCM:
-    def __init__(self,channels):
-        self.s = struct.Struct("%df"%channels)
-
-    def __call__(self,fields):
+    def __call__(self, fields=None):
+        fields = fields or creadline(self.inf).split()
         fields = [float(f) for f in fields]
-        return self.s.pack(*fields)
+        self.out.write( self.s.pack(*fields) )
 
-def cp2srt(i,o,rate):
-    o = os.fdopen(o,'w')
-    srt=SRT(rate)
-    for line in readline_comment(i):
-        o.write(srt(line.split()))
-    o.write(srt(None))
+    def ffmpeg(self):
+        self.out.close()
+        return self.cmd.split() + [self.out.name]
 
-def coded2srt(i,o):
-    o = os.fdopen(o,'w')
-    csrt=CSRT()
-    for line in readline_comment(i):
-        o.write(csrt(line.split()))
+    def ffmpeg_map(self,i):
+        return ("-map %d:0"%i).split()
 
-def cp2pcm(i,o,channels):
-    o = os.fdopen(o,'wb')
-    pcm = PCM(channels)
-    for line in readline_comment(i):
-        o.write(pcm(line.split()))
-    i.close()
-    o.close()
+    def finalize(self):
+        os.remove(self.out.name)
 
-def cp2pcmsrt(i,o,lo,rate,channels):
-    o,lo = os.fdopen(o,'wb'),os.fdopen(lo,'w')
-    srt,pcm = SRT(rate),PCM(channels)
-    for line in readline_comment(i):
-        line = line.split()
-        o.write(pcm(line[1:]))
-        lo.write(str(srt(line[:1])))
-    lo.write(str(srt(None)))
-    i.close()
-    o.close()
-    lo.close()
+class LabelOnly():
+    """ convert a label stream to an srt subtitle stream, extracting timecodes
+        with a fixed sampling rate.
+    """
+    def __init__(self, f, rate, name):
+        self.out = tempfile.NamedTemporaryFile(delete=False)
+        self.inf = f
+        self.rate = float(rate)
+        self.name = name
+        self.cmd  = "-f srt -i"
+        self.n,self.b,self.l = 0,0,None
+        self.count = 0
+        self.streams = 1
 
-def pack(ins,lbls,rate=[],name=[],label=[],media=[],verbose=False,output="-",seek=[],**rest):
-    # ffmpeg is used to pack everything into one .mkv file, to do this we need a
-    # pipe for each input file (that gets converted into binary) and a pipe for
-    # each label stream. There is special input file format (called grt), which
-    # the first field is non-float string that serve as a label stream. Decide
-    # for each file what is neccesary and generate the part of the neccesary
-    # ffmpeg command line.
-    cmd,threads,pipes,sid = ['ffmpeg'],[],[],0
-    cmd += [] if verbose else '-hide_banner -loglevel quiet'.split()
+    def totc(self, n):
+        tc = n/self.rate
+        return "%02d:%02d:%02d,%03d"%\
+               (tc/3600, (tc/60)%3600, tc%60, (tc*1000)%1000)
 
-    for infile in ins+lbls:
-        # retrieve a header for probing, and the first non-comment line
-        probe_buf = infile.peek(2**12)
-        line = [l for l in probe_buf.decode('utf8').split('\n') if\
-                len(l.strip())!=0 and not l.startswith('#')][0]
-        if len(line) == 0:
-            raise Exception("unable to probe input file, does it conain data?")
-        fields = line.strip().split()
+    def __call__(self, fields=None):
+        fields = fields or creadline(self.inf).split()
 
-        # pipes are needed for each input
-        i,o = py3k(os.pipe())
-        pipes.append((i,o))
+        if self.l != fields[0]:
+            srt = "%d\n%s --> %s\n%s\n\n"%\
+                  (self.count, self.totc(self.b), self.totc(self.n), self.l)
+            if self.l is not None:
+                self.out.write(srt.encode('utf8'))
+            self.b = self.n
+            self.l = fields[0]
+            self.count += 1
 
-        # decide on input and transformation on each input, and build a list of
-        # threads to handle that
-        if issubtitle(probe_buf):
-            if verbose: sys.stderr.write("got subtitle\n")
-            cmd += (' -f srt -i pipe:%d'%i).split()
-            threads.append(T(target=cp,args=(infile,o)))
+        self.n += 1
 
-        elif infile in lbls and not isfloat(fields[0])\
-             and isfloat(fields[1]) and isfloat(fields[2]):
-            if verbose: sys.stderr.write("got coded subtitle\n")
-            cmd += (' -f srt -i pipe:%d'%i).split()
-            threads.append(T(target=coded2srt,args=(infile,o)))
+    def ffmpeg(self):
+        self.out.close()
+        return self.cmd.split() + [self.out.name]
 
-        elif len(fields)==1 and (infile in lbls or not isfloat(fields[0])):
-            if verbose: sys.stderr.write("got continuous subtitle\n")
-            cmd += (' -f srt -i pipe:%d'%i).split()
-            threads.append(T(target=cp2srt,args=(infile,o,rate.pop(0))))
+    def ffmpeg_map(self,i):
+        return ("-map %d:0"%i).split()
 
-        elif isfloat(fields[0]):
-            if verbose: sys.stderr.write("got continuous data\n")
-            channels = len(fields)
-            cmd += (' -f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i pipe:%d'%(channels,channels,rate.pop(0),i)).split()
-            threads.append(T(target=cp2pcm,args=(infile,o,channels)))
+    def finalize(self):
+        os.remove(self.out.name)
 
-        elif not isfloat(fields[0]) and isfloat(fields[1]):
-            if verbose: sys.stderr.write("got continuous data and subtitle\n")
-            li,lo = py3k(os.pipe())
-            pipes.append((li,lo))
-            channels = len(fields)-1
-            r = rate.pop(0)
-            cmd += (' -f srt -i pipe:%d -f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i pipe:%d'%(li,channels,channels,r,i)).split()
-            threads.append(T(target=cp2pcmsrt,args=(infile,o,lo,r,channels)))
-            sid += 1
+class LabelAndData():
+    def __init__(self, f, nfields, rate, name):
+        self.data  = DataOnly(f,nfields,rate,name)
+        self.label = LabelOnly(f,rate,name)
+        self.inf   = f
+        self.rate  = rate
+        self.name  = name
+        self.streams = self.data.streams + self.label.streams
 
+    def __call__(self):
+        fields = creadline(self.inf).split()
+        self.data(fields[1:])
+        self.label(fields[:1])
+
+    def ffmpeg(self):
+        return self.data.ffmpeg() + self.label.ffmpeg()
+
+    def ffmpeg_map(self,i):
+        return self.data.ffmpeg_map(i) + self.data.ffmpeg_map(i+1)
+
+    def finalize(self):
+        self.data.finalize()
+        self.label.finalize()
+
+class Media():
+    def __init__(self, f):
+        self.ifile = f
+        self.cmd   = "-i"
+
+        try:
+            cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams"
+            cmd = cmd.split() + [f]
+            o = subprocess.check_output(cmd)
+            self.streams = len(json.loads(o.decode('utf8'))['streams'])
+        except CalledProcessError:
+            raise Exception("%s is not an ffmpeg media file"%f)
+
+    def __call__(self):
+        pass
+
+    def ffmpeg(self):
+        cmd = self.cmd.split()
+        cmd += [self.ifile]
+        return cmd
+
+    def ffmpeg_map(self,i):
+        cmd = []
+        for n in range(self.streams):
+            cmd += ("-map %d:%d"%(i,n)).split()
+        return cmd
+
+    def finalize(self):
+        pass
+
+def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
+    """ ffmpeg is used to pack everything into one .mkv file, to do this we need a
+        pipe for each input file (that gets converted into binary) and a pipe for
+        each label stream. There is special input file format (called grt), which
+        the first field is non-float string that serve as a label stream. Decide
+        for each file what is neccesary and generate the part of the neccesary
+        ffmpeg command line.
+
+        However, ffmpeg's ability to support sparse streaming input is limited,
+        and when using it directly ends up in a dead-lock. Therefore we create
+        temprorary files for each input, write them to the disk and the end
+        aggregate them into an .mkv file after SIGTERM or EOF.
+    """
+    # for each input file we build a transformation
+    filters = []
+
+    for infile in ins:
+        # these file can come in these formats:
+        #  1. data-only, white space separated floats
+        #  2. label and data, white space separated non-float and floats
+        #  3. label only, i.e. only one field which is non-float
+        fields = peekline(infile)
+        if len(fields)==1 and not isfloat(fields[0]):
+            filters.append( LabelOnly(infile, rate.pop(0), name.pop(0)) )
+        elif len(fields)>1 and not isfloat(fields[0]):
+            filters.append( LabelAndData(infile, len(fields)-1, rate.pop(0), name.pop(0)) )
+        elif len(fields)>1 and isfloat(fields[0]):
+            filters.append( DataOnly(infile, len(fields), rate.pop(0), name.pop(0)) )
         else:
-            raise Exception("can't probe format for '%s'"%line)
+            raise Exception("unable to handle data in this format: '%s'"%fields)
 
-        sid += 1
+    for infile in media:
+        filters.append( Media(infile) )
 
-    # check the names
-    if len(name) > sid:
-        raise Exception("more names than streams supplied")
-
-    if len(rate) > 0:
-        raise Exception("more rates than streams supplied")
-
-    # add media
-    for m in media:
-        try: cmd += [ '-ss', seek.pop(0), '-i', m ]
-        except IndexError: cmd += [ '-i', m ]
-        sid += 1
-
-    # add metadata
-    for i,name in zip(range(len(name)),name):
-        cmd += [ '-metadata:s:%d'%i, 'name=%s'%name ]
-
-    # make sure all input are picked up
-    for i in range(sid):
-        cmd += ('-map %d'%i).split()
-
-    cmd += '-c:a wavpack -c:v copy -c:s srt -f matroska'.split()
-    cmd += ['-y', output]
-
-    # print if info
+    # read all input filter so far
     if verbose:
+        sys.stderr.write("reading input files...")
+        sys.stderr.flush()
+
+    while True:
+        try: [f() for f in filters]
+        except struct.error: break # when EOF is hit in one input
+
+    # now build the ffmpeg command line
+    cmd,i = ['ffmpeg'],0
+    cmd += [] if verbose else '-hide_banner -loglevel quiet'.split()
+    for f in filters: cmd += f.ffmpeg()
+    cmd += "-c:a wavpack -c:v copy -c:s srt".split()
+    for f in filters:
+        cmd += f.ffmpeg_map(i)
+        if type(f) is LabelAndData:
+            cmd += ['-metadata:s:%d'%i, 'name=%s'%f.name]
+            cmd += ['-metadata:s:%d'%(i+1), 'name=%s'%f.name]
+            i += 1
+        elif not type(f) is Media:
+            cmd += ['-metadata:s:%d'%i, 'name=%s'%f.name]
+        i += 1
+    cmd += ["-y", output]
+
+    if verbose:
+        sys.stderr.write("done\n")
         sys.stderr.write(" ".join(cmd)+"\n")
+        sys.stderr.flush()
 
-    # create the ffmpeg child and start all threads
-    pid = os.fork()
+    subprocess.check_call(cmd)
 
-    if not pid: # child
-        for (_,w) in pipes: os.close(w)
-        #cmd = "ls -l /proc/self/fd".split()
-        os.execvp(cmd[0],cmd)
-    else:
-        for (r,_) in pipes: os.close(r)
-        for t in threads: t.start()
-        for t in threads: t.join()
-        pid,status = os.waitpid(pid,0)
+    for f in filters:
+        f.finalize()
 
 if __name__ == "__main__":
     cmdline = argparse.ArgumentParser("packs csv data and additional media into .mkv file using ffmpeg")
     cmdline.add_argument('-i', '--input', type=str,   default=[], action="append", help="input file, multiple can be given")
     cmdline.add_argument('-n', '--name',  type=str,   default=[], action="append", help="a name for each input/label/media file can be given, in the same order as arguments are supplied")
     cmdline.add_argument('-r', '--rate',  type=float, default=[], action="append", help="rate (in Hz) of each input file, mandatory")
-    cmdline.add_argument('-m', '--media', type=str,   default=[], action="append", help="additional file to add, multiple can be given")
+    cmdline.add_argument('-m', '--media', type=str,   default=[], action="append", help="additional file to add, multiple can be given, may contain subtitles")
     cmdline.add_argument('-ss', '--seek', type=str,   default=[], action="append", help="provide an offset for media files to align them with subtitle timebase in (hh:mm:ss.ms) format")
-    cmdline.add_argument('-l', '--label', type=str,   default=[], action="append", help="label files to be added")
     cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
     cmdline.add_argument('output', nargs='?', type=str, default='-', help="file to pack into")
     args = cmdline.parse_args()
@@ -233,9 +227,10 @@ if __name__ == "__main__":
     if len(args.input) == 0:
         args.input = ['-']
 
-    # open all input files (output is opened by ffmpeg sub)
     i = [(open(f,'rb',buffering=2**21) if f!='-' else sys.stdin.buffer) for f in args.input]
-    l = [(open(f,'rb',buffering=2**21) if f!='-' else sys.stdin.buffer) for f in args.label]
+
+    pack(i,**vars(args))
+    sys.exit(-1)
 
     try:
         pack(i,l,**vars(args))
