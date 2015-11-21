@@ -229,11 +229,8 @@ if __name__ == "__main__":
 
     i = [(open(f,'rb',buffering=2**21) if f!='-' else sys.stdin.buffer) for f in args.input]
 
-    pack(i,**vars(args))
-    sys.exit(-1)
-
     try:
-        pack(i,l,**vars(args))
+        pack(i,**vars(args))
     except IndexError as e:
         sys.stderr.write("ERR: not enough rates supplied for inputs\n")
         raise(e)
