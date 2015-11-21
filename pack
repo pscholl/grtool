@@ -75,7 +75,7 @@ class LabelOnly():
             if self.l is not None:
                 self.out.write(srt.encode('utf8'))
             self.b = self.n
-            self.l = fields[0]
+            self.l = fields[0].decode('utf8')
             self.count += 1
 
         self.n += 1
