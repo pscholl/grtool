@@ -43,6 +43,8 @@ class Data():
         self.name = name
         if nfields > 2:
             self.cmd  = "-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i"%(nfields,nfields,rate)
+        elif nfields == 0:
+            raise Exception("ERR: not enough input fields")
         else:
             self.cmd  = "-f f32le -ac %d.0 -ar %f -i"%(nfields,rate)
         self.streams = 1
