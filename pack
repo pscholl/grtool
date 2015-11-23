@@ -2,16 +2,27 @@
 # -*- encoding: utf-8 -*-
 import argparse,sys,os,selectors,subprocess,json,struct,tempfile
 
-
 def creadline(i):
     line = i.readline()
-    while line.startswith(b'#') and len(line)>0:
+    try: line = line.decode('utf8')
+    except: pass
+    while line.startswith('#') and len(line)>0:
         line = i.readline()
     return line
 
 def isfloat(s):
     try: return not float(s) is None
     except: return None
+
+def issubtitle(f):
+    try:
+        cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams"
+        cmd = cmd.split() + [f]
+        o = subprocess.check_output(cmd)
+        o = json.loads(o.decode('utf8'))['streams']
+        return any(x['codec_type'] == 'subtitle' for x in o)
+    except subprocess.CalledProcessError:
+        return False
 
 def peekline(f):
     # get first non-comment line and split into fields
@@ -22,19 +33,23 @@ def peekline(f):
         raise Exception("unable to probe input file, does it conain data?")
     return line.strip().split()
 
-class DataOnly():
-    def __init__(self, f, nfields, rate, name):
+class Data():
+    def __init__(self, f, offset, nfields, rate, name):
         self.s   = struct.Struct('<%df'%nfields)
         self.out = tempfile.NamedTemporaryFile(delete=False)
         self.inf = f
+        self.off = offset
         self.rate = rate
         self.name = name
-        self.cmd  = "-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i"%(nfields,nfields,rate)
+        if nfields > 2:
+            self.cmd  = "-f f32le -ac %d.0 -channel_layout %d.0 -ar %f -i"%(nfields,nfields,rate)
+        else:
+            self.cmd  = "-f f32le -ac %d.0 -ar %f -i"%(nfields,rate)
         self.streams = 1
 
     def __call__(self, fields=None):
         fields = fields or creadline(self.inf).split()
-        fields = [float(f) for f in fields]
+        fields = [float(f) for f in fields[self.off:]]
         self.out.write( self.s.pack(*fields) )
 
     def ffmpeg(self):
@@ -47,13 +62,13 @@ class DataOnly():
     def finalize(self):
         os.remove(self.out.name)
 
-class LabelOnly():
+class Label():
     """ convert a label stream to an srt subtitle stream, extracting timecodes
         with a fixed sampling rate.
     """
     def __init__(self, f, rate, name):
         self.out = tempfile.NamedTemporaryFile(delete=False)
-        self.inf = f
+        self.inf = open(f,'r')
         self.rate = float(rate)
         self.name = name
         self.cmd  = "-f srt -i"
@@ -75,7 +90,7 @@ class LabelOnly():
             if self.l is not None:
                 self.out.write(srt.encode('utf8'))
             self.b = self.n
-            self.l = fields[0].decode('utf8')
+            self.l = fields[0]
             self.count += 1
 
         self.n += 1
@@ -90,30 +105,6 @@ class LabelOnly():
     def finalize(self):
         os.remove(self.out.name)
 
-class LabelAndData():
-    def __init__(self, f, nfields, rate, name):
-        self.data  = DataOnly(f,nfields,rate,name)
-        self.label = LabelOnly(f,rate,name)
-        self.inf   = f
-        self.rate  = rate
-        self.name  = name
-        self.streams = self.data.streams + self.label.streams
-
-    def __call__(self):
-        fields = creadline(self.inf).split()
-        self.data(fields[1:])
-        self.label(fields[:1])
-
-    def ffmpeg(self):
-        return self.data.ffmpeg() + self.label.ffmpeg()
-
-    def ffmpeg_map(self,i):
-        return self.data.ffmpeg_map(i) + self.data.ffmpeg_map(i+1)
-
-    def finalize(self):
-        self.data.finalize()
-        self.label.finalize()
-
 class Media():
     def __init__(self, f):
         self.ifile = f
@@ -123,7 +114,7 @@ class Media():
             cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams"
             cmd = cmd.split() + [f]
             o = subprocess.check_output(cmd)
-            self.streams = len(json.loads(o.decode('utf8'))['streams'])
+            self.streams = json.loads(o.decode('utf8'))['streams']
         except CalledProcessError:
             raise Exception("%s is not an ffmpeg media file"%f)
 
@@ -137,14 +128,23 @@ class Media():
 
     def ffmpeg_map(self,i):
         cmd = []
-        for n in range(self.streams):
+        for n in range(len(self.streams)):
             cmd += ("-map %d:%d"%(i,n)).split()
         return cmd
 
     def finalize(self):
         pass
 
-def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
+class LabelMedia(Media):
+    def __init__(self,f,name):
+        Media.__init__(self,f)
+        self.name = name
+
+    def ffmpeg_map(self,i):
+        n = [x['codec_type'] for x in self.streams].index('subtitle')
+        return ("-map %d:%d"%(i,n)).split()
+
+def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
     """ ffmpeg is used to pack everything into one .mkv file, to do this we need a
         pipe for each input file (that gets converted into binary) and a pipe for
         each label stream. There is special input file format (called grt), which
@@ -164,16 +164,17 @@ def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
         # these file can come in these formats:
         #  1. data-only, white space separated floats
         #  2. label and data, white space separated non-float and floats
-        #  3. label only, i.e. only one field which is non-float
         fields = peekline(infile)
-        if len(fields)==1 and not isfloat(fields[0]):
-            filters.append( LabelOnly(infile, rate.pop(0), name.pop(0)) )
-        elif len(fields)>1 and not isfloat(fields[0]):
-            filters.append( LabelAndData(infile, len(fields)-1, rate.pop(0), name.pop(0)) )
-        elif len(fields)>1 and isfloat(fields[0]):
-            filters.append( DataOnly(infile, len(fields), rate.pop(0), name.pop(0)) )
+        filters.append( Data(infile, not isfloat(fields[0]), len(fields)-1, rate.pop(0), name.pop(0)) )
+
+    for infile in labels:
+        # labels can either be supplied:
+        #  1. subtitle files
+        #  2. label per line
+        if issubtitle(infile):
+            filters.append( LabelMedia(infile, name.pop(0)) )
         else:
-            raise Exception("unable to handle data in this format: '%s'"%fields)
+            filters.append( Label(infile, rate.pop(0), name.pop(0)) )
 
     for infile in media:
         filters.append( Media(infile) )
@@ -183,9 +184,9 @@ def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
         sys.stdout.write("reading input files...")
         sys.stdout.flush()
 
-    while True:
+    while any(not(type(f) is Media or type(f) is LabelMedia) for f in filters):
         try: [f() for f in filters]
-        except struct.error: break # when EOF is hit in one input
+        except:  break # when EOF is hit in one input
 
     # now build the ffmpeg command line
     cmd,i = ['ffmpeg'],0
@@ -194,11 +195,7 @@ def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
     cmd += "-c:a wavpack -c:v copy -c:s srt".split()
     for f in filters:
         cmd += f.ffmpeg_map(i)
-        if type(f) is LabelAndData:
-            cmd += ['-metadata:s:%d'%i, 'name=%s'%f.name]
-            cmd += ['-metadata:s:%d'%(i+1), 'name=%s'%f.name]
-            i += 1
-        elif not type(f) is Media:
+        if not type(f) is Media:
             cmd += ['-metadata:s:%d'%i, 'name=%s'%f.name]
         i += 1
     cmd += ["-y", output]
@@ -216,6 +213,7 @@ def pack(ins,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
 if __name__ == "__main__":
     cmdline = argparse.ArgumentParser("packs csv data and additional media into .mkv file using ffmpeg")
     cmdline.add_argument('-i', '--input', type=str,   default=[], action="append", help="input file, multiple can be given")
+    cmdline.add_argument('-l', '--label', type=str,   default=[], action="append", help="label file, multiple can be given")
     cmdline.add_argument('-n', '--name',  type=str,   default=[], action="append", help="a name for each input/label/media file can be given, in the same order as arguments are supplied")
     cmdline.add_argument('-r', '--rate',  type=float, default=[], action="append", help="rate (in Hz) of each input file, mandatory")
     cmdline.add_argument('-m', '--media', type=str,   default=[], action="append", help="additional file to add, multiple can be given, may contain subtitles")
@@ -224,17 +222,31 @@ if __name__ == "__main__":
     cmdline.add_argument('output', nargs='?', type=str, default='-', help="file to pack into")
     args = cmdline.parse_args()
 
-    if len(args.input) == 0:
+    if len(args.input)==0 and len(args.label)==0:
         args.input = ['-']
 
-    i = [(open(f,'rb',buffering=2**21) if f!='-' else sys.stdin.buffer) for f in args.input]
+    i = [open(f,'rb',buffering=2**21) if f != '-' else sys.stdin.buffer for f in args.input]
 
     try:
-        pack(i,**vars(args))
+        # need to order rate and names to the specific label or input option
+        r1,r2,n1,n2 = [],[],[],[]
+        for arg in sys.argv:
+            if arg == '-i' or arg == '--input':
+                r1.append(args.rate.pop(0))
+                n1.append(args.name.pop(0) if len(args.name)>0 else "")
+            if arg == '-l' or arg == '--label':
+                r2.append(args.rate.pop(0))
+                n2.append(args.name.pop(0) if len(args.name)>0 else "")
+
+        if len(r1)>0 or len(r2)>0:
+            args.rate = r1+r2
+            args.name = n1+n2
+
+        pack(i,args.label,**vars(args))
     except IndexError as e:
-        sys.stderr.write("ERR: not enough rates supplied for inputs\n")
-        raise(e)
+        sys.stderr.write("ERR: not enough rates/names supplied for inputs\n")
         sys.exit(-1)
     except Exception as e:
         sys.stderr.write("ERR: %s\n"%str(e))
+        raise(e)
         sys.exit(-1)

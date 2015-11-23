@@ -50,15 +50,17 @@
 :   seek media before adding
 
 -l LABEL, --label LABEL
-:   addtional subtitle file to be added to ffmpeg
+:   subtitle file to be added to ffmpeg
 
 -v, --verbose
 :   more verbose output
  
 # EXAMPLES
 
+ We generate a temporary file here, since the standard grt tracks needs to be supplied two times. Once to use it as the groundtruth and second to use it as the actual data.
+
     echo "abc 1 1 2
     > abc 2 2 2
     > cde 3 4 5
-    > tfe 6 7 8" | grt pack -r 2 -n acceleration test.mkv
+    > tfe 6 7 8" > grt-file &&  grt pack -i grt-file -r 2 -n acceleration -l grt-file -r 2 test.mkv
     
