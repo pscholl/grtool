@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
-import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json
+import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json,selectors
 from threading import Thread as T
 from datetime import timedelta as td
 from select import select
@@ -9,9 +9,75 @@ from string import whitespace as ws
 from struct import Struct, error
 from queue import Queue
 
-def ass2rate(s,rate):
-    h,m,s = [float(x) for x in s.split(':')]
-    return int( (24*60*h+60*m+s) * rate )
+class ToFFmpeg():
+    def __init__(self, fr0m, to):
+        self.fileno = fr0m.fileno()
+        self.to = os.fdopen(to,'wb')
+        self.fr0m = fr0m
+        self.BUFSIZE = 4096
+
+    def __call__(self):
+        line = self.fr0m.read(self.BUFSIZE)
+        if len(line) == 0:
+            self.fr0m.close()
+            self.to.close()
+            return True
+        self.to.write(line)
+
+class FromFFmpeg():
+    def __init__(self, f, channel, inputbuf):
+        self.f = os.fdopen(f,'rb')
+        self.struct = Struct('%df'%channel)
+        self.fileno = f
+        self.channel = channel
+        self.inputbuf = inputbuf
+
+    def __call__(self):
+        buf = self.inputbuf[self.fileno]
+        line = self.f.read(4*self.channel)
+        if len(line) == 0: return True
+        buf.append(self.struct.unpack(line))
+
+class SubtitleReader():
+    def __init__(self, subfile,rate):
+        self.sub = os.fdopen(subfile,'r')
+        self.fileno = subfile
+        self.labels = []
+        self.lastt = None
+        self.rate = rate
+
+    def ass2rate(self,s):
+        h,m,s = [float(x) for x in s.split(':')]
+        return int( (24*60*h+60*m+s) * self.rate )
+
+    def __call__(self):
+        if self.sub is None:
+            return
+
+        line = self.sub.readline()
+        if len(line) == 0: return True
+
+        try:
+            _,beg,end,s,_,_,_,_,_,label = line.split(',')
+            label = re.sub('\s+','_',label.strip())
+            beg,end = self.ass2rate(beg),self.ass2rate(end)
+            self.labels.append((beg,end,label))
+        except ValueError:
+            pass
+
+    def label(self,t):
+        if self.lastt is not None:
+            assert (t-self.lastt) == 1
+        self.lastt = t
+
+        try:
+            b,e,l = self.labels[0]
+            while t >= e:
+                b,e,l = self.labels.pop(0)
+                b,e,l = self.labels[0]
+            return l
+        except IndexError:
+            return None
 
 def unpack_to_str(streams,sub,default,style,verbose=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
@@ -32,6 +98,8 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
 
     # figure out the largest sample_rate for upsampling
     rate  = max([int(d['sample_rate']) for (d,f) in streams])
+    for r in files:
+        os.set_inheritable(r.fileno(),True)
 
     # build the command line
     cmd  = 'ffmpeg'
@@ -45,10 +113,11 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         cmd += '' if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
         cmd += ' pipe:%d'%w
 
+    if verbose:
+        sys.stderr.write(cmd+"\n")
+
     # cmdline built, now copy all files to their respective w parts of in,
     # and read the results for r parts of outs. Do the same for the sub
-    if verbose: sys.stderr.write(cmd+"\n")
-
     pid = os.fork()
     if not pid:
         for (_,w) in ins: os.close(w)
@@ -60,66 +129,33 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         for (r,_) in ins: os.close(r)
         for (_,w) in outs+([subp] if sub else []): os.close(w)
 
-        subr = os.fdopen(subp[0],'r') if sub else None
-        ins  = [os.fdopen(w,'wb',buffering=2**12) for (_,w) in ins]
-        outs = [os.fdopen(r,'rb',buffering=2**12) for (r,_) in outs]
-
         # we need to know the number of channelsl for each stream
         # to calculate the number of bytes to read for each stream
         chns = [int(d['channels']) for (d,f) in streams]
 
-        # keep track of the one subtitle stream
-        BUFSIZE  = 8192
-        default  = re.sub('\s+','_',default.strip())
-        t,b,e,l  = 0,0,float("inf") if not sub else float("-inf"),default
-        si,so    = outs+[subr], ins
-        inputbuf = { k : [] for k in outs }
-        done     = False
+        subr = SubtitleReader(subp[0] if sub else None, rate)
+        ibuf = { k : [] for (k,_) in outs }
 
-        # this is more or less the select loop
-        while (not done or all(len(v)>0 for v in inputbuf.values())):
-            if done: r = [subr] if subr in si else []
-            else: r,w,_ = select(si,so,[],.1)
+        sel = selectors.DefaultSelector()
+        sel.register(subr.fileno, selectors.EVENT_READ, subr)
+        for (f,(_,w)) in zip(files,ins):
+            sel.register(w, selectors.EVENT_WRITE, ToFFmpeg(f,w))
+        for ((r,_),c) in zip(outs,chns):
+            sel.register(r, selectors.EVENT_READ, FromFFmpeg(r,c,ibuf))
 
-            for o in w: # ffmpeg is ready to receive new data
-                i = files[ins.index(o)]
-                d = i.read(BUFSIZE)
-                if len(d)==0: i.close(); o.close(); so.remove(o);
-                else: o.write(d)
+        t = 0 # keep a tick timer
+        while len(sel.get_map().values()) > 0:
+            events = sel.select()
+            for key, mask in events:
+                done = key.data()
 
-            if subr in r and e<=t:
-                try:
-                    srt = subr.readline()
-                    _,begs,end,s,_,_,_,_,_,label = srt.split(',')
-                    label = re.sub('\s+','_',label.strip())
-                    beg,end = ass2rate(begs,rate),ass2rate(end,rate)
+                if done:
+                    sel.unregister(key.fileobj)
 
-                    if (style is None or style==s) and beg < e and l!=default:
-                        raise Exception("overlapping labels (%s,%s) at %s"%(label,l,begs))
-                    elif style is None or style==s:
-                        b,e,l = beg,end,label
-                except ValueError as err:
-                    if len(srt) == 0:
-                        beg,end,label = float('inf'), float('inf'), default
-                        subr.close(); si.remove(subr)
-
-            if not done:
-                for i in [x for x in r if x is not subr]:
-                    c = chns[outs.index(i)]
-                    buf = i.read(c*4)
-                    if len(buf) == 0:
-                        done = True;
-                        continue
-                    frame = struct.unpack('%df'%c, buf)
-                    inputbuf[i].append(frame)
-
-            while all(len(v)>0 for v in inputbuf.values()) and (t<=e or not subr in si):
-                bufs = [ str(y) for x in inputbuf.values() for y in x.pop(0)]
-                print (l if (t>b and t<=e) else default," ".join(bufs))
+            while all(len(v)>0 for v in ibuf.values()):
+                bufs = [ str(y) for x in ibuf.values() for y in x.pop(0)]
+                print(subr.label(t) or default, " ".join(bufs))
                 t += 1
-
-        pid,status = os.waitpid(pid,0)
-
 
 def py3k(tup):
     """ brain-deadness of py3k """
