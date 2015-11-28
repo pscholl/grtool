@@ -110,12 +110,9 @@ read_matrix(vector<string> filenames, matrix_t *m)
 char*
 zcr(matrix_t *m, char *s, size_t max)
 {
-  double results[m->dimv];
+  double results[m->dimv]; memset(results, 0, sizeof(double)*m->dimv);
     bool signs[m->dimv];
   size_t n = 0;
-
-  for (size_t i=0; i<m->dimv; i++)
-    results[m->dimv] = 0;
 
   for (size_t j=0; j<m->dimv; j++)
     signs[j] = signbit(m->vals[j]);
@@ -136,6 +133,8 @@ zcr(matrix_t *m, char *s, size_t max)
 double*
 _mean(matrix_t *m, double *results)
 {
+  memset(results, 0, sizeof(double)*m->dimv);
+
   for (size_t i=0; i<m->diml; i++)
     for (size_t j=0; j<m->dimv; j++)
       results[j] += m->vals[i*m->dimv + j];
@@ -152,9 +151,6 @@ mean(matrix_t *m, char *s, size_t max)
   double results[m->dimv];
   size_t n=0;
 
-  for (size_t i=0; i<m->dimv; i++)
-    results[i] = 0;
-
   _mean(m, results);
 
   for (size_t j=0; j<m->dimv; j++)
@@ -167,19 +163,14 @@ double*
 _variance(matrix_t *m, double *results)
 {
   double mean[m->dimv];
-
-  for (size_t i=0; i<m->dimv; i++)
-    mean[i] = 0;
-
   _mean(m, mean);
 
-  for (size_t j=0; j<m->dimv; j++)
-    results[j] = 0;
+  memset(results, 0, sizeof(double)*m->dimv);
 
   // calc variance now
   for (size_t i=0; i<m->diml; i++)
     for (size_t j=0; j<m->dimv; j++)
-      results[j] += pow(m->vals[i*m->dimv + j] - mean[j], 2);
+      results[j] += pow(m->vals[i*m->dimv + j] - mean[j],2);
 
   for (size_t j=0; j<m->dimv; j++)
     results[j] /= m->diml;
@@ -192,9 +183,6 @@ variance(matrix_t *m, char* s, size_t max)
 {
   double var[m->dimv]; _variance(m, var);
   size_t n=0;
-
-  for (size_t i=0; i<m->dimv; i++)
-    var[i] = 0;
 
   // and convert to string
   for (size_t j=0; j<m->dimv; j++)
@@ -395,11 +383,12 @@ int main(int argc, const char *argv[]) {
   cmdline::parser c;
   int buffer_size=0;
 
-  c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
-  c.add        ("help",       'h', "print this message");
-  c.add        ("no-header",  'q', "do not print the header");
+  c.add<int>   ("verbose",     'v', "verbosity level: 0-4", false, 0);
+  c.add        ("help",        'h', "print this message");
+  c.add        ("no-header",   'q', "do not print the header");
   c.add        ("z-normalize", 'z', "z-normalize ( (x-mean(x))/std(x) ) all samples");
   c.add        ("o-normalize", 'o', "o-normalize, compute x_i - x_0, i.e. remove the first component from each sample");
+  c.add<string>("input",       'i', "input file, optional defaults to stdin", false, "-");
   c.footer     ("<feature-extractor>");
 
   bool parse_ok = c.parse(argc, argv, false)  && !c.exist("help");
@@ -468,7 +457,7 @@ int main(int argc, const char *argv[]) {
     printf("# %s\n",out);
   }
 
-  while ( read_matrix({"-"},&m) )
+  while ( read_matrix({c.get<string>("input")},&m) )
   {
     size_t n=0;
     if (m.diml == 0)
