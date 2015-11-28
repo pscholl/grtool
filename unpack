@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json,selectors
+from collections import deque
 from threading import Thread as T
 from datetime import timedelta as td
 from select import select
@@ -17,12 +18,11 @@ class ToFFmpeg():
         self.BUFSIZE = 4096
 
     def __call__(self):
-        line = self.fr0m.read(self.BUFSIZE)
-        if len(line) == 0:
+        n = self.to.write(self.fr0m.read(self.BUFSIZE))
+        if n == 0:
             self.fr0m.close()
             self.to.close()
             return True
-        self.to.write(line)
 
 class FromFFmpeg():
     def __init__(self, f, channel, inputbuf):
@@ -35,8 +35,7 @@ class FromFFmpeg():
     def __call__(self):
         buf = self.inputbuf[self.fileno]
         line = self.f.read(4*self.channel)
-        if len(line) == 0: return True
-        buf.append(self.struct.unpack(line))
+        buf.appendleft(self.struct.unpack(line))
 
 class SubtitleReader():
     def __init__(self, subfile,rate):
@@ -55,7 +54,9 @@ class SubtitleReader():
             return
 
         line = self.sub.readline()
-        if len(line) == 0: return True
+        if line == "":
+            self.sub.close()
+            return True
 
         try:
             _,beg,end,s,_,_,_,_,_,label = line.split(',')
@@ -132,9 +133,10 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         # we need to know the number of channelsl for each stream
         # to calculate the number of bytes to read for each stream
         chns = [int(d['channels']) for (d,f) in streams]
+        fmt  = ("{} "+"{:f} "*sum(chns)).format
 
         subr = SubtitleReader(subp[0] if sub else None, rate)
-        ibuf = { k : [] for (k,_) in outs }
+        ibuf = { k : deque() for (k,_) in outs }
 
         sel = selectors.DefaultSelector()
         sel.register(subr.fileno, selectors.EVENT_READ, subr)
@@ -143,18 +145,21 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         for ((r,_),c) in zip(outs,chns):
             sel.register(r, selectors.EVENT_READ, FromFFmpeg(r,c,ibuf))
 
-        t = 0 # keep a tick timer
-        while len(sel.get_map().values()) > 0:
-            events = sel.select()
+        t,block = 0,0 # keep a tick timer
+        #while len(sel.get_map().values()) > 0:
+        while True:
+            events,block = sel.select(), block+1
             for key, mask in events:
-                done = key.data()
-
-                if done:
+                if key.data():
                     sel.unregister(key.fileobj)
 
-            while all(len(v)>0 for v in ibuf.values()):
-                bufs = [ str(y) for x in ibuf.values() for y in x.pop(0)]
-                print(subr.label(t) or default, " ".join(bufs))
+            if block % 100 != 0:
+                continue
+
+            n = min(len(v) for v in ibuf.values())
+            for i in range(n):
+                bufs = [ y for x in ibuf.values() for y in x.pop()]
+                print(fmt(subr.label(t) or default, *bufs))
                 t += 1
 
 def py3k(tup):
@@ -237,4 +242,7 @@ if __name__ == '__main__':
             sys.stderr.write(err)
             sys.exit(-1)
 
-        unpack_to_str(audio,sub,args.default,args.style,args.verbose)
+        try:
+            unpack_to_str(audio,sub,args.default,args.style,args.verbose)
+        except struct.error:
+            sys.exit(0)
