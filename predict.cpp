@@ -9,6 +9,7 @@ int main(int argc, char *argv[])
   c.add<int>   ("verbose",    'v', "verbosity level: 0-4", false, 0);
   c.add        ("help",       'h', "print this message");
   c.add        ("likelihood", 'l', "print label_prediction likelihood instead of label and prediction");
+  c.add        ("null",       'n', "draw labels randomly from the set of labels (for testing the chain)");
   c.footer     ("[classifier-model-file] [filename]...");
 
   /* parse the classifier-common arguments */
@@ -79,6 +80,14 @@ int main(int argc, char *argv[])
 
     if (label == 0) s_label = "NULL";
     if (prediction == 0) s_prediction = "NULL";
+
+    /*
+     * replace the prediction with a random choice from the labelset
+     */
+    if (c.exist("null")) {
+      UINT index = (UINT) round(drand48() * (classifier->getNumClasses()-1));
+      s_prediction = index == 0 ? "NULL" : classifier->getClassNameForLabel(index);
+    }
 
     if (c.exist("likelihood"))
       cout << s_label << "\t" << s_prediction << "\t" << classifier->getMaximumLikelihood() << endl;
