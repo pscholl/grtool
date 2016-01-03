@@ -282,7 +282,7 @@ void Group::calculate_score(double beta)
   if (confusion == NULL) return;
 
   // see https://en.wikipedia.org/wiki/Precision_and_recall
-  vector<uint64_t> TP = diag( *confusion );
+  vector<uint64_t> TP = diag(*confusion);
   vector<uint64_t> FP = rowsum(*confusion) - TP;
   vector<uint64_t> TN = sum(*confusion) - colsum(*confusion) - rowsum(*confusion) + TP;
   vector<uint64_t> FN = colsum(*confusion) - TP;
@@ -291,8 +291,8 @@ void Group::calculate_score(double beta)
   for (size_t i=0; i<labelset.size(); i++) {
     recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
     precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
-    TNR.push_back( TN[i] / (double) (TN[i] + FP[i]) );
     NPV.push_back( TN[i] / (double) (FN[i] + TN[i]) );
+    TNR.push_back( TN[i] / (double) (TN[i] + FP[i]) );
     Fbeta.push_back( (1+pow(beta,2)) * (precision[i] * recall[i])/(pow(beta,2)*precision[i] + recall[i]) );
   }
 
@@ -310,8 +310,8 @@ double Group::get_meanscore(string which, double beta)
   else if (which.find("Fbeta") != string::npos)     score = &Fbeta;
   else if (which.find("recall") != string::npos)    score = &recall;
   else if (which.find("precision") != string::npos) score = &precision;
-  else if (which.find("NPV") != string::npos) score = &precision;
-  else if (which.find("TNR") != string::npos) score = &precision;
+  else if (which.find("NPV") != string::npos)       score = &NPV;
+  else if (which.find("TNR") != string::npos)       score = &TNR;
   else return 0;
 
   for (auto val : *score)
@@ -599,9 +599,9 @@ T sum(vector<T> m) {
 
 template< class T>
 T sum(Matrix<T> &m) {
-  T result = m[0][0];
+  T result = 0;
   for (int i=0; i<m.getNumRows(); i++)
-    for (int j=1; j<m.getNumCols(); j++)
+    for (int j=0; j<m.getNumCols(); j++)
       result += m[i][j];
   return result;
 }
