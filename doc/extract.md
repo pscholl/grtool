@@ -8,7 +8,8 @@
 
 # SYNOPSIS
  grt extract [-v|--verbose \<1..4\>] [-h|--help] [-q|--no-header] 
-             \<feature-vector\> [input-file]
+             [-z|--z-normalize] [-o|--o-normalize]
+             [-i|--input-file \<file\>] \<feature-extractor\>
 
  grt extract list
 
@@ -22,7 +23,16 @@
 :   Tell the command to be more verbose about its execution.
 
 -q, --no-header
-:   Do not print the optional header line in the output
+:   Do not print the optional header line in the output.
+
+-z, --z-normalize
+:   Z-Normalize the input prior to feature calculation.
+
+-o, --o-normalize
+:   O-Normalize the input prior to feature calculation.
+
+-i, --input-file \<file\>
+:   input file, defaults to stdin
 
 # EXAMPLES
 
@@ -36,6 +46,7 @@
       -q, --no-header      do not print the header
       -z, --z-normalize    z-normalize ( (x-mean(x))/std(x) ) all samples
       -o, --o-normalize    o-normalize, compute x_i - x_0, i.e. remove the first component from each sample
+      -i, --input          input file, optional defaults to stdin (string [=-])
     
     Available Extractors:
     
