@@ -35,6 +35,8 @@ class FromFFmpeg():
     def __call__(self):
         buf = self.inputbuf[self.fileno]
         line = self.f.read(4*self.channel)
+        if len(line) == 0:
+            return True
         buf.appendleft(self.struct.unpack(line))
 
 class SubtitleReader():
@@ -130,8 +132,8 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         for (r,_) in ins: os.close(r)
         for (_,w) in outs+([subp] if sub else []): os.close(w)
 
-        # we need to know the number of channelsl for each stream
-        # to calculate the number of bytes to read for each stream
+        # we need to know the number of channels for each stream to calculate
+        # the number of bytes to read for each stream
         chns = [int(d['channels']) for (d,f) in streams]
         fmt  = ("{} "+"{:f} "*sum(chns)).format
 
@@ -146,14 +148,12 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
             sel.register(r, selectors.EVENT_READ, FromFFmpeg(r,c,ibuf))
 
         t,block = 0,0 # keep a tick timer
-        #while len(sel.get_map().values()) > 0:
-        while True:
+        while len(sel.get_map().values()) > 0:
             events,block = sel.select(), block+1
             for key, mask in events:
-                if key.data():
-                    sel.unregister(key.fileobj)
+                if key.data(): sel.unregister(key.fileobj)
 
-            if block % 100 != 0:
+            if block % 100 != 0 and len(sel.get_map().values()) != 0:
                 continue
 
             n = min(len(v) for v in ibuf.values())

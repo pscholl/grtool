@@ -3,11 +3,11 @@
 import argparse,sys,os,selectors,subprocess,json,struct,tempfile
 
 def creadline(i):
-    line = i.readline()
-    try: line = line.decode('utf8')
-    except: pass
-    while line.startswith('#') and len(line)>0:
+    line = "\n"
+    while (len(line)>0 and len(line.strip())==0) or line.startswith('#'):
         line = i.readline()
+        try: line = line.decode('utf8')
+        except: pass
     return line
 
 def isfloat(s):
@@ -98,6 +98,11 @@ class Label():
         self.n += 1
 
     def ffmpeg(self):
+        srt = "%d\n%s --> %s\n%s\n\n"%\
+              (self.count, self.totc(self.b), self.totc(self.n), self.l)
+        if self.l is not None:
+            self.out.write(srt.encode('utf8'))
+
         self.out.close()
         return self.cmd.split() + [self.out.name]
 
@@ -192,6 +197,7 @@ def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**
 
     # now build the ffmpeg command line
     cmd,i = ['ffmpeg'],0
+    cmd += ["-nostdin"]
     cmd += [] if verbose else '-hide_banner -loglevel quiet'.split()
     for f in filters: cmd += f.ffmpeg()
     cmd += "-c:a wavpack -c:v copy -c:s srt".split()
@@ -200,6 +206,7 @@ def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**
         if not type(f) is Media:
             cmd += ['-metadata:s:%d'%i, 'name=%s'%f.name]
         i += 1
+    cmd += ["-f", "matroska"]
     cmd += ["-y", output]
 
     if verbose:

@@ -7,9 +7,9 @@
  grt-pack - pack video, audio, sensor signals and labels as tracks into .mkv files
 
 # SYNOPSIS
- grt pack [-h|--help] [-i|--input] <file> [-n|--name] <\name\>
-          [-r|--rate] <\rate\> [-m|--media] <\media\> [-v|--verbose]
-          [-ss|--seek] <\offset\> [-l|--label] <\subtitle\>
+ grt pack [-h|--help] [-i|--input] <file> [-n|--name] \<name\>
+          [-r|--rate] \<rate\> [-m|--media] \<media\> [-v|--verbose]
+          [-ss|--seek] \<offset\> [-l|--label] \<subtitle\>
           <output-file>
 
 # DESCRIPTION

@@ -65,3 +65,18 @@ Not so much a regression but rather checking the output format of the subtitle c
     00:00:00,040 --> 00:00:00,060
     abc
     
+    4
+    00:00:00,060 --> 00:00:00,080
+    NULL
+    
+
+ And we can make sure that empty lines are handled correctly
+
+    echo "abc 1 
+    > abc 2
+    >    
+    > cde 3" > labels && grt pack -l labels -r 50 -n test -i labels -r 50 -n test pack-r2.mkv && grt unpack pack-r2.mkv
+    abc 1.000000 
+    abc 2.000000 
+    cde 3.000000 
+
