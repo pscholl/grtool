@@ -82,7 +82,7 @@ class SubtitleReader():
         except IndexError:
             return None
 
-def unpack_to_str(streams,sub,default,style,verbose=False):
+def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
     # not be taught to use the soxr resampler (the default one does not work)
@@ -107,6 +107,8 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
     # build the command line
     cmd  = 'ffmpeg'
     cmd += '' if verbose else ' -hide_banner -loglevel quiet'
+    cmd += ' -ss ' + ss
+    cmd += '' if sd is None else (' -t ' + sd)
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
     cmd += '' if not sub else ' -map %d:%d -f ass pipe:%d'%(sub[0]['file_index'],sub[0]['index'],subp[1])
 
@@ -137,7 +139,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
         chns = [int(d['channels']) for (d,f) in streams]
         fmt  = ("{} "+"{:f} "*sum(chns)).format
 
-        subr = SubtitleReader(subp[0] if sub else None, rate)
+        subr = SubtitleReader(subp[0], rate)
         ibuf = { k : deque() for (k,_) in outs }
 
         sel = selectors.DefaultSelector()
@@ -153,7 +155,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False):
             for key, mask in events:
                 if key.data(): sel.unregister(key.fileobj)
 
-            if block % 100 != 0 and len(sel.get_map().values()) != 0:
+            if block % 10000 != 0 and len(sel.get_map().values()) != 0:
                 continue
 
             n = min(len(v) for v in ibuf.values())
@@ -214,6 +216,8 @@ if __name__ == '__main__':
     cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
     cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
     cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given ")
+    cmdline.add_argument('-ss', type=str, default="0", help="seeks to a start position, format is documented in ffmpeg-utils(1)")
+    cmdline.add_argument('-sd', type=str, default=None, help="duration of the playback, format is documented in ffmpeg-utils(1)")
     cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
     args = cmdline.parse_args()
 
@@ -237,12 +241,17 @@ if __name__ == '__main__':
     files = [[(s,f) for s in ss if okay(s)] for (ss,f) in files ]
 
     for audio,sub in group(files):
+        if not sub:
+            err = "no label stream found\n"
+            sys.stderr.write(err)
+            sys.exit(-1)
+
         if not audio:
             err = "no data stream selected, possible are: %s\n"%str(sids)
             sys.stderr.write(err)
             sys.exit(-1)
 
         try:
-            unpack_to_str(audio,sub,args.default,args.style,args.verbose)
+            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd)
         except struct.error:
             sys.exit(0)
