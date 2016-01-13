@@ -16,9 +16,15 @@ class ToFFmpeg():
         self.to = os.fdopen(to,'wb')
         self.fr0m = fr0m
         self.BUFSIZE = 4096
+        self.buf = []
 
     def __call__(self):
-        n = self.to.write(self.fr0m.read(self.BUFSIZE))
+        if len(self.buf) == 0:
+            self.buf = self.fr0m.read(self.BUFSIZE)
+
+        n = self.to.write(self.buf)
+        self.buf = self.buf[n:]
+
         if n == 0:
             self.fr0m.close()
             self.to.close()
@@ -31,9 +37,11 @@ class FromFFmpeg():
         self.fileno = f
         self.channel = channel
         self.inputbuf = inputbuf
+        self.x = 0
 
     def __call__(self):
         buf = self.inputbuf[self.fileno]
+        self.x += len(buf)
         line = self.f.read(4*self.channel)
         if len(line) == 0:
             return True
@@ -47,13 +55,13 @@ class SubtitleReader():
         self.lastt = None
         self.rate = rate
 
-    def ass2rate(self,s):
+    def ass2rate(self,ss):
         def funkyfloat(s):
             neg = '-' in s
             s = s.replace('-','')
             return float(s) * -1 if neg else float(s)
-        h,m,s = [funkyfloat(x) for x in s.split(':')]
-        return int( (24*60*h+60*m+s) * self.rate )
+        h,m,s = [funkyfloat(x) for x in ss.split(':')]
+        return int( (60*60*h+60*m+s) * self.rate )
 
     def __call__(self):
         if self.sub is None:
@@ -75,7 +83,6 @@ class SubtitleReader():
     def label(self,t):
         if self.lastt is not None:
             assert (t-self.lastt) == 1
-        self.lastt = t
 
         try:
             b,e,l = self.labels[0]
@@ -83,9 +90,35 @@ class SubtitleReader():
             while t >= e:
                 b,e,l = self.labels.pop(0)
                 b,e,l = self.labels[0]
+            self.lastt = t
             return l
-        except IndexError:
+        except IndexError as e:
             return None
+
+def nullorf(s):
+    return float(s) if s is not None else 0
+
+def duration2ticks(s, rate):
+    """ convert from ffmpeg's duration format to ticks in rate
+    """
+    m = re.match("(?P<neg>-)?((?P<hours>\d{1,2}):)?(?P<minutes>\d{1,2}):(?P<seconds>\d{1,2})(?P<millis>.\d{1,3})?", s)
+    if m is not None:
+        g = m.groupdict()
+        s =  nullorf(g['hours'])*60*60
+        s += nullorf(g['minutes'])*60
+        s += nullorf(g['seconds'])
+        s += nullorf(g['millis'])
+        return s * rate
+
+    m = re.match("(?P<neg>-)?(?P<seconds>\d+)(?P<millis>.\d{1,3})")
+    if m is not None:
+        g = m.groupdict()
+        s  = nullorf(g['seconds'])
+        s += nullorf(g['millis'])
+        return s * rate
+
+    return None
+
 
 def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
@@ -109,20 +142,21 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
     for r in files:
         os.set_inheritable(r.fileno(),True)
 
-    # stream skip and duration have to be added for each input
+    # stream seek echo output separately
+    ssd = ' -ss ' + ss
+    ssd += '' if sd is None else (' -t ' + sd)
 
     # build the command line
     cmd  = 'ffmpeg'
     cmd += '' if verbose else ' -hide_banner -loglevel quiet'
-    cmd += ' -ss ' + ss
-    cmd += '' if sd is None else (' -t ' + sd)
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
-    cmd += '' if not sub else ' -map %d:%d -f ass pipe:%d'%(sub[0]['file_index'],sub[0]['index'],subp[1])
+    cmd += '' if not sub else ' -map %d:%d -f ass %s pipe:%d'%(sub[0]['file_index'],sub[0]['index'],ssd,subp[1])
 
     for (d,f),(_,w) in zip(streams,outs):
         cmd += ' -map %d:%d'%(d['file_index'],d['index'])
         cmd += ' -f f32le -ar %f'%rate
         cmd += '' if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
+        cmd += ssd
         cmd += ' pipe:%d'%w
 
     if verbose:
@@ -156,7 +190,13 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
         for ((r,_),c) in zip(outs,chns):
             sel.register(r, selectors.EVENT_READ, FromFFmpeg(r,c,ibuf))
 
-        t,block = 0,0 # keep a tick timer
+        #
+        # Actually the stream-seek (ss) can be problematic, because ffmpeg
+        # removes all subtitle where the beginning is smaller than streamseek.
+        # So you can jump in the middle of a subtitle, whic results in that
+        # label being removed. XXX
+        #
+        t,block = duration2ticks(ss,rate),0 # keep a tick timer
         while len(sel.get_map().values()) > 0:
             events,block = sel.select(), block+1
             for key, mask in events:
@@ -261,4 +301,5 @@ if __name__ == '__main__':
         try:
             unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd)
         except struct.error:
+            raise
             sys.exit(0)
