@@ -234,14 +234,15 @@ if __name__ == "__main__":
     if len(args.input)==0 and len(args.label)==0:
         args.input = ['-']
 
-    #
-    # make the last rate the default rate
-    #
-    args.rate += [args.rate[0]] * (len(args.input)+len(args.label)-len(args.rate))
-
     i = [open(f,'rb',buffering=2**21) if f != '-' else sys.stdin.buffer for f in args.input]
 
     try:
+        #
+        # make the last rate the default rate
+        #
+        args.rate += [args.rate[0]] * (len(args.input)+len(args.label)-len(args.rate))
+
+
         # need to order rate and names to the specific label or input option
         r1,r2,n1,n2 = [],[],[],[]
         for arg in sys.argv:

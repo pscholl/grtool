@@ -79,6 +79,7 @@ class SubtitleReader():
 
         try:
             b,e,l = self.labels[0]
+            if t < b: return None
             while t >= e:
                 b,e,l = self.labels.pop(0)
                 b,e,l = self.labels[0]

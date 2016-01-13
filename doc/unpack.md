@@ -64,8 +64,5 @@ last of the 2Hz sampled signal:
     > abc 2 2 2
     > cde 3 4 5 
     > tfe 6 7 8" > data && grt pack -l data -i data -r 2 -n test test.mkv && grt unpack -ss 0.5 -sd 1 test.mkv
-    abc 1.000000 1.000000 2.000000 
     abc 2.000000 2.000000 2.000000 
     cde 3.000000 4.000000 5.000000 
-    tfe 6.000000 7.000000 8.000000 
-
