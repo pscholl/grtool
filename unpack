@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
-import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json,selectors
+import argparse,sys,subprocess,shlex,tempfile,os,shutil,re,struct,time,json,selectors,re
 from collections import deque
 from threading import Thread as T
 from datetime import timedelta as td
@@ -48,7 +48,11 @@ class SubtitleReader():
         self.rate = rate
 
     def ass2rate(self,s):
-        h,m,s = [float(x) for x in s.split(':')]
+        def funkyfloat(s):
+            neg = '-' in s
+            s = s.replace('-','')
+            return float(s) * -1 if neg else float(s)
+        h,m,s = [funkyfloat(x) for x in s.split(':')]
         return int( (24*60*h+60*m+s) * self.rate )
 
     def __call__(self):
@@ -65,7 +69,7 @@ class SubtitleReader():
             label = re.sub('\s+','_',label.strip())
             beg,end = self.ass2rate(beg),self.ass2rate(end)
             self.labels.append((beg,end,label))
-        except ValueError:
+        except ValueError as e:
             pass
 
     def label(self,t):
@@ -103,6 +107,8 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
     rate  = max([int(d['sample_rate']) for (d,f) in streams])
     for r in files:
         os.set_inheritable(r.fileno(),True)
+
+    # stream skip and duration have to be added for each input
 
     # build the command line
     cmd  = 'ffmpeg'

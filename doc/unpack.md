@@ -8,7 +8,8 @@
 
 # SYNOPSIS
  grt unpack [-h|--help] \<file\> [file] [-t|--stream] \<streamid\> [streamid]
-            [-s|--style] \<style\> [-d|--default] \<label\> [-n|--no-flush]
+            [-s|--style] \<style\> [-d|--default] \<label\> [-ss] \<position\>
+            [-sd] \<duration\>
 
 # DESCRIPTION
 
@@ -31,7 +32,14 @@
 
 -d, --default \<label\>
 :   the label to emit when no label is in the subtitle, default: NULL
+
+-ss \<position\>
+:   seek to position before printing values, see ffmpeg-utils(1) Time Duration documentation for format
  
+-sd \<duration\>
+:   stop the stream after *duration*, see ffmpeg-utils(1) Time Duration documentation for format
+
+
 # EXAMPLES
 
  This example will do a full round-trip using the pack utility, which packs data
@@ -39,12 +47,25 @@ into a .mkv file. First we will echo some data into the packing utility, setting
 a rate of 2Hz. After this command has completed, unpack is used to unpack this
 data again.
 
-   echo "abc 1 1 2
-   > abc 2 2 2
-   > cde 3 4 5 
-   > tfe 6 7 8" | grt pack -r 2 test.mkv && grt unpack test.mkv
-   abc   1.000000 1.000000 2.000000 
-   abc   2.000000 2.000000 2.000000 
-   cde   3.000000 4.000000 5.000000 
-   tfe   6.000000 7.000000 8.000000 
+    echo "abc 1 1 2
+    > abc 2 2 2
+    > cde 3 4 5 
+    > tfe 6 7 8" > data && grt pack -l data -i data -r 2 -n test test.mkv && grt unpack test.mkv
+    abc 1.000000 1.000000 2.000000 
+    abc 2.000000 2.000000 2.000000 
+    cde 3.000000 4.000000 5.000000 
+    tfe 6.000000 7.000000 8.000000 
+
+
+ Here is an example of duration and stream seeking, which skips the first and
+last of the 2Hz sampled signal:
+
+    echo "abc 1 1 2
+    > abc 2 2 2
+    > cde 3 4 5 
+    > tfe 6 7 8" > data && grt pack -l data -i data -r 2 -n test test.mkv && grt unpack -ss 0.5 -sd 1 test.mkv
+    abc 1.000000 1.000000 2.000000 
+    abc 2.000000 2.000000 2.000000 
+    cde 3.000000 4.000000 5.000000 
+    tfe 6.000000 7.000000 8.000000 
 
