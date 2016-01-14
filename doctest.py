@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- encoding: utf-8 -*-
 import sys, os, re, difflib, shutil
 from subprocess import Popen, PIPE, call
 from tempfile import mkdtemp
@@ -13,7 +14,7 @@ def run_test(test, PATH, gdb=False):
     print ("%s:" % test)
 
     cmd_results = []
-    with open(test) as f:
+    with open(test,encoding="utf-8") as f:
         re_codeblock = re.compile("\n\s*\n {4}(.*\n(?: {4}>.*\n)*)(( {4}.*\n)*)($|\s{0,3})")
         cmd_results  = [ (m.group(1).lstrip(),m.group(2).lstrip()) for m in re_codeblock.finditer(f.read()) ]
 

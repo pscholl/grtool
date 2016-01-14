@@ -82,15 +82,16 @@ class SubtitleReader():
 
     def label(self,t):
         if self.lastt is not None:
-            assert (t-self.lastt) == 1
+            assert (t-self.lastt) == 1, "%f"%(t-self.lastt)
 
+        self.lastt = t
         try:
             b,e,l = self.labels[0]
-            if t < b: return None
+            if t < b:
+                return None
             while t >= e:
                 b,e,l = self.labels.pop(0)
                 b,e,l = self.labels[0]
-            self.lastt = t
             return l
         except IndexError as e:
             return None
@@ -110,7 +111,7 @@ def duration2ticks(s, rate):
         s += nullorf(g['millis'])
         return s * rate
 
-    m = re.match("(?P<neg>-)?(?P<seconds>\d+)(?P<millis>.\d{1,3})")
+    m = re.match("(?P<neg>-)?(?P<seconds>\d+)(?P<millis>.\d{1,3})?", s)
     if m is not None:
         g = m.groupdict()
         s  = nullorf(g['seconds'])
@@ -193,7 +194,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
         #
         # Actually the stream-seek (ss) can be problematic, because ffmpeg
         # removes all subtitle where the beginning is smaller than streamseek.
-        # So you can jump in the middle of a subtitle, whic results in that
+        # So you can jump in the middle of a subtitle, which results in that
         # label being removed. XXX
         #
         t,block = duration2ticks(ss,rate),0 # keep a tick timer

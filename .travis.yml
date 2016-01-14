@@ -1,4 +1,6 @@
 sudo: required
+git:
+  submodules: false
 dist: trusty
 language: cpp
 script: make DESTDIR=$(pwd)/test test

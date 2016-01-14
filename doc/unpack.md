@@ -58,11 +58,12 @@ data again.
 
 
  Here is an example of duration and stream seeking, which skips the first and
-last of the 2Hz sampled signal:
+last of the 2Hz sampled signal. Actually the first line's label should be abc
+not NULL, however this is an ffmpeg bug when seeking subtitles.
 
     echo "abc 1 1 2
     > abc 2 2 2
     > cde 3 4 5 
     > tfe 6 7 8" > data && grt pack -l data -i data -r 2 -n test test.mkv && grt unpack -ss 0.5 -sd 1 test.mkv
-    abc 2.000000 2.000000 2.000000 
+    NULL 2.000000 2.000000 2.000000 
     cde 3.000000 4.000000 5.000000 

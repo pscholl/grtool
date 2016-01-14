@@ -200,9 +200,9 @@ range(matrix_t *m, char* s, size_t max)
          span[m->dimv];
 
   for (size_t i=0; i<m->dimv; i++)
-    maximum[m->dimv] = -INFINITY;
+    maximum[i] = -INFINITY;
   for (size_t i=0; i<m->dimv; i++)
-    minimum[m->dimv] =  INFINITY;
+    minimum[i] =  INFINITY;
 
   for (size_t i=0; i<m->diml; i++)
     for (size_t j=0; j<m->dimv; j++) {

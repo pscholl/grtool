@@ -60,7 +60,7 @@ template< class T> vector<T>  abs(vector<T> m);
 template< class T> vector<T>  pow(vector<T> m, double pow);
 template< class T> vector<T>  rowsum(Matrix<T> &m);
 template< class T> vector<T>  colsum(Matrix<T> &m);
-template< class T> Matrix<T>* resize_matrix(Matrix<T> *old, T newsize);
+template< class T> Matrix<T>* resize_matrix(Matrix<T> *old, size_t newsize);
 template< class T> vector<T>  operator-(const std::vector<T> &a, const std::vector<T> &b);
 template< class T> vector<T>  operator+(const std::vector<T> &a, const std::vector<T> &b);
 template< class T> vector<T>  operator*(T a, const std::vector<T> &b);
@@ -129,30 +129,35 @@ int main(int argc, char *argv[])
   unordered_map<string,Group> groups;
            map<double,string> scores;
   string line, tag="None", prediction, label;
-  regex tagged ("\\((.+)\\)\\s+(\\w+)\\s+(\\w+)\\s*.*"),
-      untagged ("(\\w+)\\s+(\\w+)\\s*.*");
-  smatch match;
 
   while (getline(in,line)) {
-    if (trim(line)=="" || trim(line)[0]=='#') continue;
+    line = trim(line);
+    if (line=="" || line[0]=='#')
+      continue;
 
     if (c.exist("group")) {
-      if (!regex_match(line,match,tagged)) {
-        if (!c.exist("quiet")) cerr << line << " ignored (no tag?)" << endl;
+      size_t idx = line.find_first_of(')',0);
+      if (idx == string::npos) {
+        cerr << "untagged line, ignored:" << line << endl;
         continue;
       }
 
-      tag = match[1];
-      label = match[2];
-      prediction = match[3];
-    } else {
-      if (!regex_match(line,match,untagged)) {
+      tag = line.substr(1,idx-1);
+      line = line.substr(idx+1,string::npos);
+      //line = trim(line);
+    } 
+
+    istringstream iss(trim(line));
+    vector<string> fields{istream_iterator<string>{iss},
+                          istream_iterator<string>{}};
+    label = fields[0];
+    prediction = fields[1];
+
+    if (fields.size() < 2) {
+      if (!c.exist("quiet"))
         cerr << line << " ignored" << endl;
-        continue;
-      }
 
-      label = match[1];
-      prediction = match[2];
+      continue;
     }
 
     /* intermediate top-score reports */
@@ -488,8 +493,8 @@ string Group::to_string(cmdline::parser &c, string tag) {
                         ead.ev_merged + ead.correct,
              re_total = ead.correct + ead.re_merged + ead.re_fragmerged +
                         ead.re_fragmented + ead.insertions;
-    float total = ev_total + re_total - ead.correct;
-    float LINE_SIZE = 80 - 3*8,
+    double total = ev_total + re_total - ead.correct;
+    double LINE_SIZE = 80 - 3*8,
              d = ead.deletions / total,
              ef = ead.ev_fragmented / total, efm = ead.ev_fragmerged / total,
              em = ead.ev_merged / total, c = ead.correct / total,
@@ -607,7 +612,7 @@ T sum(Matrix<T> &m) {
 }
 
 template< class T>
-Matrix<T>* resize_matrix(Matrix<T> *old, T newsize) {
+Matrix<T>* resize_matrix(Matrix<T> *old, size_t newsize) {
   Matrix<T> *confusion = new Matrix<T>(newsize, newsize);
   confusion->setAllValues(0);
 
