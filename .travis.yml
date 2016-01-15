@@ -4,6 +4,8 @@ sudo: required
 dist: trusty
 language: cpp
 script: make DESTDIR=$(pwd)/test test
+python: 
+  - "3.5"
 before_script:
   - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next -y
   - sudo apt-get update
