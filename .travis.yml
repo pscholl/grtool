@@ -1,6 +1,6 @@
-sudo: required
 git:
-  submodules: false
+    submodules: false
+sudo: required
 dist: trusty
 language: cpp
 script: make DESTDIR=$(pwd)/test test
@@ -8,6 +8,7 @@ before_script:
   - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next -y
   - sudo apt-get update
   - sudo apt-get -y -q install ffmpeg
+  - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
   - git clone https://github.com/pscholl/grt grt_master
   - cd grt_master/build
   - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
