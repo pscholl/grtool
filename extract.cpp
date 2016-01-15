@@ -79,7 +79,7 @@ read_matrix(vector<string> filenames, matrix_t *m)
 
       // check for parse error
       if (errno != 0) {
-        fprintf(stderr, "ERR: unable to convert to float on line %d: %s\n", m->diml, strerror(errno));
+        fprintf(stderr, "ERR: unable to convert to float on line %lu: %s\n", m->diml, strerror(errno));
         exit(-1);
       }
 
@@ -87,7 +87,7 @@ read_matrix(vector<string> filenames, matrix_t *m)
       if (dim==m->dimv && m->diml==0) {
         m->vals = (double*) realloc(m->vals, m->allocd * ++m->dimv * sizeof(m->vals[0]));
       } else if (dim==m->dimv) {
-        fprintf(stderr, "ERR: got more than %d values on line %d\n", m->dimv, m->diml);
+        fprintf(stderr, "ERR: got more than %lu values on line %lu\n", m->dimv, m->diml);
         exit(-1);
       }
 
@@ -99,7 +99,7 @@ read_matrix(vector<string> filenames, matrix_t *m)
 
     // additional check if there is enough data on this line!
     if (dim!=m->dimv) {
-      fprintf(stderr, "ERR: not enough fields (need %d got %d) on line %d\n", m->dimv, dim, m->diml);
+      fprintf(stderr, "ERR: not enough fields (need %lu got %lu) on line %lu\n", m->dimv, dim, m->diml);
       exit(-1);
     }
   }
