@@ -43,8 +43,8 @@ clean:
 	rm -f $(ALL) *.o
 
 test: doc/*.md regression/*.md install
-	python doctest.py -p "$(DESTDIR)/$(BINDIR)" doc/*.md
-	python doctest.py -p "$(DESTDIR)/$(BINDIR)" regression/*.md
+	python3 doctest.py -p "$(DESTDIR)/$(BINDIR)" doc/*.md
+	python3 doctest.py -p "$(DESTDIR)/$(BINDIR)" regression/*.md
 
 doc/%.1: doc/%.md
 	pandoc -s -t man $< -o $@
