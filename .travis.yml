@@ -7,7 +7,7 @@ script: make DESTDIR=$(pwd)/test test
 python: 
   - "3.5"
 before_script:
-  - sudo add-apt-repository ppa:kirillshkrogalev/ffmpeg-next -y
+  - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get update
   - sudo apt-get -y -q install ffmpeg
   - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
