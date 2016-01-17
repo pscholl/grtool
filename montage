@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+#import pyqtgraph.examples,sys
+#pyqtgraph.examples.run()
+#sys.exit(0)
+
+import pyqtgraph as pg,argparse,collections,sys,threading,os
+from pyqtgraph.Qt import QtCore, QtGui
+from pyqtgraph.dockarea import DockArea, Dock
+
+
+class InputThread(threading.Thread):
+    def __init__(self,i,n,q):
+        threading.Thread.__init__(self)
+
+        self.file  = f
+        self.num   = n
+        self.quiet = q
+        self.data  = collections.deque()
+        self.pause = threading.Event()
+        self.complete = threading.Event()
+
+        self.pause.set()
+
+    def run(self):
+        self.data.append((collections.deque(), collections.deque()))
+
+        for line in self.file:
+            self.pause.wait()
+
+            if len(line.strip()) == 0 and len(self.data[-1][0]) != 0:
+                self.data.append((collections.deque(), collections.deque()))
+
+            if len(line.strip()) == 0:
+                continue
+
+            labels, datas = self.data[-1]
+            label, *data = line.split()
+            data = [float(x) for x in data]
+
+            labels.append(label)
+            datas.append(data)
+
+        i.complete.set()
+
+    def start(self):
+        threading.Thread.start(self)
+        return self
+
+class KeyPressHandler():
+    def __init__(self,pauseflag):
+        self.pauseflag = pauseflag
+
+    def __call__(self,e):
+        i = self.pauseflag
+
+        if e.text() == 'q':
+            os._exit(0)
+        elif e.text() == ' ':
+            if i.is_set(): i.clear()
+            else: i.set()
+
+class TimerHandler():
+    def __init__(self,i,win):
+        self.data = i.data
+        self.it   = i
+        self.win  = win
+        self.area = DockArea()
+        self.win.setWidget(self.area)
+        self.dcks = [] # make sure we have a sorted list
+        self.rows = {} # keep a list of label rows
+
+        self.doneEvent = lambda: None
+
+    def add(self, d, p):
+        self.area.addDock(d)
+        self.dcks.append((d,p))
+        d.addWidget(p)
+
+    def __call__(self, e):
+        """ called on a timer event, so transfer data from the inputhread into
+        the drawing functions.
+        """
+        for i in range(len(self.dcks),len(self.data)):
+            self.add( Dock("seg %d"%len(self.dcks),size=(500,50)),
+                      pg.PlotWidget() )
+            self.update(i)
+
+        self.update(len(self.dcks)-1)
+
+        if self.it.complete.is_set() and len(self.dcks) == len(self.data):
+            self.doneEvent()
+
+    def update(self, i=-1):
+        #
+        # grab matching data and plot items
+        #
+        label,data = self.data[i]
+        d,p,*c = self.dcks[-1]
+        data = list(zip(*data))
+
+        d.setMinimumSize(150,200)
+
+        #
+        # update the plot title
+        #
+        label = " ".join(str(x) for x in set(label))
+        p.setTitle( label )
+
+        #
+        # update plots that are already there
+        #
+        for dim,curve in zip(data,c):
+            curve.setData(dim)
+
+        #
+        # update positions of dock depending on the label
+        #
+        try:
+            header = self.rows[label]
+            self.area.moveDock(d, 'bottom', header)
+            self.rows[label] = d
+        except KeyError as e:
+            self.area.addDock(d, 'right')
+            self.rows[label] = d
+
+        #
+        # create curves which have no plot yet
+        #
+        for dim in data[len(c):]:
+            curve = p.plot(dim)
+            c.append( curve )
+
+        #
+        # update plot items
+        #
+        self.dcks[-1] = (d,p,*c)
+
+if __name__ == "__main__":
+    cmdline = argparse.ArgumentParser('real-time of data for grt')
+    cmdline.add_argument('--num-samples', '-n', type=int, default=None,  help="plot the last n samples, 0 keeps all")
+    cmdline.add_argument('--title',       '-t', type=str, default="montage plot",  help="plot window title")
+    cmdline.add_argument('--quiet',       '-q', action="store_true",     help="if given does not copy input to stdout")
+    cmdline.add_argument('file', type=str, nargs='?', default='-', help="input files or - for stdin")
+    args = cmdline.parse_args()
+
+    #
+    # open input file, and create a thread for reading data
+    #
+    f = open(args.file) if args.file != '-' else sys.stdin
+    i = InputThread(f,args.num_samples,args.quiet)
+
+    #
+    # create the graphics windows
+    #
+    pg.setConfigOptions(antialias=True)
+    pg.setConfigOption('background', 'w')
+    pg.setConfigOption('foreground', 'k')
+
+    app = QtGui.QApplication([])
+    win = QtGui.QMainWindow()
+    ara = QtGui.QScrollArea()
+    ara.setWidgetResizable(True)
+
+    win.setCentralWidget(ara)
+    win.setWindowTitle(args.title)
+    win.keyPressEvent = KeyPressHandler(i.pause)
+    win.timerEvent    = TimerHandler(i,ara)
+
+    tmr = win.startTimer(0)
+    win.timerEvent.doneEvent = lambda: win.killTimer(tmr)
+
+    win.show()
+    i.start()
+
+    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+        app.exec_()
