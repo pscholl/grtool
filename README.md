@@ -27,7 +27,7 @@ timeseries and frames
   - ffmpeg
   - python3
   - a recent version of gcc
-  - Gesture Recognition Toolkit
+  - Gesture Recognition Toolkit, please use this https://github.com/pscholl/grt
 
 ## Android
 
