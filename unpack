@@ -48,12 +48,13 @@ class FromFFmpeg():
         buf.appendleft(self.struct.unpack(line))
 
 class SubtitleReader():
-    def __init__(self, subfile,rate):
+    def __init__(self, subfile,rate,style):
         self.sub = os.fdopen(subfile,'r')
         self.fileno = subfile
         self.labels = []
         self.lastt = None
         self.rate = rate
+        self.style = style
 
     def ass2rate(self,ss):
         def funkyfloat(s):
@@ -73,10 +74,11 @@ class SubtitleReader():
             return True
 
         try:
-            _,beg,end,s,_,_,_,_,_,label = line.split(',')
+            _,beg,end,style,_,_,_,_,_,label = line.split(',')
             label = re.sub('\s+','_',label.strip())
             beg,end = self.ass2rate(beg),self.ass2rate(end)
-            self.labels.append((beg,end,label))
+            if self.style == style:
+                self.labels.append((beg,end,label))
         except ValueError as e:
             pass
 
@@ -181,7 +183,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
         chns = [int(d['channels']) for (d,f) in streams]
         fmt  = ("{} "+"{:f} "*sum(chns)).format
 
-        subr = SubtitleReader(subp[0], rate)
+        subr = SubtitleReader(subp[0], rate, style)
         ibuf = { k : deque() for (k,_) in outs }
 
         sel = selectors.DefaultSelector()
@@ -278,7 +280,7 @@ if __name__ == '__main__':
     files = [ (probe(f.peek(int(2*1e6))),f) for f in files ]
     sids  = [ sid(s) for (ss,f) in files for s in ss if s['codec_type']=='audio' ]
 
-    # checks if audio or subtitle stream
+    # selector audio and subtitle stream
     okay = lambda d: d['codec_type']=='subtitle' or\
             args.stream==[] and d['codec_type']=='audio' or\
             'tags' in d.keys() and d['codec_type']=='audio' and (\
