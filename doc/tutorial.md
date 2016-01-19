@@ -19,6 +19,7 @@
      preprocess[pp] - preprocess data sequence
      postprocess[pop] - postprocess label streams
      plot[pl] - python based stream plotter
+     montage[m] - python based montage plot
      segment[sg] - segments a list of samples into multiple timeseries
      pack[pa] - pack multiple streams into an .mkv file (using ffmpeg)
      unpack[u] - unpack first audio and subtitle stream from .mkv file (using ffmpeg)
