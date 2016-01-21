@@ -115,7 +115,7 @@ int main(int argc, const char *argv[])
   }
 
   /* propagate the classlabel names also */
-  for (int i=0; i<io.labelset.size(); i++) {
+  for (size_t i=!io.has_NULL_label; i<io.labelset.size(); i++) {
     classifier->setClassNameForLabel(i, io.labelset[i]);
   }
 
