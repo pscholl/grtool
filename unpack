@@ -77,7 +77,7 @@ class SubtitleReader():
             _,beg,end,style,_,_,_,_,_,label = line.split(',')
             label = re.sub('\s+','_',label.strip())
             beg,end = self.ass2rate(beg),self.ass2rate(end)
-            if self.style == style:
+            if self.style is None or self.style == style:
                 self.labels.append((beg,end,label))
         except ValueError as e:
             pass
