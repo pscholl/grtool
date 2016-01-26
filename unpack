@@ -183,11 +183,13 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
         chns = [int(d['channels']) for (d,f) in streams]
         fmt  = ("{} "+"{:f} "*sum(chns)).format
 
-        subr = SubtitleReader(subp[0], rate, style)
+        sel = selectors.DefaultSelector()
         ibuf = { k : deque() for (k,_) in outs }
 
-        sel = selectors.DefaultSelector()
-        sel.register(subr.fileno, selectors.EVENT_READ, subr)
+        if sub is not None:
+            subr = SubtitleReader(subp[0], rate, style)
+            sel.register(subr.fileno, selectors.EVENT_READ, subr)
+
         for (f,(_,w)) in zip(files,ins):
             sel.register(w, selectors.EVENT_WRITE, ToFFmpeg(f,w))
         for ((r,_),c) in zip(outs,chns):
@@ -211,7 +213,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
             n = min(len(v) for v in ibuf.values())
             for i in range(n):
                 bufs = [ y for x in ibuf.values() for y in x.pop()]
-                print(fmt(subr.label(t) or default, *bufs))
+                print(fmt(subr.label(t) or default if sub is not None else default, *bufs))
                 t += 1
 
 def py3k(tup):
@@ -291,11 +293,6 @@ if __name__ == '__main__':
     files = [[(s,f) for s in ss if okay(s)] for (ss,f) in files ]
 
     for audio,sub in group(files):
-        if not sub:
-            err = "no label stream found\n"
-            sys.stderr.write(err)
-            sys.exit(-1)
-
         if not audio:
             err = "no data stream selected, possible are: %s\n"%str(sids)
             sys.stderr.write(err)

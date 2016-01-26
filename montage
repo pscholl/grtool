@@ -83,7 +83,7 @@ class TimerHandler():
         the drawing functions.
         """
         for i in range(len(self.dcks),len(self.data)):
-            self.add( Dock("seg %d"%len(self.dcks),size=(500,50)),
+            self.add( Dock("seg %d"%len(self.dcks),size=(1500,50)),
                       pg.PlotWidget() )
             self.update(i)
 
