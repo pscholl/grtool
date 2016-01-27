@@ -1,6 +1,6 @@
 # grtool - command line interface to the Gesture Recognition Toolkit
 
- A command line utility similar to (mlpack)[mlpack.org], (weka)[http://www.cs.waikato.ac.nz/ml/weka/] and (scikit-learn)[scikit-learn.org] for doing gesture recognition. Contains a number of utility which can be put together with a standard unix pipeline to handle the task of training and running machine learning algorithms. The data format is meant for enabling quick trials.
+ A command line utility similar to [mlpack](mlpack.org), [weka](http://www.cs.waikato.ac.nz/ml/weka/) and [scikit-learn](scikit-learn.org) for doing gesture recognition. Contains a number of utility which can be put together with a standard unix pipeline to handle the task of training and running machine learning algorithms. The data format is meant for enabling quick trials.
 
  All data frames are given in textual format, in which each line presents a frame for classification and needs to be prepended with a label:
 
@@ -15,7 +15,7 @@
     abc  1.2 3 4
     NULL 0 0 0" | grt train RandomForests -o tt.rf
 
- This command trains a randomforest on this dataset and puts the learned model into tt.rf. See the (wikia)[https://github.com/pscholl/grtool/wiki] and man-pages for more information.
+ This command trains a randomforest on this dataset and puts the learned model into tt.rf. See the [wiki](https://github.com/pscholl/grtool/wiki) and man-pages for more information.
 
 ## Building
 
