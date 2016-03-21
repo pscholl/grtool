@@ -4,29 +4,6 @@
 import os, sys, argparse, fileinput, collections, sys
 from math import ceil
 
-cmdline = argparse.ArgumentParser('postprocess label outputs')
-subpars = cmdline.add_subparsers(help="type of post-processing",dest="command")
-
-major   = subpars.add_parser("majority", help="returns only the label with maximum occurence in the given window" )
-major.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
-major.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
-major.add_argument("-w","--no-warn", action="store_true", help="suppress warnings")
-major.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
-
-change  = subpars.add_parser("change", help="return only changed labels")
-change.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
-
-mle = subpars.add_parser("confidence", help="maximum likelihood of estimate")
-mle.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
-mle.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
-mle.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
-
-mlc = subpars.add_parser("score", help="maximum likelihood of class")
-mlc.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
-mlc.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
-mlc.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
-
-args = cmdline.parse_args()
 
 def select_first_most_common(l):
     l = list(l)
@@ -47,7 +24,7 @@ def major_print_window(window, args):
     if not args.no_warn:
         s1 = [ l1 for (l1,l2) in zip(window[:-1],window[1:]) if l1[0]!=l2[0]]
         if len(s1) > 2:
-            sys.stderr.write("WARNING: ground truth labels (%s) merged!\n" % str(s1))
+            sys.stderr.write("WARNING: ground truth labels (%s) merged into %s!\n" % str(s1,l1))
 
 def confidence_print_window(window, args):
     try:
@@ -55,10 +32,10 @@ def confidence_print_window(window, args):
     except:
         sys.stderr.write("ERROR: classfification confidence missing (run predict with -l)\n")
         sys.exit(-1)
-    _,l,_ = max(window, key=lambda c: c[2])
+    t,l,_ = max(window, key=lambda c: c[2])
 
     if len(g) > 1:
-        sys.stderr.write("WARNING: ground truth labels (%s) merged!\n" % str(g))
+        sys.stderr.write("WARNING: ground truth labels (%s) merged into %s!\n"%(str(g),t))
 
     print(sorted(g)[-1],l)
 
@@ -103,6 +80,30 @@ def main_loop(print_window, args):
         print_window(window,args)
 
 if __name__=="__main__":
+    cmdline = argparse.ArgumentParser('postprocess label outputs')
+    subpars = cmdline.add_subparsers(help="type of post-processing",dest="command")
+
+    major   = subpars.add_parser("majority", help="returns only the label with maximum occurence in the given window" )
+    major.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
+    major.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+    major.add_argument("-w","--no-warn", action="store_true", help="suppress warnings")
+    major.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
+
+    change  = subpars.add_parser("change", help="return only changed labels")
+    change.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
+
+    mle = subpars.add_parser("confidence", help="maximum likelihood of estimate")
+    mle.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
+    mle.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+    mle.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
+
+    mlc = subpars.add_parser("score", help="maximum likelihood of class")
+    mlc.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
+    mlc.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+    mlc.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
+
+    args = cmdline.parse_args()
+
     if args.command == "majority":
         main_loop(major_print_window, args)
     elif args.command == "confidence":

@@ -20,6 +20,7 @@ addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
+    - deadsnakes
     - pythonxy-devel
     packages:
     - gcc-4.8
