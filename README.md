@@ -1,5 +1,7 @@
 # grtool - command line interface to the Gesture Recognition Toolkit
 
+[![Build Status](https://travis-ci.org/pscholl/grtool.svg)](https://travis-ci.org/pscholl/grtool)
+
  A command line utility similar to [mlpack](mlpack.org), [weka](http://www.cs.waikato.ac.nz/ml/weka/) and [scikit-learn](scikit-learn.org) for doing gesture recognition. Contains a number of utility which can be put together with a standard unix pipeline to handle the task of training and running machine learning algorithms. The data format is meant for enabling quick trials.
 
  All data frames are given in textual format, in which each line presents a frame for classification and needs to be prepended with a label:
