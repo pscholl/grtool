@@ -2,24 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys
 
-class count:
-    def __init__(self, args):
-        self.label = ""
-        self.firstcall = True
-        self.max_size = args.window_size
-        self.count = 0
-
-    def __call__(self,data,label=None):
-        s = ""
-        if self.label != label or (self.max_size!=0 and self.count > self.max_size):
-            s += self.label + " " + str(self.count/50.) + "\n"
-            self.label = label
-            self.count = 0
-
-        self.count += 1
-        return s
-
-class groundtruth:
+class gt:
     def __init__(self, args):
         self.label = None
         self.firstcall = True
@@ -38,7 +21,7 @@ class groundtruth:
         self.count += 1
         return s
 
-class sliding_window:
+class sw:
     def __init__(self, args):
         self.size = args.window_size
         self.overlap = args.overlap
@@ -70,7 +53,7 @@ class sliding_window:
         self.numbuffered += 1
         return s+"\n"
 
-class energy_based:
+class nrg:
     def __init__(self, args):
         self.firstcall = True;
 
@@ -124,30 +107,24 @@ class energy_based:
         return s
 
 methods = {
-    'count'          : count,
-    'groundtruth'    : groundtruth,
-    'sliding_window' : sliding_window,
-    'energy_based'   : energy_based }
+    'gt' : gt,
+    'sw' : sw,
+    'nrg': nrg }
 
 import argparse, fileinput
 cmdline = argparse.ArgumentParser('segment stream of data into timeseries')
 subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation method", dest="method")
 
-sw_cmdline = subparser.add_parser('sliding_window', help="sliding window method")
+sw_cmdline = subparser.add_parser('sw', help="sliding window method")
 sw_cmdline.add_argument('-W', '--window-size', type=int, default=10, help="number of samples in each window")
 sw_cmdline.add_argument('-O', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
 sw_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
 
-gt_cmdline = subparser.add_parser('groundtruth', help="groundtruth method")
+gt_cmdline = subparser.add_parser('gt', help="groundtruth method")
 gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
 gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
 
-# TODO: should that be called not "gt"?
-gt_cmdline = subparser.add_parser('count', help="count method")
-gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
-gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
-
-eb_cmdline = subparser.add_parser('energy_based', help="energy based method")
+eb_cmdline = subparser.add_parser('nrg', help="energy based method")
 eb_cmdline.add_argument('-T', '--threshold', type=float, default=0, help="creates a new segment every time the threshold is crossed")
 eb_cmdline.add_argument('-W', '--window-size', type=int, default=1, help="size of the integration window")
 eb_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
