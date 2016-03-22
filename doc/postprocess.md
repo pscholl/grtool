@@ -63,9 +63,19 @@
 -O, --overlap [int of frames]
 :   The overlap in percent of frames to consider.
 
+## sum
+
+ Sum up all confidence scores and print the classification once a threshold is reached. This threshold is reset to a configurable value afterwards. If no confidence scores are given, each line will be counter as a one. This can be used to detect events in a classification stream.
+
+-t, --threshold [float]
+:   The threshold value for which the sum of confidence score must be higher
+
+-r, --reset [float]
+:   The value to reset the class score after the threshold has been reached.
+
 # EXAMPLES
 
- This an example of the majority filter, which will ouput the major label over an N-sized window with an overlap. Note that the default overlap is 50%, which is why the last line is repeated.
+ This an example of the majority filter, which will output the major label over an N-sized window with an overlap. Note that the default overlap is 50%, which is why the last line is repeated.
 
     echo "NULL NULL
     > label label
@@ -79,7 +89,7 @@
     some_prediction some_prediction
     some_prediction some_prediction
 
- And this is an example of a post-processing using predicition probabilities, which need to be printed if they are used. You can switch the prediction tool to do so with the -p switch.
+ And this is an example of a post-processing using prediction probabilities, which need to be printed if they are used. You can switch the prediction tool to do so with the -p switch.
 
     echo "NULL NULL .5
     > NULL label .9
@@ -99,6 +109,22 @@
     label label
 
  The 'NULL' was chosen for ground-truth, since the larger four frames time window overlaps multiple label and the first is chosen accordingly. As summed confidence of the 'label' prediction is larger than the sum of the 'NULL' prediction, the 'label' is chosen as output for this frame.
+
+ We can also try the 'sum' filter, which prints a predicted label and the groundtruth once the label has passed a configurable threshold. This threshold is given with the '-t' option. If the previous step gave a confidence score, this is summed for each label, if it does not the occurrence is counted. This sum is then compared to the given threshold for each frame. It will be reset to the '-r' value once a label has been printed. Note that the reset value can be negative.
+
+    echo "NULL NULL .5
+    > NULL NULL 1
+    > label label .6
+    > NULL label 1" | grt pop sum -t 1
+    NULL NULL
+    NULL label
+
+ However the sum filter can also hide possible errors (depending on your application). See the next example, in which the label is often predicted for NULL-labelled frames, however the final prediction happens to be a label-labelled frame. This gets compressed into one prediction, which can be arguably wrong:
+
+    echo "NULL label .1
+    > NULL label .8
+    > label label 1" | grt pop sum -t 1
+    label label
 
 
 # REFERENCES
