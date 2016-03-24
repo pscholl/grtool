@@ -106,7 +106,7 @@
     > label NULL .5
     > label label 1
     > " | grt postprocess score -W 4 -O 0
-    label label
+    NULL label
 
  The 'NULL' was chosen for ground-truth, since the larger four frames time window overlaps multiple label and the first is chosen accordingly. As summed confidence of the 'label' prediction is larger than the sum of the 'NULL' prediction, the 'label' is chosen as output for this frame.
 

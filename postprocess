@@ -16,16 +16,16 @@ def select_first_most_common(l):
 def major_print_window(window, args):
     pred = collections.Counter(l2 for (l1,l2) in window).most_common(1)[0][0]
     pred = select_first_most_common(l2 for (l1,l2) in window)
-    uniq = sorted(set(l1 for (l1,l2) in window))
+    uniq = collections.OrderedDict((l1,None) for (l1,l2) in window)
     args.strategy(uniq, pred, args.no_warn)
 
 def confidence_print_window(window, args):
-    g     = set([g for g,l,c in window])
+    g     = collections.OrderedDict([(g,None) for g,l,c in window])
     t,l,_ = max(window, key=lambda c: c[2])
     args.strategy(g, l, args.no_warn)
 
 def score_print_window(window, args):
-    g = set([g for g,l,c in window])
+    g = collections.OrderedDict([(g,None) for g,l,c in window])
     d = { key: 0 for (_,key,_) in window }
     for _,key,c in window: d[key] += float(c)
 
