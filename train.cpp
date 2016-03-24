@@ -17,10 +17,10 @@ int main(int argc, const char *argv[])
   string input_file = "-";
   cmdline::parser c;
 
-  c.add<int>   ("verbose",       'v', "verbosity level: 0-4", false, 1);
-  c.add        ("help",          'h', "print this message");
-  c.add<string>("output",        'o', "store trained classifier in file", false);
-  c.add<float> ("num-samples",   'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training", false, 1.);
+  c.add<int>   ("verbose", 'v', "verbosity level: 0-4", false, 1);
+  c.add        ("help",    'h', "print this message");
+  c.add<string>("output",  'o', "store trained classifier in file", false);
+  c.add<string>("trainset",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training. If not a number it is interpreted as a filename containing training samples.", false, "1");
   c.footer     ("<classifier> [input-data]...");
 
   /* parse common arguments */
@@ -71,37 +71,52 @@ int main(int argc, const char *argv[])
   CollectDataset dataset;
 
   /* check if the number of input is limited */
-  float input_limit   = c.get<float>("num-samples");
-    int input_limit_i = input_limit <= 1 ? 0 : input_limit,
-        num_samples   = 0;
-
-  while ((input_limit_i==0 || num_samples < input_limit_i) && in >> io) {
-    bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
-    if (!ok) {
-      cerr << "error at line " << io.linenum << endl;
-      exit(-1);
-    }
-    num_samples++;
-  }
-
-  if (num_samples==0)
-    return 0;
+  string il  = c.get<string>("trainset");
+  double ild = strtod(il.c_str(), NULL);
+  int    ili = (int) ild,
+         num_samples = 0;
 
   /* if we have percent input limit, we need to apply this now */
   TimeSeriesClassificationData t_testdata;
   ClassificationData c_testdata;
 
-  if (input_limit < 1.) {
-    switch(io.type) {
-    case TIMESERIES:
-      t_testdata = dataset.t_data.partition( input_limit * 100, true );
-      break;
-    case CLASSIFICATION:
-      c_testdata = dataset.c_data.partition( input_limit * 100, true );
-      break;
-    default:
-      cerr << "unknown data type" << endl;
-      return -1;
+  if (ild == 0) { // got an input filename
+    ifstream tin; tin.open(il);
+
+    while (tin >> io) {
+      bool ok=false; csvio_dispatch(io, ok=dataset.add, io.labelset);
+
+      if (!ok) {
+        cerr << "error at line " << io.linenum << endl;
+        exit(-1);
+      }
+    }
+  } else {
+
+    while ((ili == 0 || num_samples < ili) && in >> io) {
+      bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
+      if (!ok) {
+        cerr << "error at line " << io.linenum << endl;
+        exit(-1);
+      }
+      num_samples++;
+    }
+
+    if (num_samples==0)
+      return 0;
+
+    if (ild < 1.) {
+      switch(io.type) {
+      case TIMESERIES:
+        t_testdata = dataset.t_data.partition( ild * 100, true );
+        break;
+      case CLASSIFICATION:
+        c_testdata = dataset.c_data.partition( ild * 100, true );
+        break;
+      default:
+        cerr << "unknown data type" << endl;
+        return -1;
+      }
     }
   }
 
@@ -131,7 +146,7 @@ int main(int argc, const char *argv[])
 
   /* if there is testdataset we need to print this now */
   bool first = true;
-  if (input_limit < 1.) {
+  if (ild > 0 && ild < 1.) {
     switch(io.type) {
     case TIMESERIES:
       for (auto sample : t_testdata.getClassificationData()) {
@@ -160,12 +175,11 @@ int main(int argc, const char *argv[])
       cerr << "unknown data type" << endl;
       return -1;
     }
-  } else if (input_limit > 1.) {
+  } else {
     string line;
     while (getline(in, line))
       cout << line << endl;
-  } else
-    return 0;
+  }
 }
 
 string list_classifiers() {

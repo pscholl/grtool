@@ -82,7 +82,7 @@
     > label some_prediction
     > some_prediction some_prediction
     > some_prediction some_prediction
-    > " | grt postprocess majority -W 2
+    > " | grt postprocess majority -W 2 -O .5
     NULL NULL
     label label
     label some_prediction
@@ -109,23 +109,6 @@
     label label
 
  The 'NULL' was chosen for ground-truth, since the larger four frames time window overlaps multiple label and the first is chosen accordingly. As summed confidence of the 'label' prediction is larger than the sum of the 'NULL' prediction, the 'label' is chosen as output for this frame.
-
- We can also try the 'sum' filter, which prints a predicted label and the groundtruth once the label has passed a configurable threshold. This threshold is given with the '-t' option. If the previous step gave a confidence score, this is summed for each label, if it does not the occurrence is counted. This sum is then compared to the given threshold for each frame. It will be reset to the '-r' value once a label has been printed. Note that the reset value can be negative.
-
-    echo "NULL NULL .5
-    > NULL NULL 1
-    > label label .6
-    > NULL label 1" | grt pop sum -t 1
-    NULL NULL
-    NULL label
-
- However the sum filter can also hide possible errors (depending on your application). See the next example, in which the label is often predicted for NULL-labelled frames, however the final prediction happens to be a label-labelled frame. This gets compressed into one prediction, which can be arguably wrong:
-
-    echo "NULL label .1
-    > NULL label .8
-    > label label 1" | grt pop sum -t 1
-    label label
-
 
 # REFERENCES
 

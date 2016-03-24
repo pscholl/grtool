@@ -14,62 +14,32 @@ def select_first_most_common(l):
     return c[0]
 
 def major_print_window(window, args):
-    l1 = collections.Counter(l1 for (l1,l2) in window).most_common(1)[0][0]
-    l2 = collections.Counter(l2 for (l1,l2) in window).most_common(1)[0][0]
-
-    l1 = select_first_most_common(l1 for (l1,l2) in window)
-    l2 = select_first_most_common(l2 for (l1,l2) in window)
-    print (l1,l2)
-
-    if not args.no_warn:
-        s1 = [ l1 for (l1,l2) in zip(window[:-1],window[1:]) if l1[0]!=l2[0]]
-        if len(s1) > 2:
-            sys.stderr.write("WARNING: ground truth labels (%s) merged into %s!\n" % str(s1,l1))
-
-def event_print_window(window, args, flush=False):
-    assert args.window == 1
-    scores = args.scores if hasattr(args,"scores") else {}
-    g,l,p  = "NULL", "NULL", 1
-
-    try:  g,l,p = window[0]
-    except: g,l = window[0]
-
-    try:   scores[l] += float(p)
-    except: scores[l] = float(p)
-
-    if flush or scores[l] >= args.threshold:
-        scores[l] = args.reset
-        print(g,l)
-
-    args.scores = scores
+    pred = collections.Counter(l2 for (l1,l2) in window).most_common(1)[0][0]
+    pred = select_first_most_common(l2 for (l1,l2) in window)
+    uniq = sorted(set(l1 for (l1,l2) in window))
+    args.strategy(uniq, pred, args.no_warn)
 
 def confidence_print_window(window, args):
-    try:
-        g = set([g for g,l,c in window])
-    except:
-        sys.stderr.write("ERROR: classfification confidence missing (run predict with -l)\n")
-        sys.exit(-1)
+    g     = set([g for g,l,c in window])
     t,l,_ = max(window, key=lambda c: c[2])
-
-    if len(g) > 1:
-        sys.stderr.write("WARNING: ground truth labels (%s) merged into %s!\n"%(str(g),t))
-
-    print(sorted(g)[-1],l)
+    args.strategy(g, l, args.no_warn)
 
 def score_print_window(window, args):
-    try:
-        g = set([g for g,l,c in window])
-        d = { key: 0 for (_,key,_) in window }
-        for _,key,c in window: d[key] += float(c)
-    except:
-        sys.stderr.write("ERROR: classfification confidence missing (run predict with -l)\n")
-        sys.exit(-1)
+    g = set([g for g,l,c in window])
+    d = { key: 0 for (_,key,_) in window }
+    for _,key,c in window: d[key] += float(c)
+
     l = max(d.items(), key=lambda i: i[1])[0]
+    args.strategy(g, l, args.no_warn)
 
-    if len(g) > 1:
-        sys.stderr.write("WARNING: ground truth labels (%s) merged!\n" % str(g))
+def change_print_window(window, args):
+    if not hasattr(args, "lastline"):
+        args.lastline = window[0]
+        return
 
-    print(sorted(g)[-1],l)
+    if window[0] != args.lastline:
+        print("\t".join(args.lastline))
+        args.lastline = window[0]
 
 def main_loop(print_window, args):
     # sanity check for supplied arguments
@@ -97,14 +67,41 @@ def main_loop(print_window, args):
         try: print_window(window,args,True)
         except TypeError: print_window(window,args)
 
+def overlap_major(groundtruth, prediction, no_warn=False):
+    gtl = select_first_most_common(groundtruth)
+    if len(groundtruth) and not no_warn:
+        sys.stderr.write("WARNING: multiple groundtruth labels per frame, selecting most commone one: %s\n" % gtl)
+    print( gtl, prediction )
+
+def overlap_duplicate(groundtruth, prediction, no_warn=False):
+    if len(groundtruth) and not no_warn:
+        sys.stderr.write("WARNING: multiple groundtruth labels per frame, duplicating!\n")
+    for gt in groundtruth:
+        print( gt, prediction )
+
 if __name__=="__main__":
+    overlap_strategies = {
+        'major'     : overlap_major,
+        'duplicate' : overlap_duplicate
+    }
+
+    cmds = {
+        'majority'   : major_print_window,
+        'confidence' : confidence_print_window,
+        'score'      : score_print_window,
+        'change'     : change_print_window
+    }
+
     cmdline = argparse.ArgumentParser('postprocess label outputs')
     subpars = cmdline.add_subparsers(help="type of post-processing",dest="command")
 
+    cmdline.add_argument("-w","--no-warn", action="store_true", help="suppress warnings")
+    cmdline.add_argument("-s","--strategy", choices=list(overlap_strategies.keys()),
+            help="the strategy to resolve multiple groundtruth labels", default="major")
+
     major   = subpars.add_parser("majority", help="returns only the label with maximum occurence in the given window" )
     major.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
-    major.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
-    major.add_argument("-w","--no-warn", action="store_true", help="suppress warnings")
+    major.add_argument("-O","--overlap", type=float, default=0, help="window overlap")
     major.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 
     change  = subpars.add_parser("change", help="return only changed labels")
@@ -112,12 +109,12 @@ if __name__=="__main__":
 
     mle = subpars.add_parser("confidence", help="maximum likelihood of estimate")
     mle.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
-    mle.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+    mle.add_argument("-O","--overlap", type=float, default=0, help="window overlap")
     mle.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 
     mlc = subpars.add_parser("score", help="maximum likelihood of class")
     mlc.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
-    mlc.add_argument("-O","--overlap", type=float, default=.5, help="window overlap")
+    mlc.add_argument("-O","--overlap", type=float, default=0, help="window overlap")
     mlc.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 
     evt = subpars.add_parser("sum", help="threshold on cumulative sum of probabilities")
@@ -127,26 +124,20 @@ if __name__=="__main__":
         help="value to reset the class probability after generating output")
     evt.add_argument('files', metavar='FILES', type=str, nargs='*',
         help="input files or - for stdin")
+    evt.add_argument("-d", "--debug", nargs='*',
+        help="create a file for tracing the postprocessing execution", type=str)
 
     args = cmdline.parse_args()
+    args.strategy = overlap_strategies[args.strategy]
 
-    if args.command == "majority":
-        main_loop(major_print_window, args)
-    elif args.command == "confidence":
-        main_loop(confidence_print_window, args)
-    elif args.command == "score":
-        main_loop(score_print_window, args)
-    elif args.command == "sum":
+    if "change" == args.command:
         args.window, args.overlap = 1, 0
-        main_loop(event_print_window, args)
-    elif args.command == "change":
-        lastline = None
 
-        for line in fileinput.input(args.files):
-            if line.strip()=="" or line.strip()[0] == "#":
-                continue
-
-            if line!=lastline:
-                lastline = line
-                print(line)
-
+    try:
+        main_loop(cmds[args.command], args)
+    except ValueError as e:
+        msg = e.args[0]
+        if not "not enough values" in msg:
+            raise(e)
+        sys.stderr.write("ERROR: classfification confidence missing (run predict with -l)\n")
+        sys.exit(-1)

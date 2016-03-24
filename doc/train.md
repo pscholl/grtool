@@ -8,8 +8,7 @@
 
 # SYNOPSIS
  grt train [-h|--help] [-v|--verbose \<level\>] [-o|--output \<file\>]
-           [-n|--num-samples \<n\>] [-i|--training-input \<file\>] 
-           \<algorithm\> [input-data]
+           [-n|--train-set \<n|file\>] \<algorithm\> [input-data]
 
  grt train list
 
@@ -30,8 +29,8 @@
 -o, --output <file>
 :   Store the trained classifier in <file>.
 
--n, --num-samples <n>
-:   Given a number between (0,1] it will be interpreted as a fraction of input. Anything larger as an absolute number.
+-n, --train-set <n|file>
+:   Given a number between (0,1] it will be interpreted as a fraction of input. Anything larger as an absolute number. If not a number, then a filename is assumed from which training samples are read.
 
 # CLASSIFIER SPECIFIC OPTIONS
 
@@ -139,4 +138,10 @@ A classifier that just stores all samples during training. For classification th
     abc 1
 
 ## Doing a Cross-Validation with separate training input
+ This is especially useful for doing leave-one-out cross-validations. Instead of giving the length or percentage of input that is to be used for training, you can also open a second file to read the training data from. In bash you can also use a so-called here-doc for this, which is what we use here:
+
+    echo "cde 2
+    >
+    > abc 1
+    > abc 1" | grt train DTW -o test.crf -n <(echo -n "abc 1\nabc 1")
 
