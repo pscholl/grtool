@@ -8,7 +8,7 @@
 
 # SYNOPSIS
  grt train [-h|--help] [-v|--verbose \<level\>] [-o|--output \<file\>]
-           [-n|--train-set \<n|file\>] \<algorithm\> [input-data]
+           [-n|--trainset \<n|file\>] \<algorithm\> [input-data]
 
  grt train list
 
@@ -29,8 +29,8 @@
 -o, --output <file>
 :   Store the trained classifier in <file>.
 
--n, --train-set <n|file>
-:   Given a number between (0,1] it will be interpreted as a fraction of input. Anything larger as an absolute number. If not a number, then a filename is assumed from which training samples are read.
+-n, --train-set <float|file>
+:   Specifies the dataset used for training. Can either specify a random split when given as a number between (0,1]. When a floating point number greater than one is given, it is interpreted as one instance of a K-fold split. The fraction part is interpreted as K, and the integral part as the n-th split of this K folds. If a file is given, it will be completly read and used for training. If -1, will use the whole input for training. Defaults to -1.
 
 # CLASSIFIER SPECIFIC OPTIONS
 

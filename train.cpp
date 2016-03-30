@@ -20,7 +20,7 @@ int main(int argc, const char *argv[])
   c.add<int>   ("verbose", 'v', "verbosity level: 0-4", false, 1);
   c.add        ("help",    'h', "print this message");
   c.add<string>("output",  'o', "store trained classifier in file", false);
-  c.add<string>("trainset",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training. If not a number it is interpreted as a filename containing training samples.", false, "1");
+  c.add<string>("trainset",'n', "split the trainig set, either no, random, or k-fold split, defaults to no split.", false, "-1");
   c.footer     ("<classifier> [input-data]...");
 
   /* parse common arguments */
@@ -70,54 +70,95 @@ int main(int argc, const char *argv[])
   CsvIOSample io( classifier->getTimeseriesCompatible() ? "timeseries" : "classification" );
   CollectDataset dataset;
 
-  /* check if the number of input is limited */
-  string il  = c.get<string>("trainset");
-  double ild = strtod(il.c_str(), NULL);
-  int    ili = (int) ild,
-         num_samples = 0;
+  /* get all possible modes for training set selection */
+  char *endptr = NULL,
+       *file   = c.get<string>("trainset").c_str();
+  double ratio = strtod(file, &endptr);
+  bool isfile  = (endptr-file) - strlen(file) != 0;
+  int32_t /* parse x.yy into integral and fractional part */
+      integral = strtoul(file, &endptr, 10),
+      fraction = *endptr=='.' ? strtoul(endptr+1, NULL, 10) : -1;
 
-  /* if we have percent input limit, we need to apply this now */
-  TimeSeriesClassificationData t_testdata;
-  ClassificationData c_testdata;
+  // special case for a ratio of 100%
+  if (ratio == 1) ratio = -1;
 
-  if (ild == 0) { // got an input filename
-    ifstream tin; tin.open(il);
-
-    while (tin >> io) {
-      bool ok=false; csvio_dispatch(io, ok=dataset.add, io.labelset);
-
-      if (!ok) {
-        cerr << "error at line " << io.linenum << endl;
-        exit(-1);
-      }
-    }
-  } else {
-
-    while ((ili == 0 || num_samples < ili) && in >> io) {
-      bool ok = false; csvio_dispatch(io, ok=dataset.add, io.labelset);
-      if (!ok) {
-        cerr << "error at line " << io.linenum << endl;
-        exit(-1);
-      }
-      num_samples++;
+  // do some sanity checks on the arguments
+  if (!isfile && ratio >= 0) {
+    // k-fold specification
+    if ( fraction < 0 ) {
+      cerr << "no fold number given, specify with k.x or use a ratio (0,1] for random split" << endl;
+      return -1;
     }
 
-    if (num_samples==0)
-      return 0;
-
-    if (ild < 1.) {
-      switch(io.type) {
-      case TIMESERIES:
-        t_testdata = dataset.t_data.partition( ild * 100, true );
-        break;
-      case CLASSIFICATION:
-        c_testdata = dataset.c_data.partition( ild * 100, true );
-        break;
-      default:
-        cerr << "unknown data type" << endl;
+    if ( integral >= 1  && fraction >= integral ) {
+        cerr << "fold number (" << fraction << ") must be less than number"
+                " of folds (" << integral << ")" << endl;
         return -1;
-      }
     }
+
+    if (ratio >= 1 && fraction < 0) {
+      cerr << "either -n must be less than one to select a random split "
+        "or given as k.x where k is the number of folds, and x the fold to "
+        "select " << endl;
+      return -1;
+    }
+  }
+
+  /* per default we read from the main inputstream */
+  ifstream tif; istream &tin = isfile ? tif : in;
+  if (isfile) tif.open(file);
+
+  /* now read the input file completly */
+  while ( tin >> io ) {
+    bool ok=false; csvio_dispatch(io, ok=dataset.add, io.labelset);
+
+    if (!ok) {
+      cerr << "error at line " << io.linenum << endl;
+      exit(-1);
+    }
+  }
+
+  /* generate training sets if any are required, which is either a timeseries
+   * or classification data */
+  TimeSeriesClassificationData t_testdata;
+  ClassificationData           c_testdata;
+
+  switch(io.type) {
+  case TIMESERIES:
+    if (isfile || ratio <= 0) // no split or file
+      t_testdata = dataset.t_data;
+    else if (ratio < 1)       // random split
+      t_testdata = dataset.t_data.partition( ratio*100, true );
+    else if (ratio >= 1) {    // k-fold
+      cout << integral << endl;
+      if (!dataset.t_data.splitDataIntoKFolds( integral, false, false ))
+        return -1;
+      t_testdata = dataset.t_data.getTrainingFoldData( fraction );
+    }
+    else {
+      cerr << "unknown train set specification" << endl;
+      return -1;
+    }
+    break;
+  case CLASSIFICATION:
+    if (isfile || ratio <= 0) // no split or file
+      c_testdata = dataset.c_data;
+    else if (ratio < 1)  // random split
+      c_testdata = dataset.c_data.partition( ratio*100, true );
+    else if (ratio >= 1) { // k-fold
+      if (!dataset.c_data.splitDataIntoKFolds( integral, false, false ))
+        return -1;
+      c_testdata = dataset.c_data.getTrainingFoldData( fraction );
+    }
+    else {
+      cerr << "unknown train set specification" << endl;
+      return -1;
+    }
+
+    break;
+  default:
+    cerr << "io type not implemented" << endl;
+    return -1;
   }
 
   info << dataset.getStatsAsString() << endl;
@@ -144,21 +185,25 @@ int main(int argc, const char *argv[])
   else
     test.close();
 
-  /* if there is testdataset we need to print this now */
-  bool first = true;
-  if (ild > 0 && ild < 1.) {
+  // The classifier is trained, we now pass-through data, which is different
+  // depending on the mode that has been selected.
+  if (isfile) {
+    string line;
+    while (getline(in, line))
+      cout << line << endl;
+  } else if (ratio > 0) { // random split
     switch(io.type) {
     case TIMESERIES:
       for (auto sample : t_testdata.getClassificationData()) {
         string label = t_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
-        MatrixDouble &matrix = sample.getData();
+        MatrixFloat &matrix = sample.getData();
+
         for (int i=0; i<matrix.getNumRows(); i++) {
-          if (first) {cout << label; first = false;}
-          else {cout << endl << label;}
+          cout << label;
           for (int j=0; j<matrix.getNumCols(); j++)
             cout << "\t" << matrix[i][j];
+          cout << endl;
         }
-        cout << endl;
       }
       break;
     case CLASSIFICATION:
@@ -166,19 +211,14 @@ int main(int argc, const char *argv[])
         string label = c_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         cout << label;
         for (auto val : sample.getSample())
-          cout << "\t" << val;
-
+            cout << "\t" << val;
         cout << endl;
       }
       break;
     default:
-      cerr << "unknown data type" << endl;
+      cerr << "unknown IO type" << endl;
       return -1;
     }
-  } else {
-    string line;
-    while (getline(in, line))
-      cout << line << endl;
   }
 }
 
