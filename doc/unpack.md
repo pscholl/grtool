@@ -9,7 +9,7 @@
 # SYNOPSIS
  grt unpack [-h|--help] \<file\> [file] [-t|--stream] \<streamid\> [streamid]
             [-s|--style] \<style\> [-d|--default] \<label\> [-ss] \<position\>
-            [-sd] \<duration\>
+            [-r|--rate] \<rate\> [-sd] \<duration\>
 
 # DESCRIPTION
 
@@ -35,6 +35,9 @@
 
 -ss \<position\>
 :   seek to position before printing values, see ffmpeg-utils(1) Time Duration documentation for format
+
+-r, --rate \<rate\>
+:   set the sample rate at which to generate output data, internally the sox resampler of ffmpeg is used to achieve this
  
 -sd \<duration\>
 :   stop the stream after *duration*, see ffmpeg-utils(1) Time Duration documentation for format
