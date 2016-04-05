@@ -62,5 +62,8 @@ int main(int argc, char *argv[])
       return execvp(executable, &argv[1]);
   }}
 
-  return usage(-1, "command not found");
+  string s = "command not found: ";
+         s+= argv[1];
+
+  return usage(-1, s);
 }
