@@ -118,22 +118,32 @@ int main(int argc, const char *argv[])
     }
   }
 
+  /* empty input? */
+  if (dataset.size() == 0)
+    return 0;
+
   /* generate training sets if any are required, which is either a timeseries
    * or classification data */
-  TimeSeriesClassificationData t_testdata;
-  ClassificationData           c_testdata;
+  TimeSeriesClassificationData t_test, t_training;
+  ClassificationData           c_test, c_training;
 
+
+  /* There is a case for polymorphism in GRT here */
   switch(io.type) {
   case TIMESERIES:
     if (isfile || ratio <= 0) // no split or file
-      t_testdata = dataset.t_data;
-    else if (ratio < 1)       // random split
-      t_testdata = dataset.t_data.partition( ratio*100, true );
+      t_training = dataset.t_data;
+    else if (ratio < 1) {     // random split
+      t_test     = dataset.t_data.partition( ratio*100, true );
+      t_training = dataset.t_data;
+    }
     else if (ratio >= 1) {    // k-fold
-      cout << integral << endl;
-      if (!dataset.t_data.splitDataIntoKFolds( integral, false, false ))
+      if (!dataset.t_data.splitDataIntoKFolds( integral, false, false )) {
+        cerr << "unable to split data" << endl;
         return -1;
-      t_testdata = dataset.t_data.getTrainingFoldData( fraction );
+      }
+      t_test     = dataset.t_data.getTestFoldData( fraction );
+      t_training = dataset.t_data.getTrainingFoldData( fraction );
     }
     else {
       cerr << "unknown train set specification" << endl;
@@ -142,13 +152,18 @@ int main(int argc, const char *argv[])
     break;
   case CLASSIFICATION:
     if (isfile || ratio <= 0) // no split or file
-      c_testdata = dataset.c_data;
-    else if (ratio < 1)  // random split
-      c_testdata = dataset.c_data.partition( ratio*100, true );
+      c_training = dataset.c_data;
+    else if (ratio < 1)  { // random split
+      c_test     = dataset.c_data.partition( ratio*100, true );
+      c_training = dataset.c_data;
+    }
     else if (ratio >= 1) { // k-fold
-      if (!dataset.c_data.splitDataIntoKFolds( integral, false, false ))
+      if (!dataset.c_data.splitDataIntoKFolds( integral, false, false )) {
+        cerr << "unable to split data" << endl;
         return -1;
-      c_testdata = dataset.c_data.getTrainingFoldData( fraction );
+      }
+      c_test     = dataset.c_data.getTestFoldData( fraction );
+      c_training = dataset.c_data.getTrainingFoldData( fraction );
     }
     else {
       cerr << "unknown train set specification" << endl;
@@ -164,7 +179,16 @@ int main(int argc, const char *argv[])
   info << dataset.getStatsAsString() << endl;
 
   /* train and save classifier */
-  bool ok; csvio_dispatch(dataset, ok=classifier->train);
+  bool ok = false;
+  switch(io.type) {
+  case TIMESERIES:
+    ok = classifier->train(t_training);
+    break;
+  case CLASSIFICATION:
+    ok = classifier->train(c_training);
+    break;
+  }
+
   if (!ok) {
     cerr << "training failed" << endl;
     return -1;
@@ -192,23 +216,28 @@ int main(int argc, const char *argv[])
     while (getline(in, line))
       cout << line << endl;
   } else if (ratio > 0) { // random split
+    bool first = true;
+
     switch(io.type) {
     case TIMESERIES:
-      for (auto sample : t_testdata.getClassificationData()) {
-        string label = t_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
+      for (auto sample : t_test.getClassificationData()) {
+        string label = t_test.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         MatrixFloat &matrix = sample.getData();
+
+        if (first) first = false;
+        else cout << endl;
 
         for (int i=0; i<matrix.getNumRows(); i++) {
           cout << label;
           for (int j=0; j<matrix.getNumCols(); j++)
-            cout << "\t" << matrix[i][j];
+            cout << " " << matrix[i][j];
           cout << endl;
         }
       }
       break;
     case CLASSIFICATION:
-      for (auto sample : c_testdata.getClassificationData()) {
-        string label = c_testdata.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
+      for (auto sample : c_test.getClassificationData()) {
+        string label = c_test.getClassNameForCorrespondingClassLabel( sample.getClassLabel() );
         cout << label;
         for (auto val : sample.getSample())
             cout << "\t" << val;
@@ -220,6 +249,8 @@ int main(int argc, const char *argv[])
       return -1;
     }
   }
+
+  return 0;
 }
 
 string list_classifiers() {

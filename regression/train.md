@@ -24,8 +24,3 @@ we'd also like n-dimensional input and DTW
     > inverting 2 2
     > inverting 2 2" | grt train DTW -o test.DTW
 
-this is also "bad" input
-
-    echo "NULL 0
-    > NULL 0
-    > NULL 0" | grt train RandomForests -o test.rf

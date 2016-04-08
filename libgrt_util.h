@@ -204,6 +204,17 @@ class CollectDataset
       return "unknown datatype";
     }
   }
+
+  size_t size() {
+    switch(type) {
+    case TIMESERIES:
+      return t_data.getNumSamples();
+    case CLASSIFICATION:
+      return c_data.getNumSamples();
+    default:
+      return 0;
+    }
+  }
 };
 
 class CerrLogger : public Observer< GRT::TrainingLogMessage >,

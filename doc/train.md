@@ -106,13 +106,13 @@ A classifier that just stores all samples during training. For classification th
     >
     > abc 1
     > abc 1" | grt train HMM -S 2 -T ergodic -o test.hmm -n .5
-    abc	1
-    abc	1
+    abc 1
+    abc 1
 
  The output of this command can then be used as the test-set, which is also the reason for the comment line at to the top. Which instructs the next command (most probably the predict command) that a time-series is about to follow.
 
-## Training a KNN
- Let us do the same as we did in the last example, but this time with a condtional random field.
+## Training a dynamic time warping algorithm
+ Let us do the same as we did in the last example, but this time with a DTW.
 
     echo "abc 1
     > abc 1
@@ -120,7 +120,7 @@ A classifier that just stores all samples during training. For classification th
     > cde 2
     >
     > abc 1
-    > abc 1" | grt train DTW -o test.crf -n 2
+    > abc 1" | grt train DTW -o test.crf -n 2.0
     abc 1
     abc 1
 
@@ -133,7 +133,7 @@ A classifier that just stores all samples during training. For classification th
     > cde 2
     >
     > abc 1
-    > abc 1" | grt train DTW -o test.crf -n 2
+    > abc 1" | grt train DTW -o test.crf -n 2.0
     abc 1
     abc 1
 
