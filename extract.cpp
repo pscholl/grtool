@@ -402,13 +402,13 @@ int main(int argc, const char *argv[]) {
     string str_extractor = c.rest()[j];
 
     if (str_extractor == "list") {
-      cout << c.usage() << endl;
-      printf("Available Extractors:\n\n");
+      fprintf(stderr, c.usage().c_str());
+      fprintf(stderr, "Available Extractors:\n\n");
       for (size_t i=0; i<sizeof(extractors)/sizeof(extractors[0]); i++) {
         struct extractor e = extractors[i];
-        printf(" %s (%s): %s\n", e.name, e.shorthand, e.desc);
+        fprintf(stderr, " %s (%s): %s\n", e.name, e.shorthand, e.desc);
       }
-      return 0;
+      return -1;
     } else {
       uint32_t i;
 
