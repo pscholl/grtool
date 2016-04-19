@@ -108,7 +108,7 @@ int main(int argc, const char *argv[])
   ifstream tif; istream &tin = isfile ? tif : in;
   if (isfile) tif.open(file);
 
-  /* now read the input file completly */
+  /* now read the input file completely */
   while ( tin >> io ) {
     bool ok=false; csvio_dispatch(io, ok=dataset.add, io.labelset);
 
@@ -126,7 +126,6 @@ int main(int argc, const char *argv[])
    * or classification data */
   TimeSeriesClassificationData t_test, t_training;
   ClassificationData           c_test, c_training;
-
 
   /* There is a case for polymorphism in GRT here */
   switch(io.type) {
