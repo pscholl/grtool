@@ -212,7 +212,7 @@ range(matrix_t *m, char* s, size_t max)
     }
 
   for (size_t j=0; j<m->dimv; j++)
-    span[j] = maximum[j] - minimum[j];
+    span[j] = abs(maximum[j]) + abs(minimum[j]);
 
   for (size_t j=0; j<m->dimv; j++)
     n += snprintf(s+n, max-n, "%g\t%g\t%g\t", maximum[j],minimum[j],span[j]);
@@ -402,13 +402,13 @@ int main(int argc, const char *argv[]) {
     string str_extractor = c.rest()[j];
 
     if (str_extractor == "list") {
-      fprintf(stderr, c.usage().c_str());
-      fprintf(stderr, "Available Extractors:\n\n");
+      fprintf(stdout, c.usage().c_str());
+      fprintf(stdout, "\nAvailable Extractors:\n\n");
       for (size_t i=0; i<sizeof(extractors)/sizeof(extractors[0]); i++) {
         struct extractor e = extractors[i];
-        fprintf(stderr, " %s (%s): %s\n", e.name, e.shorthand, e.desc);
+        fprintf(stdout, " %s (%s): %s\n", e.name, e.shorthand, e.desc);
       }
-      return -1;
+      return 0;
     } else {
       uint32_t i;
 
