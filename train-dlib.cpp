@@ -7,14 +7,19 @@
 using namespace std;
 using namespace dlib;
 
-typedef matrix<double, 6, 1> sample_type;
+typedef matrix<double, 0, 1> sample_type;  // init as 0,1 ; can be cast to arbitrary num_rows
 
 int main(int argc, const char *argv[])
 {
+  /*
+   * ARGUMENT PARSING
+   */
+
   string input_file = "-";
   cmdline::parser c;
 
   c.add        ("help",    'h', "print this message");
+  c.add<int>   ("cross-validate", 'c', "perform k-fold cross validation", false, 0);
   c.add<string>("output",  'o', "store trained classifier in file", false);
   c.add<string>("trainset",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training. If not a number it is interpreted as a filename containing training samples.", false, "1");
   c.footer     ("<classifier> [input-data]...");
@@ -28,7 +33,7 @@ int main(int argc, const char *argv[])
   }
 
   /* check if we can open the output file */
-  ofstream test(c.get<string>("output"), ios_base::out);
+  ofstream test(c.get<string>("output"), ios_base::out | ios_base::binary);
   ostream &output = c.exist("output") ? test : cout;
 
   if (c.exist("output") && !test.good()) {
@@ -48,8 +53,14 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
+
+  /*
+   * READING SAMPLES
+   */
+
   std::vector<sample_type> samples;
   std::vector<string> labels;
+  std::set<string> u_labels;
 
   string line, label;
 
@@ -77,9 +88,45 @@ int main(int argc, const char *argv[])
 
     samples.push_back(mat(sample));
     labels.push_back(label);
+    u_labels.insert(label);
   }
 
-  for (size_t i = 0; i < labels.size(); ++i)
-    output << "Label: " << labels[i] << " | Values: " << endl << samples[i] << endl;
+
+  //cout << "number of samples: " << samples.size() << endl;
+  //cout << "number of unique labels: " << u_labels.size() << endl;
+
+
+  /*
+   * TRAINING
+   */
+
+  // create one vs one trainer
+  one_vs_one_trainer<any_trainer<sample_type>, string> ovo_trainer;
+
+  // create kernel ridge regression binary trainer
+  krr_trainer<radial_basis_kernel<sample_type>> krr_rbf_trainer;
+  krr_rbf_trainer.set_kernel(radial_basis_kernel<sample_type>(0.1));
+
+  // set up one vs one trainer to use krr trainer
+  ovo_trainer.set_trainer(krr_rbf_trainer);
+  ovo_trainer.set_num_threads(8);
+
+  // randomize and cross-validate samples
+  randomize_samples(samples, labels);
+  if (c.get<int>("cross-validate") > 0) {
+    matrix<double> cv_result = cross_validate_multiclass_trainer(ovo_trainer, samples, labels, c.get<int>("cross-validate"));
+    cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
+  }
+
+  // train and get the decision function
+  one_vs_one_decision_function<one_vs_one_trainer<any_trainer<sample_type>, string>, decision_function<radial_basis_kernel<sample_type>>> df = ovo_trainer.train(samples, labels);
+
+  // stream decision function to output
+  serialize(df, output);
+
+  if (!c.exist("output"))
+    cout << endl; // mark the end of the classifier if piping
+  else
+    test.close();
 
 }
