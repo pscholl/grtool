@@ -55,7 +55,7 @@ int main(int argc, const char *argv[])
 
 
   /*
-   * READING SAMPLES
+   * READ TRAINING SAMPLES
    */
 
   std::vector<sample_type> samples;

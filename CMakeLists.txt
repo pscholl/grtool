@@ -45,6 +45,9 @@ SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fdiagnostics-color=always" )
 ADD_EXECUTABLE(train-dlib train-dlib.cpp)
 TARGET_LINK_LIBRARIES(train-dlib dlib)
 
+ADD_EXECUTABLE(predict-dlib predict-dlib.cpp)
+TARGET_LINK_LIBRARIES(predict-dlib dlib)
+
 
 
 
