@@ -57,11 +57,7 @@ class SubtitleReader():
         self.style = style
 
     def ass2rate(self,ss):
-        def funkyfloat(s):
-            neg = '-' in s
-            s = s.replace('-','')
-            return float(s) * -1 if neg else float(s)
-        h,m,s = [funkyfloat(x) for x in ss.split(':')]
+        h,m,s = [abs(float(x)) for x in ss.split(':')]
         return int( (60*60*h+60*m+s) * self.rate )
 
     def __call__(self):
@@ -98,32 +94,29 @@ class SubtitleReader():
         except IndexError as e:
             return None
 
-def nullorf(s):
-    return float(s) if s is not None else 0
-
 def duration2ticks(s, rate):
     """ convert from ffmpeg's duration format to ticks in rate
     """
     m = re.match("(?P<neg>-)?((?P<hours>\d{1,2}):)?(?P<minutes>\d{1,2}):(?P<seconds>\d{1,2})(?P<millis>.\d{1,3})?", s)
     if m is not None:
         g = m.groupdict()
-        s =  nullorf(g['hours'])*60*60
-        s += nullorf(g['minutes'])*60
-        s += nullorf(g['seconds'])
-        s += nullorf(g['millis'])
+        s =  float(g['hours']   or 0)*60*60
+        s += float(g['minutes'] or 0)*60
+        s += float(g['seconds'] or 0)
+        s += float(g['millis']  or 0)
         return s * rate
 
     m = re.match("(?P<neg>-)?(?P<seconds>\d+)(?P<millis>.\d{1,3})?", s)
     if m is not None:
         g = m.groupdict()
-        s  = nullorf(g['seconds'])
-        s += nullorf(g['millis'])
+        s  = float(g['seconds'] or 0)
+        s += float(g['millis']  or 0)
         return s * rate
 
     return None
 
 
-def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
+def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
     # not be taught to use the soxr resampler (the default one does not work)
@@ -141,7 +134,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
     subp  =  py3k(os.pipe()) if sub else None
 
     # figure out the largest sample_rate for upsampling
-    rate  = max([int(d['sample_rate']) for (d,f) in streams])
+    rate  = rate or max([int(d['sample_rate']) for (d,f) in streams])
     for r in files:
         os.set_inheritable(r.fileno(),True)
 
@@ -171,6 +164,10 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None):
     if not pid:
         for (_,w) in ins: os.close(w)
         for (r,_) in outs+([subp] if sub else []): os.close(r)
+
+        # make sure that we can background the process without blocking
+        if sys.stdin.fileno() not in outs:
+            os.close(sys.stdin.fileno())
 
         cmd = cmd.split()
         os.execvp(cmd[0],cmd)
@@ -246,7 +243,11 @@ def group(files):
         yield result,None
 
 
-def probe(buf):
+def probe(f):
+    buf = b""
+    while len(buf) < 2e6:
+        buf += f.peek(int(2e6))
+
     cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams -".split()
     cmd = subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
     o,e = cmd.communicate(buf)
@@ -265,12 +266,13 @@ def sid(s):
 if __name__ == '__main__':
     cmdline = argparse.ArgumentParser('unpacks .mkv file (using ffmpeg)')
     cmdline.add_argument('files', type=str, default=["-"], nargs='*',       help="input files")
+    cmdline.add_argument('-r', '--rate', type=float, default=None,          help="resample stream to given rate in Hz")
     cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
     cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
     cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given ")
-    cmdline.add_argument('-ss', type=str, default="0", help="seeks to a start position, format is documented in ffmpeg-utils(1)")
-    cmdline.add_argument('-sd', type=str, default=None, help="duration of the playback, format is documented in ffmpeg-utils(1)")
-    cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
+    cmdline.add_argument('-ss', type=str, default="0",                      help="seeks to a start position, format is documented in ffmpeg-utils(1)")
+    cmdline.add_argument('-sd', type=str, default=None,                     help="duration of the playback, format is documented in ffmpeg-utils(1)")
+    cmdline.add_argument('-v', '--verbose', action="store_true"           , help="more verbose output")
     args = cmdline.parse_args()
 
     # we open each file here already and create an input buffer
@@ -279,7 +281,7 @@ if __name__ == '__main__':
     iopen = lambda f: open(f,'rb',buffering=2**21)
     sopen = lambda f: os.fdopen(sys.stdin.fileno(),'rb',buffering=2**21)
     files = (iopen(f) if f != '-' else sopen(f) for f in args.files )
-    files = [ (probe(f.peek(int(2*1e6))),f) for f in files ]
+    files = [ (probe(f),f) for f in files ]
     sids  = [ sid(s) for (ss,f) in files for s in ss if s['codec_type']=='audio' ]
 
     # selector audio and subtitle stream
@@ -299,7 +301,7 @@ if __name__ == '__main__':
             sys.exit(-1)
 
         try:
-            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd)
+            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd,args.rate)
         except struct.error:
             raise
             sys.exit(0)

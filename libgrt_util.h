@@ -37,7 +37,7 @@ class CsvIOSample {
     RegressionData r_data;
     ClassificationSample c_data;
     TimeSeriesClassificationSample t_data;
-    std::vector<string> labelset;
+    Vector<string> labelset;
     bool has_NULL_label;
     int linenum;
 
@@ -76,7 +76,7 @@ class CsvIOSample {
       using namespace std;
 
       string line, label;
-      vector<vector<double>> data;
+      Vector<VectorFloat> data;
       double d;
 
       while (getline(in,line)) {
@@ -99,7 +99,7 @@ class CsvIOSample {
           o.type = CLASSIFICATION; // default to classificaion
 
         ss >> label;
-        vector<double> sample;
+        VectorFloat sample;
         string val;
         while (ss >> val) // this also handles nan and infs correctly
           sample.push_back(strtod(val.c_str(),NULL));
@@ -168,7 +168,7 @@ class CollectDataset
     type = UNKNOWN;
   }
 
-  bool add(TimeSeriesClassificationSample &sample, vector<string> &labels) {
+  bool add(TimeSeriesClassificationSample &sample, Vector<string> &labels) {
     type = TIMESERIES;
     UINT cl = sample.getClassLabel();
 
@@ -181,7 +181,7 @@ class CollectDataset
     return true;
   }
 
-  bool add(ClassificationSample &sample, vector<string> &labels) {
+  bool add(ClassificationSample &sample, Vector<string> &labels) {
     type = CLASSIFICATION;
     UINT cl = sample.getClassLabel();
 
@@ -202,6 +202,17 @@ class CollectDataset
       return c_data.getStatsAsString();
     default:
       return "unknown datatype";
+    }
+  }
+
+  size_t size() {
+    switch(type) {
+    case TIMESERIES:
+      return t_data.getNumSamples();
+    case CLASSIFICATION:
+      return c_data.getNumSamples();
+    default:
+      return 0;
     }
   }
 };

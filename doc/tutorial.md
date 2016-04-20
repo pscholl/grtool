@@ -61,7 +61,7 @@
     > NULL 2
     > 
     > testing 1
-    > testing 1" | grt train HMM -S 2 -n 2 | grt predict
-    NULL	NULL
+    > testing 1" | grt train HMM -S 1 -n 2.0 | grt predict
     testing	testing
+    NULL	NULL
     

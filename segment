@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import sys
+import sys, os
 
 class gt:
     def __init__(self, args):
@@ -25,33 +25,17 @@ class sw:
     def __init__(self, args):
         self.size = args.window_size
         self.overlap = args.overlap
-        self.numbuffered = 0
-        self.firstcall = True
-        self.labels = {}
+        self.backlog = []
 
     def __call__(self,data,label=None):
         s = ""
-        if label in self.labels:
-            self.labels[label] += 1
-        else:
-            self.labels[label] = 1
 
-        if self.numbuffered > self.size:
-            largest = -1
-            for (k,v) in self.labels.items():
-                if v > largest:
-                    label,largest = k, v
-            self.labels = {}
+        if len(self.backlog) >= self.size:
+            s = "\n".join(self.backlog)+"\n\n"
+            self.backlog = self.backlog[int(self.size*(1-self.overlap)):]
 
-        s += label + "\t"
-        s += "\t".join(data)
-
-        if self.numbuffered > self.size:
-            self.numbuffered -= int( (1-self.overlap) * self.size)
-            s += "\n"
-
-        self.numbuffered += 1
-        return s+"\n"
+        self.backlog.append(label + "\t" + "\t".join(data))
+        return s
 
 class nrg:
     def __init__(self, args):
@@ -111,27 +95,32 @@ methods = {
     'sw' : sw,
     'nrg': nrg }
 
-import argparse, fileinput
-cmdline = argparse.ArgumentParser('segment stream of data into timeseries')
-subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation method", dest="method")
-
-sw_cmdline = subparser.add_parser('sw', help="sliding window method")
-sw_cmdline.add_argument('-W', '--window-size', type=int, default=10, help="number of samples in each window")
-sw_cmdline.add_argument('-O', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
-sw_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
-
-gt_cmdline = subparser.add_parser('gt', help="groundtruth method")
-gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
-gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
-
-eb_cmdline = subparser.add_parser('nrg', help="energy based method")
-eb_cmdline.add_argument('-T', '--threshold', type=float, default=0, help="creates a new segment every time the threshold is crossed")
-eb_cmdline.add_argument('-W', '--window-size', type=int, default=1, help="size of the integration window")
-eb_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
-
-args = cmdline.parse_args()
-
 if __name__=="__main__":
+    import argparse, fileinput
+    cmdline = argparse.ArgumentParser('segment stream of data into timeseries')
+    subparser = cmdline.add_subparsers(help="sub command for the chosen segmentation method", dest="method")
+
+    sw_cmdline = subparser.add_parser('sw', help="sliding window method")
+    sw_cmdline.add_argument('-W', '--window-size', type=int, default=10, help="number of samples in each window")
+    sw_cmdline.add_argument('-O', '--overlap', type=float, default=0., help="percentage from [0,1] of overlap in each window")
+    sw_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
+    gt_cmdline = subparser.add_parser('gt', help="groundtruth method")
+    gt_cmdline.add_argument('-W', '--window-size', type=int, default=0, help="set to non-zero for maximum sample size before split")
+    gt_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
+    eb_cmdline = subparser.add_parser('nrg', help="energy based method")
+    eb_cmdline.add_argument('-T', '--threshold', type=float, default=0, help="creates a new segment every time the threshold is crossed")
+    eb_cmdline.add_argument('-W', '--window-size', type=int, default=1, help="size of the integration window")
+    eb_cmdline.add_argument('files', metavar='FILES', type=str, nargs='*', help="input files or - for stdin")
+
+    args = cmdline.parse_args()
+
+    if args.method is None:
+        cmdline.print_help()
+        print("ERR: need a segmentation method")
+        os._exit(-1)
+
     method = methods[args.method](args)
     last_label  = None
 
@@ -144,6 +133,7 @@ if __name__=="__main__":
             print (line)
             continue
 
-        label,rest = line.split()[0],line.split()[1:]
+        label,*rest = line.split()
         sys.stdout.write(method(rest,label))
-        sys.stdout.flush()
+
+    sys.stdout.flush()

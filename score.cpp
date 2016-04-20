@@ -144,21 +144,20 @@ int main(int argc, char *argv[])
 
       tag = line.substr(1,idx-1);
       line = line.substr(idx+1,string::npos);
-      //line = trim(line);
-    } 
+    }
 
     istringstream iss(trim(line));
     vector<string> fields{istream_iterator<string>{iss},
                           istream_iterator<string>{}};
-    label = fields[0];
-    prediction = fields[1];
-
     if (fields.size() < 2) {
       if (!c.exist("quiet"))
         cerr << line << " ignored" << endl;
 
       continue;
     }
+
+    label = fields[0];
+    prediction = fields[1];
 
     /* intermediate top-score reports */
     if (top_score_type != "disabled" && &in==&cin && c.exist("intermediate")) {

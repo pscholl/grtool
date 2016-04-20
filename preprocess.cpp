@@ -73,7 +73,7 @@ int main(int argc, const char *argv[]) {
     try { string label; ss >> label; cout << label << "\t"; }
     catch (exception &e) { /* unlabeled data */ }
 
-    vector<double> vals; double value;
+    VectorFloat vals; double value;
     while (ss >> value)
       vals.push_back(value);
 
@@ -81,7 +81,7 @@ int main(int argc, const char *argv[]) {
       // weird stuff, pp resets only when initialized, it only initialized once
       // data has been seen, and only set num outputdimenstion when reset so:
       pp->setNumInputDimensions(vals.size());
-      pp->process(vector<double>(vals.size(), 1.));
+      pp->process(VectorFloat(vals.size(), 1.));
       pp->reset();
     }
 
