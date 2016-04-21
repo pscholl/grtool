@@ -49,6 +49,14 @@ void printTrainers() {
   }
 }
 
+bool classifierExists(string name) {
+  bool exists = false;
+  for (const char * tname : TrainerName::_names())
+    if (name.compare(tname) == 0)
+      exists = true;
+  return exists;
+}
+
 
 
 // typedef for one sample, init as 0,1 ; can be cast to arbitrary num_rows

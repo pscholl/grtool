@@ -24,26 +24,41 @@ int main(int argc, const char *argv[])
   c.footer     ("<classifier> [input-data]...");
 
   /* parse common arguments */
-  bool parse_ok = c.parse(argc, argv, false) && !c.exist("help");
+  if (!c.parse(argc, argv, false)) {
+    cerr << c.error() << endl;
+    return -1;
+  }
+  if (c.exist("help")) {
+    cout << c.usage() << endl;
+    cout << "Available Classifiers:" << endl;
+    printTrainers();
+    return -1;
+  }
+  if (c.rest().size() == 0) {
+    cout << "Available Classifiers:" << endl;
+    printTrainers();
+    return -1;
+  }
 
-  if (!parse_ok) {
-    cerr << c.usage() << endl << c.error() << endl;
-    cerr << "Available Classifiers:" << endl;
+  string classifier_str = c.rest()[0];
+
+  if (!classifierExists(classifier_str)) {
+    cout << "Available Classifiers:" << endl;
     printTrainers();
     return -1;
   }
 
   /* check if we can open the output file */
-  ofstream test(c.get<string>("output"), ios_base::out | ios_base::binary);
-  ostream &output = c.exist("output") ? test : cout;
+  ofstream fout(c.get<string>("output"), ios_base::out | ios_base::binary);
+  ostream &output = c.exist("output") ? fout : cout;
 
-  if (c.exist("output") && !test.good()) {
+  if (c.exist("output") && !output.good()) {
     cerr << c.usage() << endl << "unable to open \"" << c.get<string>("output") << "\" as output" << endl;
     return -1;
   }
 
-  if (c.rest().size() > 0)
-    input_file = c.rest()[0];
+  if (c.rest().size() > 1)
+    input_file = c.rest()[1];
 
   /* do we read from a file or stdin? */
   ifstream fin; fin.open(input_file);
@@ -100,26 +115,24 @@ int main(int argc, const char *argv[])
   /*
    * TRAINING
    */
+  trainer_template* global_trainer;
 
-  // create one vs one trainer
-  ovo_trainer trainer(8);
-
-  // randomize and cross-validate samples
-  randomize_samples(samples, labels);
-  if (c.get<int>("cross-validate") > 0) {
-    matrix<double> cv_result = trainer.crossValidation(samples, labels, c.get<int>("cross-validate"));
-    cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
+  if (classifier_str == "ONE_VS_ONE") {
+    ovo_trainer trainer(8);
+    global_trainer = &trainer;
+    ovo_trained_function_type df = trainer.train(samples, labels);
+    serialize(df, output);
   }
-
-  // train and get the decision function
-  ovo_trained_function_type df = trainer.train(samples, labels);
-
-  // stream decision function to output
-  serialize(df, output);
 
   if (!c.exist("output"))
     cout << endl; // mark the end of the classifier if piping
   else
-    test.close();
+    fout.close();
 
+  // randomize and cross-validate samples
+  randomize_samples(samples, labels);
+  if (c.get<int>("cross-validate") > 0) {
+    matrix<double> cv_result = global_trainer->crossValidation(samples, labels, c.get<int>("cross-validate"));
+    cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
+  }
 }
