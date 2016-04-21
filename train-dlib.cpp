@@ -1,13 +1,12 @@
-#include <dlib/svm_threaded.h>
-
 #include <iostream>
 #include <stdio.h>
+
 #include "cmdline.h"
+#include "dlib_trainers.h"
 
 using namespace std;
 using namespace dlib;
 
-typedef matrix<double, 0, 1> sample_type;  // init as 0,1 ; can be cast to arbitrary num_rows
 
 int main(int argc, const char *argv[])
 {
@@ -29,6 +28,8 @@ int main(int argc, const char *argv[])
 
   if (!parse_ok) {
     cerr << c.usage() << endl << c.error() << endl;
+    cerr << "Available Classifiers:" << endl;
+    printTrainers();
     return -1;
   }
 
@@ -101,25 +102,17 @@ int main(int argc, const char *argv[])
    */
 
   // create one vs one trainer
-  one_vs_one_trainer<any_trainer<sample_type>, string> ovo_trainer;
-
-  // create kernel ridge regression binary trainer
-  krr_trainer<radial_basis_kernel<sample_type>> krr_rbf_trainer;
-  krr_rbf_trainer.set_kernel(radial_basis_kernel<sample_type>(0.1));
-
-  // set up one vs one trainer to use krr trainer
-  ovo_trainer.set_trainer(krr_rbf_trainer);
-  ovo_trainer.set_num_threads(8);
+  ovo_trainer trainer(8);
 
   // randomize and cross-validate samples
   randomize_samples(samples, labels);
   if (c.get<int>("cross-validate") > 0) {
-    matrix<double> cv_result = cross_validate_multiclass_trainer(ovo_trainer, samples, labels, c.get<int>("cross-validate"));
+    matrix<double> cv_result = trainer.crossValidation(samples, labels, c.get<int>("cross-validate"));
     cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
   }
 
   // train and get the decision function
-  one_vs_one_decision_function<one_vs_one_trainer<any_trainer<sample_type>, string>, decision_function<radial_basis_kernel<sample_type>>> df = ovo_trainer.train(samples, labels);
+  ovo_trained_function_type df = trainer.train(samples, labels);
 
   // stream decision function to output
   serialize(df, output);

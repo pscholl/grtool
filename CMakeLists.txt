@@ -30,23 +30,26 @@ You may also want to delete CMakeFiles/ and CMakeCache.txt at this point to clea
 # CONFIGURATION
 #
 
+#preempt dlibs c++11 check
+SET( COMPILER_CAN_DO_CPP_11 1 )
+SET( CMAKE_CXX_STANDARD 14 )
+
 # dlib config
-include(dlib/cmake)
+INCLUDE( dlib/cmake )
 
 # Set compiler and linker flags
-SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fdiagnostics-color=always" )
-
+SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fdiagnostics-color=always" )
 
 
 #
 # EXECUTABLES
 #
 
-ADD_EXECUTABLE(train-dlib train-dlib.cpp)
-TARGET_LINK_LIBRARIES(train-dlib dlib)
+ADD_EXECUTABLE( train-dlib train-dlib.cpp )
+TARGET_LINK_LIBRARIES( train-dlib dlib )
 
-ADD_EXECUTABLE(predict-dlib predict-dlib.cpp)
-TARGET_LINK_LIBRARIES(predict-dlib dlib)
+ADD_EXECUTABLE( predict-dlib predict-dlib.cpp )
+TARGET_LINK_LIBRARIES( predict-dlib dlib )
 
 
 
