@@ -34,13 +34,13 @@ BETTER_ENUM(TrainerName, int,
   TEMPLATE,
   ONE_VS_ONE,
   ONE_VS_ALL,
-  SVM_LINEAR
+  SVM_MULTICLASS_LINEAR
 )
 
 multimap<TrainerType, TrainerName> type_map = {
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ONE},
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ALL},
-  {TrainerType::MULTICLASS, TrainerName::SVM_LINEAR}
+  {TrainerType::MULTICLASS, TrainerName::SVM_MULTICLASS_LINEAR}
 };
 
 void printTrainers() {
@@ -93,6 +93,10 @@ typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<rbf_ker
 typedef one_vs_all_trainer<any_trainer<sample_type>, label_type> ova_trainer_type;
 typedef one_vs_all_decision_function<ova_trainer_type> ova_trained_function_type;
 typedef one_vs_all_decision_function<ova_trainer_type, decision_function<rbf_kernel>> ova_trained_function_type_df;
+
+// svm multiclass linear trainer typedefs
+typedef svm_multiclass_linear_trainer<lin_kernel, label_type> svm_ml_trainer_type;
+typedef multiclass_linear_decision_function<lin_kernel, label_type> svm_ml_trained_function_type;
 
 
 
@@ -209,6 +213,41 @@ class ova_trainer : public trainer_template {
     krr_trainer<rbf_kernel> krr_rbf_trainer;
     krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
     m_trainer.cast_to<T>().set_trainer(krr_rbf_trainer);
+
+    m_trainer.cast_to<T>().set_num_threads(num_threads);
+    if (m_verbose)
+      m_trainer.cast_to<T>().be_verbose();
+  }
+
+  matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
+    if (m_trainer.is_empty()) {
+      cerr << "Trainer not set!" << endl;
+      exit(-1);
+    }
+    return cross_validate_multiclass_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
+  }
+
+ private:
+};
+
+
+
+/*
+ *  SVM MULTICLASS LINEAR
+ */
+
+//_______________________________________________________________________________________________________
+class svm_ml_trainer : public trainer_template {
+ public:
+  typedef svm_ml_trainer_type T;
+
+  svm_ml_trainer(bool verbose = false, int num_threads = 4) {
+    setTrainerType(TrainerType::MULTICLASS);
+    setTrainerName(TrainerName::SVM_MULTICLASS_LINEAR);
+    m_verbose = verbose;
+
+    m_trainer.clear();
+    m_trainer.get<T>();
 
     m_trainer.cast_to<T>().set_num_threads(num_threads);
     if (m_verbose)

@@ -125,6 +125,8 @@ int main(int argc, const char *argv[])
     trainer = new ovo_trainer(c.exist("verbose"), 8);
   else if (classifier_str == "ONE_VS_ALL")
     trainer = new ova_trainer(c.exist("verbose"), 8);
+  else if (classifier_str == "SVM_MULTICLASS_LINEAR")
+    trainer = new svm_ml_trainer(c.exist("verbose"), 8);
 
   else {
     cout << "wtf" << endl;
@@ -146,6 +148,10 @@ int main(int argc, const char *argv[])
   }
   else if (classifier_str == "ONE_VS_ALL") {
       ova_trained_function_type_df df = trainer->train(samples, labels).cast_to<ova_trained_function_type>();
+      serialize(df, output);
+  }
+  else if (classifier_str == "SVM_MULTICLASS_LINEAR") {
+      svm_ml_trained_function_type df = trainer->train(samples, labels).cast_to<svm_ml_trained_function_type>();
       serialize(df, output);
   }
 
