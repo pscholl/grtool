@@ -7,7 +7,7 @@
 using namespace std;
 using namespace dlib;
 
-trainer_template* trainer_from_args(string name, cmdline::parser& c);
+trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file);
 
 int main(int argc, const char *argv[])
 {
@@ -45,7 +45,7 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
-  trainer_template* trainer = trainer_from_args(classifier_str, c);
+  trainer_template* trainer = trainer_from_args(classifier_str, c, input_file);
 
   if (c.exist("help")) {
     cout << c.usage() << endl;
@@ -63,8 +63,8 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
-  if (c.rest().size() > 1)
-    input_file = c.rest()[1];
+  //if (c.rest().size() > 1)
+  //  input_file = c.rest()[1];
 
   /* do we read from a file or stdin? */
   ifstream fin; fin.open(input_file);
@@ -155,7 +155,7 @@ int main(int argc, const char *argv[])
 }
 
 
-trainer_template* trainer_from_args(string name, cmdline::parser& c)
+trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file)
 {
   trainer_template* trainer;
   cmdline::parser p;
@@ -197,6 +197,9 @@ trainer_template* trainer_from_args(string name, cmdline::parser& c)
     cout << "wtf" << endl;
     exit(-1);
   }
+
+  if (p.rest().size() > 0)
+    input_file = p.rest()[0];
 
   return trainer;
 }
