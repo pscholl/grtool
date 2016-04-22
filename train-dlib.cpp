@@ -111,10 +111,6 @@ int main(int argc, const char *argv[])
   }
 
 
-  //cout << "number of samples: " << samples.size() << endl;
-  //cout << "number of unique labels: " << u_labels.size() << endl;
-
-
   /*
    *  TRAINING
    */
@@ -140,6 +136,12 @@ int main(int argc, const char *argv[])
     randomize_samples(samples, labels);
     matrix<double> cv_result = trainer->crossValidation(samples, labels, c.get<int>("cross-validate"));
     cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
+
+    cout << "number of samples: " << samples.size() << endl;
+    cout << "number of unique labels: " << u_labels.size() << endl << endl;
+
+    cout << "accuracy: " << trace(cv_result) / sum(cv_result) << endl;
+    cout << "F1-score: " << (2 * trace(cv_result)) / (trace(cv_result) + sum(cv_result)) << endl;
   }
 
   else if (classifier_str == "ONE_VS_ONE") {

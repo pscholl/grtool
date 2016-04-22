@@ -73,17 +73,21 @@ typedef string label_type;
 typedef std::vector<sample_type> v_sample_type;
 typedef std::vector<label_type> v_label_type;
 
+
 // any typedefs
 typedef any_trainer<sample_type, label_type> a_tr;
 typedef any_decision_function<sample_type, label_type> a_df;
 
-/// kernel typedefs
+
+// kernel typedefs
 typedef histogram_intersection_kernel<sample_type> hist_kernel;
 typedef linear_kernel<sample_type> lin_kernel;
 typedef radial_basis_kernel<sample_type> rbf_kernel;
 typedef polynomial_kernel<sample_type> poly_kernel;
 typedef sigmoid_kernel<sample_type> sig_kernel;
 
+
+// individual trainer typedefs
 // one vs one trainer typedefs
 typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_type;
 typedef one_vs_one_decision_function<ovo_trainer_type> ovo_trained_function_type;
