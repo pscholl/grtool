@@ -19,6 +19,10 @@ using namespace std;
 using namespace dlib;
 
 
+/*
+ *  ENUMS
+ */
+
 BETTER_ENUM(TrainerType, int,
   TEMPLATE,
   BINARY,
@@ -58,6 +62,9 @@ bool classifierExists(string name) {
 }
 
 
+/*
+ *  TYPEDEFS
+ */
 
 // typedef for one sample, init as 0,1 ; can be cast to arbitrary num_rows
 typedef matrix<double, 0, 1> sample_type;
@@ -66,23 +73,40 @@ typedef string label_type;
 typedef std::vector<sample_type> v_sample_type;
 typedef std::vector<label_type> v_label_type;
 
+// any typedefs
+typedef any_trainer<sample_type, label_type> a_tr;
+typedef any_decision_function<sample_type, label_type> a_df;
+
+/// kernel typedefs
+typedef radial_basis_kernel<sample_type> rbf_kernel;
 
 // one vs one trainer typedefs
 typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_type;
-typedef radial_basis_kernel<sample_type> rbf_kernel;
-typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<rbf_kernel>> ovo_trained_function_type;
+typedef one_vs_one_decision_function<ovo_trainer_type> ovo_trained_function_type;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<rbf_kernel>> ovo_trained_function_type_df;
 
+// one vs all trainer typedefs
+typedef one_vs_all_trainer<any_trainer<sample_type>, label_type> ova_trainer_type;
+typedef one_vs_all_decision_function<ova_trainer_type> ova_trained_function_type;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<rbf_kernel>> ova_trained_function_type_df;
+
+
+
+/*
+ *  TRAINER TEMPLATE
+ */
 
 //_______________________________________________________________________________________________________
 class trainer_template {
  public:
-  trainer_template(){}
+  trainer_template() {}
 
   TrainerType getTrainerType() { return m_trainer_type; }
   TrainerName getTrainerName() { return m_trainer_name; }
 
   // These functions should be implemented!
   // (but can't be declared here because types change)
+  void setVerbosity(bool verbose) { m_verbose = verbose; }
 
   //virtual any_trainer<sample_type, string> getTrainer() = 0;
   //virtual any_decision_function<sample_type, label_type> train(const v_sample_type& all_samples, const v_label_type& all_labels) const = 0;
@@ -94,6 +118,8 @@ class trainer_template {
   void setTrainerType(TrainerType type) { m_trainer_type = type; }
   void setTrainerName(TrainerName name) { m_trainer_name = name; }
 
+  bool m_verbose = false;
+
  private:
   TrainerType m_trainer_type = TrainerType::TEMPLATE;
   TrainerName m_trainer_name = TrainerName::TEMPLATE;
@@ -102,12 +128,24 @@ class trainer_template {
 
 
 
+
+/*
+ *   ### TRAINER DECLARATIONS ###
+ */
+
+
+
+/*
+ *  ONE VS ONE
+ */
+
 //_______________________________________________________________________________________________________
 class ovo_trainer : public trainer_template {
  public:
-  ovo_trainer(int num_threads = 4, double kernel_gamma = 0.1) {
+  ovo_trainer(bool verbose, int num_threads = 4, double kernel_gamma = 0.1) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ONE);
+    m_verbose = verbose;
 
     ovo_trainer_type tmp;
 

@@ -11,13 +11,14 @@ using namespace dlib;
 int main(int argc, const char *argv[])
 {
   /*
-   * ARGUMENT PARSING
+   *  ARGUMENT PARSING
    */
 
   string input_file = "-";
   cmdline::parser c;
 
   c.add        ("help",    'h', "print this message");
+  c.add        ("verbose",    'v', "be verbose");
   c.add<int>   ("cross-validate", 'c', "perform k-fold cross validation", false, 0);
   c.add<string>("output",  'o', "store trained classifier in file", false);
   c.add<string>("trainset",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training. If not a number it is interpreted as a filename containing training samples.", false, "1");
@@ -35,6 +36,7 @@ int main(int argc, const char *argv[])
     return -1;
   }
   if (c.rest().size() == 0) {
+    cout << c.usage() << endl;
     cout << "Available Classifiers:" << endl;
     printTrainers();
     return -1;
@@ -43,6 +45,7 @@ int main(int argc, const char *argv[])
   string classifier_str = c.rest()[0];
 
   if (!classifierExists(classifier_str)) {
+    cout << c.usage() << endl;
     cout << "Available Classifiers:" << endl;
     printTrainers();
     return -1;
@@ -71,11 +74,11 @@ int main(int argc, const char *argv[])
 
 
   /*
-   * READ TRAINING SAMPLES
+   *  READ TRAINING SAMPLES
    */
 
-  std::vector<sample_type> samples;
-  std::vector<string> labels;
+  v_sample_type samples;
+  v_label_type labels;
   std::set<string> u_labels;
 
   string line, label;
@@ -113,7 +116,7 @@ int main(int argc, const char *argv[])
 
 
   /*
-   * TRAINING
+   *  TRAINING
    */
   trainer_template* global_trainer;
 
