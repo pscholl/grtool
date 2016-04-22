@@ -7,6 +7,7 @@
 using namespace std;
 using namespace dlib;
 
+trainer_template* trainer_from_args(string name, cmdline::parser& c);
 
 int main(int argc, const char *argv[])
 {
@@ -21,18 +22,11 @@ int main(int argc, const char *argv[])
   c.add        ("verbose",    'v', "be verbose");
   c.add<int>   ("cross-validate", 'c', "perform k-fold cross validation", false, 0);
   c.add<string>("output",  'o', "store trained classifier in file", false);
-  c.add<string>("trainset",'n', "limit the training dataset to the first n samples, if n is less than or equal 1 it is interpreted the percentage of a stratified random split that is retained for training. If not a number it is interpreted as a filename containing training samples.", false, "1");
   c.footer     ("<classifier> [input-data]...");
 
   /* parse common arguments */
   if (!c.parse(argc, argv, false)) {
     cerr << c.error() << endl;
-    return -1;
-  }
-  if (c.exist("help")) {
-    cout << c.usage() << endl;
-    cout << "Available Classifiers:" << endl;
-    printTrainers();
     return -1;
   }
   if (c.rest().size() == 0) {
@@ -49,6 +43,15 @@ int main(int argc, const char *argv[])
     cout << "Available Classifiers:" << endl;
     printTrainers();
     return -1;
+  }
+
+  trainer_template* trainer = trainer_from_args(classifier_str, c);
+
+  if (c.exist("help")) {
+    cout << c.usage() << endl;
+    cout << "Available Classifiers:" << endl;
+    printTrainers();
+    return 0;
   }
 
   /* check if we can open the output file */
@@ -114,20 +117,7 @@ int main(int argc, const char *argv[])
   /*
    *  TRAINING
    */
-  trainer_template* trainer;
 
-  // create trainer
-  if (classifier_str == "ONE_VS_ONE")
-    trainer = new ovo_trainer(c.exist("verbose"), 8);
-  else if (classifier_str == "ONE_VS_ALL")
-    trainer = new ova_trainer(c.exist("verbose"), 8);
-  else if (classifier_str == "SVM_MULTICLASS_LINEAR")
-    trainer = new svm_ml_trainer(c.exist("verbose"), 8);
-
-  else {
-    cout << "wtf" << endl;
-    exit(-1);
-  }
 
 
   // cross-validate, or train and serialize
@@ -145,11 +135,11 @@ int main(int argc, const char *argv[])
   }
 
   else if (classifier_str == "ONE_VS_ONE") {
-      ovo_trained_function_type_df df = trainer->train(samples, labels).cast_to<ovo_trained_function_type>();
+      ovo_trained_function_type_rbf_df df = trainer->train(samples, labels).cast_to<ovo_trained_function_type>();
       serialize(df, output);
   }
   else if (classifier_str == "ONE_VS_ALL") {
-      ova_trained_function_type_df df = trainer->train(samples, labels).cast_to<ova_trained_function_type>();
+      ova_trained_function_type_rbf_df df = trainer->train(samples, labels).cast_to<ova_trained_function_type>();
       serialize(df, output);
   }
   else if (classifier_str == "SVM_MULTICLASS_LINEAR") {
@@ -162,4 +152,51 @@ int main(int argc, const char *argv[])
     cout << endl; // mark the end of the classifier if piping
   else
     fout.close();
+}
+
+
+trainer_template* trainer_from_args(string name, cmdline::parser& c)
+{
+  trainer_template* trainer;
+  cmdline::parser p;
+
+  // add specific options
+  if (name == "ONE_VS_ONE") {
+    p.add<int>("threads", 'T', "number of threads/cores to use", false, 8);
+    p.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
+  }
+  else if (name == "ONE_VS_ALL") {
+    p.add<int>("threads", 'T', "number of threads/cores to use", false, 8);
+    p.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
+  }
+  else if (name == "SVM_MULTICLASS_LINEAR") {
+    p.add<int>("threads", 'T', "number of threads/cores to use", false, 8);
+  }
+
+  if (c.exist("help")) {
+    cout << c.usage() << endl;
+    cout << "specific " << name << " options:" << endl << p.str_options();
+    exit(0);
+  }
+  if (!p.parse(c.rest())) {
+    cout << c.usage() << endl;
+    cout << "specific " << name << " options:" << endl << p.str_options();
+    cout << p.error() << endl;
+    exit(-1);
+  }
+
+  // create trainer
+  if (name == "ONE_VS_ONE")
+    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
+  else if (name == "ONE_VS_ALL")
+    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
+  else if (name == "SVM_MULTICLASS_LINEAR")
+    trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"));
+
+  else {
+    cout << "wtf" << endl;
+    exit(-1);
+  }
+
+  return trainer;
 }

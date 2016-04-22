@@ -91,12 +91,12 @@ typedef sigmoid_kernel<sample_type> sig_kernel;
 // one vs one trainer typedefs
 typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_type;
 typedef one_vs_one_decision_function<ovo_trainer_type> ovo_trained_function_type;
-typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<rbf_kernel>> ovo_trained_function_type_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<rbf_kernel>> ovo_trained_function_type_rbf_df;
 
 // one vs all trainer typedefs
 typedef one_vs_all_trainer<any_trainer<sample_type>, label_type> ova_trainer_type;
 typedef one_vs_all_decision_function<ova_trainer_type> ova_trained_function_type;
-typedef one_vs_all_decision_function<ova_trainer_type, decision_function<rbf_kernel>> ova_trained_function_type_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<rbf_kernel>> ova_trained_function_type_rbf_df;
 
 // svm multiclass linear trainer typedefs
 typedef svm_multiclass_linear_trainer<lin_kernel, label_type> svm_ml_trainer_type;
