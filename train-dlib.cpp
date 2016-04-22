@@ -118,24 +118,35 @@ int main(int argc, const char *argv[])
   /*
    *  TRAINING
    */
-  trainer_template* global_trainer;
+  trainer_template* trainer;
 
-  if (classifier_str == "ONE_VS_ONE") {
-    ovo_trainer trainer(8);
-    global_trainer = &trainer;
-    ovo_trained_function_type df = trainer.train(samples, labels);
-    serialize(df, output);
+  // create trainer
+  if (classifier_str == "ONE_VS_ONE")
+    trainer = new ovo_trainer(c.exist("verbose"), 8);
+  else if (classifier_str == "ONE_VS_ALL")
+    trainer = new ova_trainer(c.exist("verbose"), 8);
+
+
+  // train and serialize or cross-validate
+  if (c.get<int>("cross-validate") > 0) {
+    // randomize and cross-validate samples
+    randomize_samples(samples, labels);
+    matrix<double> cv_result = trainer->crossValidation(samples, labels, c.get<int>("cross-validate"));
+    cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
   }
+
+  else if (classifier_str == "ONE_VS_ONE") {
+      ovo_trained_function_type_df df = trainer->train(samples, labels).cast_to<ovo_trained_function_type>();
+      serialize(df, output);
+  }
+  else if (classifier_str == "ONE_VS_ALL") {
+      ova_trained_function_type_df df = trainer->train(samples, labels).cast_to<ova_trained_function_type>();
+      serialize(df, output);
+  }
+
 
   if (!c.exist("output"))
     cout << endl; // mark the end of the classifier if piping
   else
     fout.close();
-
-  // randomize and cross-validate samples
-  randomize_samples(samples, labels);
-  if (c.get<int>("cross-validate") > 0) {
-    matrix<double> cv_result = global_trainer->crossValidation(samples, labels, c.get<int>("cross-validate"));
-    cout << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
-  }
 }

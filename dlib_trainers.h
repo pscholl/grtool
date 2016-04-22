@@ -104,20 +104,31 @@ class trainer_template {
   TrainerType getTrainerType() { return m_trainer_type; }
   TrainerName getTrainerName() { return m_trainer_name; }
 
-  // These functions should be implemented!
-  // (but can't be declared here because types change)
   void setVerbosity(bool verbose) { m_verbose = verbose; }
 
-  //virtual any_trainer<sample_type, string> getTrainer() = 0;
-  //virtual any_decision_function<sample_type, label_type> train(const v_sample_type& all_samples, const v_label_type& all_labels) const = 0;
+  a_tr getTrainer() {
+    if (m_trainer.is_empty()) {
+      cerr << "Trainer not set!" << endl;
+      exit(-1);
+    }
+    return m_trainer;
+  }
 
+  a_df train(const v_sample_type& all_samples, const v_label_type& all_labels) const {
+    if (m_trainer.is_empty()) {
+      cerr << "Trainer not set!" << endl;
+      exit(-1);
+    }
+    return m_trainer.train(all_samples, all_labels);
+  }
 
-  virtual matrix<double> crossValidation(std::vector<sample_type> samples, std::vector<label_type> labels, size_t k = 5) = 0;
+  virtual matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds) = 0;
 
  protected:
   void setTrainerType(TrainerType type) { m_trainer_type = type; }
   void setTrainerName(TrainerName name) { m_trainer_name = name; }
 
+  a_tr m_trainer;
   bool m_verbose = false;
 
  private:
@@ -147,32 +158,69 @@ class ovo_trainer : public trainer_template {
     setTrainerName(TrainerName::ONE_VS_ONE);
     m_verbose = verbose;
 
-    ovo_trainer_type tmp;
+    m_trainer.clear();
+    m_trainer.get<ovo_trainer_type>();
 
     krr_trainer<rbf_kernel> krr_rbf_trainer;
     krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
 
-    tmp.set_trainer(krr_rbf_trainer);
-    tmp.set_num_threads(num_threads);
+    m_trainer.cast_to<ovo_trainer_type>().set_trainer(krr_rbf_trainer);
+    m_trainer.cast_to<ovo_trainer_type>().set_num_threads(num_threads);
 
-    m_trainer = tmp;
+    if (m_verbose)
+      m_trainer.cast_to<ovo_trainer_type>().be_verbose();
   }
 
-  ovo_trainer_type getTrainer() { return m_trainer; }
-
-  ovo_trained_function_type train (const v_sample_type& all_samples, const v_label_type& all_labels) const {
-    return m_trainer.train(all_samples, all_labels);
-  }
-
-  virtual matrix<double> crossValidation(v_sample_type samples, v_label_type labels, size_t k = 5) {
-    return cross_validate_multiclass_trainer(m_trainer, samples, labels, k);
+  matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
+    if (m_trainer.is_empty()) {
+      cerr << "Trainer not set!" << endl;
+      exit(-1);
+    }
+    return cross_validate_multiclass_trainer(m_trainer.cast_to<ovo_trainer_type>(), samples, labels, folds);
   }
 
  private:
-
-  ovo_trainer_type m_trainer;
-
 };
+
+
+
+/*
+ *  ONE VS ALL
+ */
+
+//_______________________________________________________________________________________________________
+class ova_trainer : public trainer_template {
+ public:
+  ova_trainer(bool verbose, int num_threads = 4, double kernel_gamma = 0.1) {
+    setTrainerType(TrainerType::MULTICLASS);
+    setTrainerName(TrainerName::ONE_VS_ALL);
+    m_verbose = verbose;
+
+    m_trainer.clear();
+    m_trainer.get<ova_trainer_type>();
+
+    krr_trainer<rbf_kernel> krr_rbf_trainer;
+    krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
+
+    m_trainer.cast_to<ova_trainer_type>().set_trainer(krr_rbf_trainer);
+    m_trainer.cast_to<ova_trainer_type>().set_num_threads(num_threads);
+
+    if (m_verbose)
+      m_trainer.cast_to<ova_trainer_type>().be_verbose();
+  }
+
+  matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
+    if (m_trainer.is_empty()) {
+      cerr << "Trainer not set!" << endl;
+      exit(-1);
+    }
+    return cross_validate_multiclass_trainer(m_trainer.cast_to<ova_trainer_type>(), samples, labels, folds);
+  }
+
+ private:
+};
+
+
 
 
 #endif // _DLIB_TRAINERS_H_
