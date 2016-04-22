@@ -78,7 +78,11 @@ typedef any_trainer<sample_type, label_type> a_tr;
 typedef any_decision_function<sample_type, label_type> a_df;
 
 /// kernel typedefs
+typedef histogram_intersection_kernel<sample_type> hist_kernel;
+typedef linear_kernel<sample_type> lin_kernel;
 typedef radial_basis_kernel<sample_type> rbf_kernel;
+typedef polynomial_kernel<sample_type> poly_kernel;
+typedef sigmoid_kernel<sample_type> sig_kernel;
 
 // one vs one trainer typedefs
 typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_type;
@@ -153,22 +157,23 @@ class trainer_template {
 //_______________________________________________________________________________________________________
 class ovo_trainer : public trainer_template {
  public:
-  ovo_trainer(bool verbose, int num_threads = 4, double kernel_gamma = 0.1) {
+  typedef ovo_trainer_type T;
+
+  ovo_trainer(bool verbose = false, int num_threads = 4, double kernel_gamma = 0.1) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ONE);
     m_verbose = verbose;
 
     m_trainer.clear();
-    m_trainer.get<ovo_trainer_type>();
+    m_trainer.get<T>();
 
     krr_trainer<rbf_kernel> krr_rbf_trainer;
     krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
+    m_trainer.cast_to<T>().set_trainer(krr_rbf_trainer);
 
-    m_trainer.cast_to<ovo_trainer_type>().set_trainer(krr_rbf_trainer);
-    m_trainer.cast_to<ovo_trainer_type>().set_num_threads(num_threads);
-
+    m_trainer.cast_to<T>().set_num_threads(num_threads);
     if (m_verbose)
-      m_trainer.cast_to<ovo_trainer_type>().be_verbose();
+      m_trainer.cast_to<T>().be_verbose();
   }
 
   matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
@@ -176,7 +181,7 @@ class ovo_trainer : public trainer_template {
       cerr << "Trainer not set!" << endl;
       exit(-1);
     }
-    return cross_validate_multiclass_trainer(m_trainer.cast_to<ovo_trainer_type>(), samples, labels, folds);
+    return cross_validate_multiclass_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
   }
 
  private:
@@ -191,22 +196,23 @@ class ovo_trainer : public trainer_template {
 //_______________________________________________________________________________________________________
 class ova_trainer : public trainer_template {
  public:
-  ova_trainer(bool verbose, int num_threads = 4, double kernel_gamma = 0.1) {
+  typedef ova_trainer_type T;
+
+  ova_trainer(bool verbose = false, int num_threads = 4, double kernel_gamma = 0.1) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ALL);
     m_verbose = verbose;
 
     m_trainer.clear();
-    m_trainer.get<ova_trainer_type>();
+    m_trainer.get<T>();
 
     krr_trainer<rbf_kernel> krr_rbf_trainer;
     krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
+    m_trainer.cast_to<T>().set_trainer(krr_rbf_trainer);
 
-    m_trainer.cast_to<ova_trainer_type>().set_trainer(krr_rbf_trainer);
-    m_trainer.cast_to<ova_trainer_type>().set_num_threads(num_threads);
-
+    m_trainer.cast_to<T>().set_num_threads(num_threads);
     if (m_verbose)
-      m_trainer.cast_to<ova_trainer_type>().be_verbose();
+      m_trainer.cast_to<T>().be_verbose();
   }
 
   matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
@@ -214,7 +220,7 @@ class ova_trainer : public trainer_template {
       cerr << "Trainer not set!" << endl;
       exit(-1);
     }
-    return cross_validate_multiclass_trainer(m_trainer.cast_to<ova_trainer_type>(), samples, labels, folds);
+    return cross_validate_multiclass_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
   }
 
  private:

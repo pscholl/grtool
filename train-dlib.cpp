@@ -126,8 +126,13 @@ int main(int argc, const char *argv[])
   else if (classifier_str == "ONE_VS_ALL")
     trainer = new ova_trainer(c.exist("verbose"), 8);
 
+  else {
+    cout << "wtf" << endl;
+    exit(-1);
+  }
 
-  // train and serialize or cross-validate
+
+  // cross-validate, or train and serialize
   if (c.get<int>("cross-validate") > 0) {
     // randomize and cross-validate samples
     randomize_samples(samples, labels);
