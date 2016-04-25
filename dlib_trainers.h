@@ -37,7 +37,7 @@ BETTER_ENUM(TrainerName, int,
   SVM_MULTICLASS_LINEAR
 )
 
-multimap<TrainerType, TrainerName> type_map = {
+multimap<TrainerType, TrainerName> type_name_map = {
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ONE},
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ALL},
   {TrainerType::MULTICLASS, TrainerName::SVM_MULTICLASS_LINEAR}
@@ -45,20 +45,23 @@ multimap<TrainerType, TrainerName> type_map = {
 
 void printTrainers() {
   for (TrainerType t_type : TrainerType::_values()) {
-    if (type_map.count(t_type))
+    if (type_name_map.count(t_type))
       cout << t_type << endl;
-    for (auto const & kv : type_map)
+    for (auto const & kv : type_name_map)
       if (kv.first == t_type)
         cout << "\t" << kv.second << endl;
   }
 }
 
 bool classifierExists(string name) {
-  bool exists = false;
   for (const char * tname : TrainerName::_names())
     if (name.compare(tname) == 0)
-      exists = true;
-  return exists;
+      return true;
+  return false;
+}
+
+bool operator==(const std::string& name_str, const TrainerName& name) {
+  return TrainerName::_from_string(name_str.c_str()) == name;
 }
 
 
@@ -149,6 +152,11 @@ class trainer_template {
 
 };
 
+
+//template<typename T> trainer_template * createInstance() { return new T; }
+//typedef std::map<std::string, trainer_template*(*)()> map_type;
+//map_type type_map;
+//type_map["ONE_VS_ONE"] = &createInstance<ovo_trainer>;
 
 
 

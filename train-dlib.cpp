@@ -134,15 +134,15 @@ int main(int argc, const char *argv[])
     cout << "F1-score: " << (2 * trace(cv_result)) / (trace(cv_result) + sum(cv_result)) << endl;
   }
 
-  else if (classifier_str == "ONE_VS_ONE") {
+  else if (classifier_str == TrainerName::ONE_VS_ONE) {
       ovo_trained_function_type_rbf_df df = trainer->train(samples, labels).cast_to<ovo_trained_function_type>();
       serialize(df, output);
   }
-  else if (classifier_str == "ONE_VS_ALL") {
+  else if (classifier_str == TrainerName::ONE_VS_ALL) {
       ova_trained_function_type_rbf_df df = trainer->train(samples, labels).cast_to<ova_trained_function_type>();
       serialize(df, output);
   }
-  else if (classifier_str == "SVM_MULTICLASS_LINEAR") {
+  else if (classifier_str == TrainerName::SVM_MULTICLASS_LINEAR) {
       svm_ml_trained_function_type df = trainer->train(samples, labels).cast_to<svm_ml_trained_function_type>();
       serialize(df, output);
   }
@@ -161,16 +161,16 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   cmdline::parser p;
 
   // add specific options
-  if (name == "ONE_VS_ONE") {
-    p.add<int>("threads", 'T', "number of threads/cores to use", false, 8);
+  if (name == TrainerName::ONE_VS_ONE) {
+    p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
     p.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
   }
-  else if (name == "ONE_VS_ALL") {
-    p.add<int>("threads", 'T', "number of threads/cores to use", false, 8);
+  else if (name == TrainerName::ONE_VS_ALL) {
+    p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
     p.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
   }
-  else if (name == "SVM_MULTICLASS_LINEAR") {
-    p.add<int>("threads", 'T', "number of threads/cores to use", false, 8);
+  else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
+    p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
   }
 
   if (c.exist("help")) {
@@ -186,11 +186,11 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   }
 
   // create trainer
-  if (name == "ONE_VS_ONE")
+  if (name == TrainerName::ONE_VS_ONE)
     trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
-  else if (name == "ONE_VS_ALL")
+  else if (name == TrainerName::ONE_VS_ALL)
     trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
-  else if (name == "SVM_MULTICLASS_LINEAR")
+  else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"));
 
   else {
