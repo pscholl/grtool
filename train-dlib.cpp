@@ -171,6 +171,10 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   }
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
+    p.add("nonneg", 'N', "learn only nonnegative weights");
+    p.add<double>("epsilon", 'E', "set error epsilon", false, 0.001);
+    p.add<int>("iterations", 'I', "set maximum number of SVM optimizer iterations", false, 10000);
+    p.add<int>("regularization", 'C', "SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
   }
 
   if (c.exist("help")) {
@@ -191,7 +195,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   else if (name == TrainerName::ONE_VS_ALL)
     trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
-    trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"));
+    trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
 
   else {
     cout << "wtf" << endl;

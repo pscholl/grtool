@@ -253,13 +253,18 @@ class svm_ml_trainer : public trainer_template {
  public:
   typedef svm_ml_trainer_type T;
 
-  svm_ml_trainer(bool verbose = false, int num_threads = 4) {
+  svm_ml_trainer(bool verbose = false, int num_threads = 4, bool nonneg = false, double epsilon = 0.001, int iterations = 10000, int regularization = 1) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::SVM_MULTICLASS_LINEAR);
     m_verbose = verbose;
 
     m_trainer.clear();
     m_trainer.get<T>();
+
+    m_trainer.cast_to<T>().set_learns_nonnegative_weights(nonneg);
+    m_trainer.cast_to<T>().set_epsilon(epsilon);
+    m_trainer.cast_to<T>().set_max_iterations(iterations);
+    m_trainer.cast_to<T>().set_c(regularization);
 
     m_trainer.cast_to<T>().set_num_threads(num_threads);
     if (m_verbose)
