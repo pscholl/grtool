@@ -1,14 +1,13 @@
-#include <dlib/svm_threaded.h>
-
 #include <iostream>
 #include <stdio.h>
+
 #include "cmdline.h"
+#include "dlib_trainers.h"
 
 using namespace std;
 using namespace dlib;
 
-
-typedef matrix<double, 0, 1> sample_type;  // init as 0,1 ; can be cast to arbitrary num_rows
+a_df df_from_model(string name, istream &model);
 
 int main(int argc, char *argv[])
 {
@@ -19,26 +18,46 @@ int main(int argc, char *argv[])
   cmdline::parser c;
 
   c.add        ("help",    'h', "print this message");
-  c.footer     ("[classifier-model-file] [testsample-file]...");
+  c.footer     ("<classifier> [classifier-model-file] [testsample-file]...");
 
   /* parse common arguments */
-  bool parse_ok = c.parse(argc, argv, false) && !c.exist("help");
-
-  if (!parse_ok) {
-    cerr << c.usage() << endl << c.error() << endl;
+  if (!c.parse(argc, argv, false)) {
+    cerr << c.error() << endl;
+    return -1;
+  }
+  if (c.rest().size() == 0) {
+    cout << c.usage() << endl;
+    cout << "Available Classifiers:" << endl;
+    printTrainers();
     return -1;
   }
 
-  string model_file = c.rest().size() > 0 ? c.rest()[0] : "";
-  string tests_file = c.rest().size() > 1 ? c.rest()[1] : "";
+  string classifier_str = c.rest()[0];
+
+  if (!classifierExists(classifier_str)) {
+    cout << c.usage() << endl;
+    cout << "Available Classifiers:" << endl;
+    printTrainers();
+    return -1;
+  }
+
+  if (c.exist("help")) {
+    cout << c.usage() << endl;
+    cout << "Available Classifiers:" << endl;
+    printTrainers();
+    return 0;
+  }
+
+  string model_file = c.rest().size() > 1 ? c.rest()[1] : "";
+  string tests_file = c.rest().size() > 2 ? c.rest()[2] : "";
 
   /* load a classification model */
   ifstream fin_model; fin_model.open(model_file);
-  istream &model = c.rest().size() > 0 ? fin_model : cin;
+  istream &model = c.rest().size() > 1 ? fin_model : cin;
 
   /* load test samples */
   ifstream fin_tests; fin_tests.open(tests_file);
-  istream &tests = c.rest().size() > 1 ? fin_tests : cin;
+  istream &tests = c.rest().size() > 2 ? fin_tests : cin;
 
   if (!model.good()) {
     cerr << "unable to open model input file: " << model_file << endl;
@@ -50,16 +69,12 @@ int main(int argc, char *argv[])
     return -1;
   }
 
+  a_df df = df_from_model(classifier_str, model);
 
 
   /*
-   * READ PREDICTION SAMPLES AND MODEL
+   * READ PREDICTION SAMPLES
    */
-
-  /* read model */
-  one_vs_one_decision_function<one_vs_one_trainer<any_trainer<sample_type>, string>, decision_function<radial_basis_kernel<sample_type>>> df;
-  deserialize(df, model);
-
 
   /* read samples */
   std::vector<sample_type> samples;
@@ -109,4 +124,25 @@ int main(int argc, char *argv[])
 
   cout << endl;
   return 0;
+}
+
+
+
+a_df df_from_model(string name, istream &model) {
+  a_df df;
+
+  if (name == TrainerName::ONE_VS_ONE) {
+    df.get<ovo_trained_function_type_rbf_df>();
+    deserialize(df.cast_to<ovo_trained_function_type_rbf_df>(), model);
+  }
+  else if (name == TrainerName::ONE_VS_ALL) {
+    df.get<ova_trained_function_type_rbf_df>();
+    deserialize(df.cast_to<ova_trained_function_type_rbf_df>(), model);
+  }
+  else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
+    df.get<svm_ml_trained_function_type>();
+    deserialize(df.cast_to<svm_ml_trained_function_type>(), model);
+  }
+
+  return df;
 }

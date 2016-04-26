@@ -95,6 +95,7 @@ typedef sigmoid_kernel<sample_type> sig_kernel;
 
 
 // individual trainer typedefs
+
 // one vs one trainer typedefs
 typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_type;
 typedef one_vs_one_decision_function<ovo_trainer_type> ovo_trained_function_type;
