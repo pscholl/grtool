@@ -53,16 +53,20 @@ void printTrainers() {
   }
 }
 
+bool operator==(const std::string& name_str, const TrainerName& name) {
+  if (!TrainerName::_is_valid_nocase(name_str.c_str()))
+    return false;
+  return TrainerName::_from_string_nocase(name_str.c_str()) == name;
+}
+
 bool classifierExists(string name) {
-  for (const char * tname : TrainerName::_names())
-    if (name.compare(tname) == 0)
+  for (TrainerName tname : TrainerName::_values())
+    if (name == tname)
       return true;
   return false;
 }
 
-bool operator==(const std::string& name_str, const TrainerName& name) {
-  return TrainerName::_from_string(name_str.c_str()) == name;
-}
+
 
 
 /*
