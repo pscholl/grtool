@@ -23,6 +23,7 @@ int main(int argc, const char *argv[])
   c.add        ("verbose",    'v', "be verbose");
   c.add<int>   ("cross-validate", 'c', "perform k-fold cross validation", false, 0);
   c.add<string>("output",  'o', "store trained classifier in file", false);
+  c.add<string>("trainset",'n', "split the trainig set, either no, random, or k-fold split, defaults to no split.", false, "-1");
   c.footer     ("<classifier> [input-data]...");
 
   /* parse common arguments */
@@ -73,6 +74,45 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
+  /* get all possible modes for training set selection */
+  char *endptr = NULL;
+  const char *file   = c.get<string>("trainset").c_str();
+  double ratio = strtod(file, &endptr);
+  bool isfile  = (endptr-file) - strlen(file) != 0;
+  int32_t /* parse x.yy into integral and fractional part */
+      integral = strtoul(file, &endptr, 10),
+      fraction = *endptr=='.' ? strtoul(endptr+1, NULL, 10) : -1;
+
+  // special case for a ratio of 100%
+  if (ratio == 1) ratio = -1;
+
+  // do some sanity checks on the arguments
+  if (!isfile && ratio >= 0) {
+    // k-fold specification
+    if ( fraction < 0 ) {
+      cerr << "no fold number given, specify with k.x or use a ratio (0,1] for random split" << endl;
+      return -1;
+    }
+
+    if ( integral >= 1  && fraction >= integral ) {
+        cerr << "fold number (" << fraction << ") must be less than number"
+                " of folds (" << integral << ")" << endl;
+        return -1;
+    }
+
+    if (ratio >= 1 && fraction < 0) {
+      cerr << "either -n must be less than one to select a random split "
+        "or given as k.x where k is the number of folds, and x the fold to "
+        "select " << endl;
+      return -1;
+    }
+  }
+
+  /* per default we read from the main inputstream */
+  ifstream tif; istream &tin = isfile ? tif : in;
+  if (isfile) tif.open(file);
+
+
 
   /*
    *  READ TRAINING SAMPLES
@@ -85,8 +125,8 @@ int main(int argc, const char *argv[])
 
   string line, label;
 
-  while (getline(in, line)) {
   int ix = 0;
+  while (getline(tin, line)) {
     stringstream ss(line);
 
     if (line.find_first_not_of(" \t") == string::npos) {
@@ -114,6 +154,28 @@ int main(int argc, const char *argv[])
     u_labels.insert(label);
     ++ix;
   }
+
+  assert(train_samples.size() == train_labels.size());
+
+  /* select the trainset according to given cli option */
+  v_sample_type test_samples;
+  v_label_type test_labels;
+  std::vector<int> test_indices;
+
+  if (isfile || ratio <= 0) {
+    // ignore, no split
+  } else if (ratio < 1) {
+    // random split TODO: stratified
+    randomize_samples(train_samples, train_labels, train_indices);
+    split_array(train_samples, test_samples, ratio);
+    split_array(train_labels, test_labels, ratio);
+    split_array(train_indices, test_indices, ratio);
+  } else if (ratio >= 1) {
+    // TODO: k-fold split
+  }
+
+  assert(test_samples.size() == test_labels.size());
+
 
 
   /*
@@ -152,6 +214,16 @@ int main(int argc, const char *argv[])
     cout << endl; // mark the end of the classifier if piping
   else
     fout.close();
+
+  if (test_samples.size() > 0) {
+    for (size_t i = 0; i < test_samples.size(); ++i) {
+      cout << test_labels[i];
+      for (int j = 0; j < test_samples[i].size(); ++j)
+        cout << "\t" << test_samples[i](j);
+      cout << endl;
+    }
+    cout << endl;
+  }
 }
 
 
