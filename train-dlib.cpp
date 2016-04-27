@@ -9,6 +9,7 @@ using namespace dlib;
 
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file);
 
+//_______________________________________________________________________________________________________
 int main(int argc, const char *argv[])
 {
   /*
@@ -63,9 +64,6 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
-  //if (c.rest().size() > 1)
-  //  input_file = c.rest()[1];
-
   /* do we read from a file or stdin? */
   ifstream fin; fin.open(input_file);
   istream &in = input_file=="-" ? cin : fin;
@@ -80,17 +78,19 @@ int main(int argc, const char *argv[])
    *  READ TRAINING SAMPLES
    */
 
-  v_sample_type samples;
-  v_label_type labels;
+  v_sample_type train_samples;
+  v_label_type train_labels;
+  std::vector<int> train_indices;
   std::set<string> u_labels;
 
   string line, label;
 
   while (getline(in, line)) {
+  int ix = 0;
     stringstream ss(line);
 
     if (line.find_first_not_of(" \t") == string::npos) {
-      if (samples.size() != 0)
+      if (train_samples.size() != 0)
         break;
       else
         continue;
@@ -108,9 +108,11 @@ int main(int argc, const char *argv[])
     if (sample.size() == 0)
       continue;
 
-    samples.push_back(mat(sample));
-    labels.push_back(label);
+    train_samples.push_back(mat(sample));
+    train_labels.push_back(label);
+    train_indices.push_back(ix);
     u_labels.insert(label);
+    ++ix;
   }
 
 
@@ -118,16 +120,14 @@ int main(int argc, const char *argv[])
    *  TRAINING
    */
 
-
-
   // cross-validate, or train and serialize
   if (c.get<int>("cross-validate") > 0) {
     // randomize and cross-validate samples
-    randomize_samples(samples, labels);
-    matrix<double> cv_result = trainer->crossValidation(samples, labels, c.get<int>("cross-validate"));
+    randomize_samples(train_samples, train_labels);
+    matrix<double> cv_result = trainer->crossValidation(train_samples, train_labels, c.get<int>("cross-validate"));
     cout << classifier_str << " " << c.get<int>("cross-validate") << "-fold cross-validation:" << endl << cv_result << endl;
 
-    cout << "number of samples: " << samples.size() << endl;
+    cout << "number of samples: " << train_samples.size() << endl;
     cout << "number of unique labels: " << u_labels.size() << endl << endl;
 
     cout << "accuracy: " << trace(cv_result) / sum(cv_result) << endl;
@@ -135,15 +135,15 @@ int main(int argc, const char *argv[])
   }
 
   else if (classifier_str == TrainerName::ONE_VS_ONE) {
-      ovo_trained_function_type_rbf_df df = trainer->train(samples, labels).cast_to<ovo_trained_function_type>();
+      ovo_trained_function_type_rbf_df df = trainer->train(train_samples, train_labels).cast_to<ovo_trained_function_type>();
       serialize(df, output);
   }
   else if (classifier_str == TrainerName::ONE_VS_ALL) {
-      ova_trained_function_type_rbf_df df = trainer->train(samples, labels).cast_to<ova_trained_function_type>();
+      ova_trained_function_type_rbf_df df = trainer->train(train_samples, train_labels).cast_to<ova_trained_function_type>();
       serialize(df, output);
   }
   else if (classifier_str == TrainerName::SVM_MULTICLASS_LINEAR) {
-      svm_ml_trained_function_type df = trainer->train(samples, labels).cast_to<svm_ml_trained_function_type>();
+      svm_ml_trained_function_type df = trainer->train(train_samples, train_labels).cast_to<svm_ml_trained_function_type>();
       serialize(df, output);
   }
 
@@ -155,6 +155,8 @@ int main(int argc, const char *argv[])
 }
 
 
+
+//_______________________________________________________________________________________________________
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file)
 {
   trainer_template* trainer;

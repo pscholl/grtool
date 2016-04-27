@@ -7,7 +7,7 @@
 using namespace std;
 using namespace dlib;
 
-a_df df_from_model(string name, istream &model);
+a_df df_from_stream(string name, istream &model);
 
 int main(int argc, char *argv[])
 {
@@ -69,7 +69,8 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  a_df df = df_from_model(classifier_str, model);
+  a_df df = df_from_stream(classifier_str, model);
+
 
 
   /*
@@ -112,8 +113,6 @@ int main(int argc, char *argv[])
 
 
 
-
-
   /*
    * PREDICTION
    */
@@ -128,7 +127,7 @@ int main(int argc, char *argv[])
 
 
 
-a_df df_from_model(string name, istream &model) {
+a_df df_from_stream(string name, istream &model) {
   a_df df;
 
   if (name == TrainerName::ONE_VS_ONE) {
