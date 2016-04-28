@@ -178,11 +178,41 @@ int main(int argc, const char *argv[])
   if (isfile || ratio <= 0) {
     // ignore, no split
   } else if (ratio < 1) {
-    // random split TODO: stratified
-    randomize_samples(train_samples, train_labels, train_indices);
-    split_array(train_samples, test_samples, ratio);
-    split_array(train_labels, test_labels, ratio);
-    split_array(train_indices, test_indices, ratio);
+    // random stratified split:
+    // 1. for each class, create a vector containing their respective indices (strata)
+    // 2. randomize each stratum and split them according to the provided ratio
+    // 3. according to the created index strata, move the selected samples to the test vectors
+
+    // create strata vector with sample indices
+    std::vector<std::vector<int>> train_strata(u_labels.size());
+    std::vector<std::vector<int>> test_strata(u_labels.size());
+    std::vector<label_type> label_list(u_labels.begin(), u_labels.end());
+    for (size_t i = 0; i < train_labels.size(); ++i)
+      train_strata[distance(label_list.begin(), find(label_list.begin(), label_list.end(), train_labels[i]))].push_back(i);
+
+    // randomize index strata
+    for (auto &v : train_strata)
+      randomize_samples(v);
+
+    // split index strata
+    for (size_t i = 0; i < train_strata.size(); ++i)
+      split_array(train_strata[i], test_strata[i], ratio);
+
+    // create an ordered set of the selected indices
+    std::set<int> ordered_idx;
+    for (size_t i = 0; i < test_strata.size(); ++i)
+      for (auto idx : test_strata[i])
+        ordered_idx.insert(idx);
+
+    // in reverse order, push samples to test sets and delete them from training sets
+    for (auto rit = ordered_idx.rbegin(); rit != ordered_idx.rend(); ++rit) {
+      test_samples.push_back(train_samples[*rit]);
+      test_labels.push_back(train_labels[*rit]);
+      test_indices.push_back(train_indices[*rit]);
+      train_samples.erase(train_samples.begin() + *rit);
+      train_labels.erase(train_labels.begin() + *rit);
+      train_indices.erase(train_indices.begin() + *rit);
+    }
   } else if (ratio >= 1) {
     // TODO: k-fold split
   }
