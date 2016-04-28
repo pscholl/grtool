@@ -3,7 +3,9 @@ git:
 sudo: required
 dist: trusty
 language: cpp
-script: make DESTDIR=$(pwd)/test test
+script: 
+  - make DESTDIR=$(pwd)/test test
+  - mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make && cd ..
 python: 
   - "3.5"
 before_script:
@@ -11,7 +13,7 @@ before_script:
   - sudo apt-get update
   - sudo apt-get -y -q install ffmpeg
   - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
-  - git clone https://github.com/pscholl/grt grt_master
+  - git clone https://github.com/sboettcher/grt grt_master
   - cd grt_master/build
   - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
 install:
