@@ -101,13 +101,13 @@ int main(int argc, const char *argv[])
       return -1;
     }
 
-    if ( integral >= 1  && fraction >= integral ) {
-        cerr << "fold number (" << fraction << ") must be less than number"
+    if ( integral >= 1  && fraction > integral ) {
+        cerr << "fold number (" << fraction << ") must be less than or equal the number"
                 " of folds (" << integral << ")" << endl;
         return -1;
     }
 
-    if (ratio >= 1 && fraction < 0) {
+    if (ratio >= 1 && fraction < 1) {
       cerr << "either -n must be less than one to select a random split "
         "or given as k.x where k is the number of folds, and x the fold to "
         "select " << endl;
@@ -168,7 +168,7 @@ int main(int argc, const char *argv[])
     ++ix;
   }
 
-  assert(train_samples.size() == train_labels.size());
+  assert((train_samples.size() == train_labels.size()) && (train_samples.size() == train_indices.size()));
 
   /* select the trainset according to given cli option */
   v_sample_type test_samples;
@@ -214,10 +214,30 @@ int main(int argc, const char *argv[])
       train_indices.erase(train_indices.begin() + *rit);
     }
   } else if (ratio >= 1) {
-    // TODO: k-fold split
+    // k-fold split
+
+    // create folds vector with indices for each fold
+    // the last fold may have more samples
+    int samplesPerFold = train_samples.size() / integral;
+    std::vector<std::vector<int>> folds(integral);
+    for (int i = 0; i < integral - 1; ++i)
+      for (int j = 0; j < samplesPerFold; ++j)
+        folds[i].push_back(i * samplesPerFold + j);
+    for (size_t i = samplesPerFold * (integral - 1); i < train_samples.size(); ++i)
+      folds[integral - 1].push_back(i);
+
+    // move the selected folds samples to the test sets
+    for (auto rit = folds[fraction-1].rbegin(); rit != folds[fraction-1].rend(); ++rit) {
+      test_samples.push_back(train_samples[*rit]);
+      test_labels.push_back(train_labels[*rit]);
+      test_indices.push_back(train_indices[*rit]);
+      train_samples.erase(train_samples.begin() + *rit);
+      train_labels.erase(train_labels.begin() + *rit);
+      train_indices.erase(train_indices.begin() + *rit);
+    }
   }
 
-  assert(test_samples.size() == test_labels.size());
+  assert((test_samples.size() == test_labels.size()) && (test_samples.size() == test_indices.size()));
 
 
 
