@@ -151,6 +151,8 @@ class trainer_template {
 
   void setVerbosity(bool verbose) { m_verbose = verbose; }
 
+  string getKernel() { return m_kernel; }
+
   a_tr getTrainer() {
     if (m_trainer.is_empty()) {
       cerr << "Trainer not set!" << endl;
@@ -175,6 +177,7 @@ class trainer_template {
 
   a_tr m_trainer;
   bool m_verbose = false;
+  string m_kernel = "n/a";
 
  private:
   TrainerType m_trainer_type = TrainerType::TEMPLATE;
@@ -210,10 +213,11 @@ class ovo_trainer : public trainer_template {
  public:
   typedef ovo_trainer_type T;
 
-  ovo_trainer(bool verbose = false, int num_threads = 4, any_trainer<sample_type> bin_tr = NULL) {
+  ovo_trainer(bool verbose = false, int num_threads = 4, string kernel = "", any_trainer<sample_type> bin_tr = NULL) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ONE);
     m_verbose = verbose;
+    m_kernel = kernel;
 
     m_trainer.clear();
     m_trainer.get<T>();
@@ -232,8 +236,6 @@ class ovo_trainer : public trainer_template {
     }
     return cross_validate_multiclass_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
   }
-
- private:
 };
 
 
@@ -253,10 +255,11 @@ class ova_trainer : public trainer_template {
  public:
   typedef ova_trainer_type T;
 
-  ova_trainer(bool verbose = false, int num_threads = 4, any_trainer<sample_type> bin_tr = NULL) {
+  ova_trainer(bool verbose = false, int num_threads = 4, string kernel = "", any_trainer<sample_type> bin_tr = NULL) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ALL);
     m_verbose = verbose;
+    m_kernel = kernel;
 
     m_trainer.clear();
     m_trainer.get<T>();
@@ -275,8 +278,6 @@ class ova_trainer : public trainer_template {
     }
     return cross_validate_multiclass_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
   }
-
- private:
 };
 
 
@@ -321,8 +322,6 @@ class svm_ml_trainer : public trainer_template {
     }
     return cross_validate_multiclass_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
   }
-
- private:
 };
 
 

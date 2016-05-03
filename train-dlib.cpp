@@ -246,6 +246,8 @@ int main(int argc, const char *argv[])
        ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######
   */
 
+  output << classifier_str << endl << trainer->getKernel() << endl;
+
   // cross-validate, or train and serialize
   if (c.get<int>("cross-validate") > 0) {
     // randomize and cross-validate samples
@@ -259,18 +261,36 @@ int main(int argc, const char *argv[])
     cout << "accuracy: " << trace(cv_result) / sum(cv_result) << endl;
     cout << "F1-score: " << (2 * trace(cv_result)) / (trace(cv_result) + sum(cv_result)) << endl;
   }
-
+  // training the classifiers and serializing them to the output
   else if (classifier_str == TrainerName::ONE_VS_ONE) {
-      ovo_trained_function_type_rbf_df df = trainer->train(train_samples, train_labels).cast_to<ovo_trained_function_type>();
-      serialize(df, output);
+    ovo_trained_function_type df = trainer->train(train_samples, train_labels).cast_to<ovo_trained_function_type>();
+    if (trainer->getKernel() == "hist")
+      serialize(ovo_trained_function_type_hist_df(df), output);
+    else if (trainer->getKernel() == "lin")
+      serialize(ovo_trained_function_type_lin_df(df), output);
+    else if (trainer->getKernel() == "rbf")
+      serialize(ovo_trained_function_type_rbf_df(df), output);
+    else if (trainer->getKernel() == "poly")
+      serialize(ovo_trained_function_type_poly_df(df), output);
+    else if (trainer->getKernel() == "sig")
+      serialize(ovo_trained_function_type_sig_df(df), output);
   }
   else if (classifier_str == TrainerName::ONE_VS_ALL) {
-      ova_trained_function_type_rbf_df df = trainer->train(train_samples, train_labels).cast_to<ova_trained_function_type>();
-      serialize(df, output);
+    ova_trained_function_type df = trainer->train(train_samples, train_labels).cast_to<ova_trained_function_type>();
+    if (trainer->getKernel() == "hist")
+      serialize(ova_trained_function_type_hist_df(df), output);
+    else if (trainer->getKernel() == "lin")
+      serialize(ova_trained_function_type_lin_df(df), output);
+    else if (trainer->getKernel() == "rbf")
+      serialize(ova_trained_function_type_rbf_df(df), output);
+    else if (trainer->getKernel() == "poly")
+      serialize(ova_trained_function_type_poly_df(df), output);
+    else if (trainer->getKernel() == "sig")
+      serialize(ova_trained_function_type_sig_df(df), output);
   }
   else if (classifier_str == TrainerName::SVM_MULTICLASS_LINEAR) {
-      svm_ml_trained_function_type df = trainer->train(train_samples, train_labels).cast_to<svm_ml_trained_function_type>();
-      serialize(df, output);
+    svm_ml_trained_function_type df = trainer->train(train_samples, train_labels).cast_to<svm_ml_trained_function_type>();
+    serialize(df, output);
   }
 
 
@@ -335,9 +355,9 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 
   // create trainer
   if (name == TrainerName::ONE_VS_ONE)
-    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), process_kernel_args(p.get<string>("kernel"), k));
+    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_kernel_args(p.get<string>("kernel"), k));
   else if (name == TrainerName::ONE_VS_ALL)
-    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), process_kernel_args(p.get<string>("kernel"), k));
+    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_kernel_args(p.get<string>("kernel"), k));
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
 
