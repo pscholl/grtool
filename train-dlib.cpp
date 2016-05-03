@@ -8,6 +8,7 @@ using namespace std;
 using namespace dlib;
 
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file);
+void kernel_args(string name, cmdline::parser &p, cmdline::parser &k);
 
 //_______________________________________________________________________________________________________
 int main(int argc, const char *argv[])
@@ -35,7 +36,7 @@ int main(int argc, const char *argv[])
 
   /* parse common arguments */
   if (!c.parse(argc, argv, false)) {
-    cerr << c.error() << endl;
+    cerr << "general args error: " << c.error() << endl;
     return -1;
   }
   if (c.rest().size() == 0) {
@@ -55,13 +56,6 @@ int main(int argc, const char *argv[])
   }
 
   trainer_template* trainer = trainer_from_args(classifier_str, c, input_file);
-
-  if (c.exist("help")) {
-    cout << c.usage() << endl;
-    cout << "Available Classifiers:" << endl;
-    printTrainers();
-    return 0;
-  }
 
   /* check if we can open the output file */
   ofstream fout(c.get<string>("output"), ios_base::out | ios_base::binary);
@@ -304,15 +298,16 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 {
   trainer_template* trainer;
   cmdline::parser p;
+  cmdline::parser k;
 
   // add specific options
   if (name == TrainerName::ONE_VS_ONE) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
-    p.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
+    p.add<string>("kernel", 'K', "type of kernel to use in krr trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
   }
   else if (name == TrainerName::ONE_VS_ALL) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
-    p.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
+    p.add<string>("kernel", 'K', "type of kernel to use in krr trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
   }
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
@@ -322,23 +317,26 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     p.add<int>("regularization", 'C', "SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
   }
 
+  if (!p.parse(c.rest())) {
+    cout << "classifier args error: " << p.error() << endl;
+    exit(-1);
+  }
+
+  kernel_args(name, p, k);
+
   if (c.exist("help")) {
     cout << c.usage() << endl;
-    cout << "specific " << name << " options:" << endl << p.str_options();
+    cout << "specific " << name << " options:" << endl << p.str_options() << endl;
+    if (p.has("kernel"))
+      cout << "specific " << p.get<string>("kernel") << " kernel options:" << endl << k.str_options() << endl;
     exit(0);
-  }
-  if (!p.parse(c.rest())) {
-    cout << c.usage() << endl;
-    cout << "specific " << name << " options:" << endl << p.str_options();
-    cout << p.error() << endl;
-    exit(-1);
   }
 
   // create trainer
   if (name == TrainerName::ONE_VS_ONE)
-    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
+    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"));
   else if (name == TrainerName::ONE_VS_ALL)
-    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<double>("gamma"));
+    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"));
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
 
@@ -351,4 +349,48 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     input_file = p.rest()[0];
 
   return trainer;
+}
+
+//_______________________________________________________________________________________________________
+void kernel_args(string name, cmdline::parser &p, cmdline::parser &k)
+{
+  if (!p.has("kernel"))
+    return;
+
+  if (p.get<string>("kernel") == "list") {
+    cout << "available Kernels:" << endl;
+    cout << " - Histogram Intersection (hist)" << endl;
+    cout << " - Linear (lin)" << endl;
+    cout << " - Radial Basis Function (rbf)" << endl;
+    cout << " - Polynomial (poly)" << endl;
+    cout << " - Sigmoid (sig)" << endl;
+    cout << "for more information see: http://dlib.net/dlib/svm/kernel_abstract.h.html" << endl;
+    exit(0);
+  }
+  else if (p.get<string>("kernel") == "hist") {
+    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
+  }
+  else if (p.get<string>("kernel") == "lin") {
+    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
+  }
+  else if (p.get<string>("kernel") == "rbf") {
+    k.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
+    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
+  }
+  else if (p.get<string>("kernel") == "poly") {
+    k.add<double>("gamma", 'G', "polynomial kernel gamma", false, 1);
+    k.add<double>("coef", 'C', "polynomial kernel coefficient", false, 0);
+    k.add<double>("degree", 'D', "polynomial kernel degree", false, 1);
+    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
+  }
+  else if (p.get<string>("kernel") == "sig") {
+    k.add<double>("gamma", 'G', "sigmoid kernel gamma", false, 0.1);
+    k.add<double>("coef", 'C', "sigmoid kernel coefficient", false, -1);
+    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
+  }
+
+  if (p.rest().size() > 0 && !k.parse(p.rest())) {
+    cout << "kernel args error: " << k.error() << endl;
+    exit(-1);
+  }
 }

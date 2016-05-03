@@ -102,6 +102,8 @@ typedef radial_basis_kernel<sample_type> rbf_kernel;
 typedef polynomial_kernel<sample_type> poly_kernel;
 typedef sigmoid_kernel<sample_type> sig_kernel;
 
+#define KERNEL_TYPE "list", "hist", "lin", "rbf", "poly", "sig"
+
 
 // individual trainer typedefs
 
