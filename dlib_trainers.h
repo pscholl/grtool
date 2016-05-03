@@ -110,12 +110,20 @@ typedef sigmoid_kernel<sample_type> sig_kernel;
 // one vs one trainer typedefs
 typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_type;
 typedef one_vs_one_decision_function<ovo_trainer_type> ovo_trained_function_type;
-typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<rbf_kernel>> ovo_trained_function_type_rbf_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<hist_kernel>>> ovo_trained_function_type_hist_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<lin_kernel>>> ovo_trained_function_type_lin_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<rbf_kernel>>> ovo_trained_function_type_rbf_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<poly_kernel>>> ovo_trained_function_type_poly_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<sig_kernel>>> ovo_trained_function_type_sig_df;
 
 // one vs all trainer typedefs
 typedef one_vs_all_trainer<any_trainer<sample_type>, label_type> ova_trainer_type;
 typedef one_vs_all_decision_function<ova_trainer_type> ova_trained_function_type;
-typedef one_vs_all_decision_function<ova_trainer_type, decision_function<rbf_kernel>> ova_trained_function_type_rbf_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<hist_kernel>>> ova_trained_function_type_hist_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<lin_kernel>>> ova_trained_function_type_lin_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<rbf_kernel>>> ova_trained_function_type_rbf_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<poly_kernel>>> ova_trained_function_type_poly_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<sig_kernel>>> ova_trained_function_type_sig_df;
 
 // svm multiclass linear trainer typedefs
 typedef svm_multiclass_linear_trainer<lin_kernel, label_type> svm_ml_trainer_type;
@@ -202,7 +210,7 @@ class ovo_trainer : public trainer_template {
  public:
   typedef ovo_trainer_type T;
 
-  ovo_trainer(bool verbose = false, int num_threads = 4, double kernel_gamma = 0.1) {
+  ovo_trainer(bool verbose = false, int num_threads = 4, any_trainer<sample_type> bin_tr = NULL) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ONE);
     m_verbose = verbose;
@@ -210,9 +218,7 @@ class ovo_trainer : public trainer_template {
     m_trainer.clear();
     m_trainer.get<T>();
 
-    krr_trainer<rbf_kernel> krr_rbf_trainer;
-    krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
-    m_trainer.cast_to<T>().set_trainer(krr_rbf_trainer);
+    m_trainer.cast_to<T>().set_trainer(bin_tr);
 
     m_trainer.cast_to<T>().set_num_threads(num_threads);
     if (m_verbose)
@@ -247,7 +253,7 @@ class ova_trainer : public trainer_template {
  public:
   typedef ova_trainer_type T;
 
-  ova_trainer(bool verbose = false, int num_threads = 4, double kernel_gamma = 0.1) {
+  ova_trainer(bool verbose = false, int num_threads = 4, any_trainer<sample_type> bin_tr = NULL) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ALL);
     m_verbose = verbose;
@@ -255,9 +261,7 @@ class ova_trainer : public trainer_template {
     m_trainer.clear();
     m_trainer.get<T>();
 
-    krr_trainer<rbf_kernel> krr_rbf_trainer;
-    krr_rbf_trainer.set_kernel(rbf_kernel(kernel_gamma));
-    m_trainer.cast_to<T>().set_trainer(krr_rbf_trainer);
+    m_trainer.cast_to<T>().set_trainer(bin_tr);
 
     m_trainer.cast_to<T>().set_num_threads(num_threads);
     if (m_verbose)

@@ -8,7 +8,8 @@ using namespace std;
 using namespace dlib;
 
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file);
-void kernel_args(string name, cmdline::parser &p, cmdline::parser &k);
+void parse_kernel_args(string name, cmdline::parser &p, cmdline::parser &k);
+any_trainer<sample_type> process_kernel_args(string kernel, cmdline::parser &k);
 
 //_______________________________________________________________________________________________________
 int main(int argc, const char *argv[])
@@ -322,7 +323,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     exit(-1);
   }
 
-  kernel_args(name, p, k);
+  parse_kernel_args(name, p, k);
 
   if (c.exist("help")) {
     cout << c.usage() << endl;
@@ -334,9 +335,9 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 
   // create trainer
   if (name == TrainerName::ONE_VS_ONE)
-    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"));
+    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), process_kernel_args(p.get<string>("kernel"), k));
   else if (name == TrainerName::ONE_VS_ALL)
-    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"));
+    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), process_kernel_args(p.get<string>("kernel"), k));
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
 
@@ -352,7 +353,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 }
 
 //_______________________________________________________________________________________________________
-void kernel_args(string name, cmdline::parser &p, cmdline::parser &k)
+void parse_kernel_args(string name, cmdline::parser &p, cmdline::parser &k)
 {
   if (!p.has("kernel"))
     return;
@@ -368,29 +369,58 @@ void kernel_args(string name, cmdline::parser &p, cmdline::parser &k)
     exit(0);
   }
   else if (p.get<string>("kernel") == "hist") {
-    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
   }
   else if (p.get<string>("kernel") == "lin") {
-    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
   }
   else if (p.get<string>("kernel") == "rbf") {
     k.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
-    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
   }
   else if (p.get<string>("kernel") == "poly") {
     k.add<double>("gamma", 'G', "polynomial kernel gamma", false, 1);
     k.add<double>("coef", 'C', "polynomial kernel coefficient", false, 0);
     k.add<double>("degree", 'D', "polynomial kernel degree", false, 1);
-    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
   }
   else if (p.get<string>("kernel") == "sig") {
     k.add<double>("gamma", 'G', "sigmoid kernel gamma", false, 0.1);
     k.add<double>("coef", 'C', "sigmoid kernel coefficient", false, -1);
-    k.add<double>("offset", 'O', "if > 0, adds an offset kernel to this kernel", false, 0);
   }
+
+  k.add<double>("offset", 'O', "if > 0, adds a fixed value offset to this kernel", false, 0);
 
   if (p.rest().size() > 0 && !k.parse(p.rest())) {
     cout << "kernel args error: " << k.error() << endl;
     exit(-1);
   }
+}
+
+any_trainer<sample_type> process_kernel_args(string kernel, cmdline::parser &k) {
+  any_trainer<sample_type> trainer;
+
+  if (kernel == "hist") {
+    krr_trainer<offset_kernel<hist_kernel>> tmp;
+    tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), k.get<double>("offset")));
+    trainer = tmp;
+  }
+  else if (kernel == "lin") {
+    krr_trainer<offset_kernel<lin_kernel>> tmp;
+    tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), k.get<double>("offset")));
+    trainer = tmp;
+  }
+  else if (kernel == "rbf") {
+    krr_trainer<offset_kernel<rbf_kernel>> tmp;
+    tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(k.get<double>("gamma")), k.get<double>("offset")));
+    trainer = tmp;
+  }
+  else if (kernel == "poly") {
+    krr_trainer<offset_kernel<poly_kernel>> tmp;
+    tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(k.get<double>("gamma"), k.get<double>("coef"), k.get<double>("degree")), k.get<double>("offset")));
+    trainer = tmp;
+  }
+  else if (kernel == "sig") {
+    krr_trainer<offset_kernel<sig_kernel>> tmp;
+    tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(k.get<double>("gamma"), k.get<double>("coef")), k.get<double>("offset")));
+    trainer = tmp;
+  }
+
+  return trainer;
 }
