@@ -7,7 +7,7 @@
 using namespace std;
 using namespace dlib;
 
-a_df df_from_stream(string name, istream &model);
+a_df df_from_stream(istream &model);
 
 //_______________________________________________________________________________________________________
 int main(int argc, char *argv[])
@@ -31,21 +31,6 @@ int main(int argc, char *argv[])
   /* parse common arguments */
   if (!c.parse(argc, argv, false)) {
     cerr << c.error() << endl;
-    return -1;
-  }
-  if (c.rest().size() == 0) {
-    cout << c.usage() << endl;
-    cout << "Available Classifiers:" << endl;
-    printTrainers();
-    return -1;
-  }
-
-  string classifier_str = c.rest()[0];
-
-  if (!classifierExists(classifier_str)) {
-    cout << c.usage() << endl;
-    cout << "Available Classifiers:" << endl;
-    printTrainers();
     return -1;
   }
 
@@ -77,7 +62,7 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  a_df df = df_from_stream(classifier_str, model);
+  a_df df = df_from_stream(model);
 
 
 
@@ -144,18 +129,60 @@ int main(int argc, char *argv[])
 
 
 //_______________________________________________________________________________________________________
-a_df df_from_stream(string name, istream &model) {
+a_df df_from_stream(istream &model) {
   a_df df;
 
-  if (name == TrainerName::ONE_VS_ONE) {
-    df.get<ovo_trained_function_type_rbf_df>();
-    deserialize(df.cast_to<ovo_trained_function_type_rbf_df>(), model);
+  char t[32], k[32];
+  model.getline(t, 32);
+  model.getline(k, 32);
+
+  string trainer(t), kernel(k);
+
+  if (trainer == TrainerName::ONE_VS_ONE) {
+    if (kernel == "hist") {
+      df.get<ovo_trained_function_type_hist_df>();
+      deserialize(df.cast_to<ovo_trained_function_type_hist_df>(), model);
+    }
+    else if (kernel == "lin") {
+      df.get<ovo_trained_function_type_lin_df>();
+      deserialize(df.cast_to<ovo_trained_function_type_lin_df>(), model);
+    }
+    else if (kernel == "rbf") {
+      df.get<ovo_trained_function_type_rbf_df>();
+      deserialize(df.cast_to<ovo_trained_function_type_rbf_df>(), model);
+    }
+    else if (kernel == "poly") {
+      df.get<ovo_trained_function_type_poly_df>();
+      deserialize(df.cast_to<ovo_trained_function_type_poly_df>(), model);
+    }
+    else if (kernel == "sig") {
+      df.get<ovo_trained_function_type_sig_df>();
+      deserialize(df.cast_to<ovo_trained_function_type_sig_df>(), model);
+    }
   }
-  else if (name == TrainerName::ONE_VS_ALL) {
-    df.get<ova_trained_function_type_rbf_df>();
-    deserialize(df.cast_to<ova_trained_function_type_rbf_df>(), model);
+  else if (trainer == TrainerName::ONE_VS_ALL) {
+    if (kernel == "hist") {
+      df.get<ova_trained_function_type_hist_df>();
+      deserialize(df.cast_to<ova_trained_function_type_hist_df>(), model);
+    }
+    else if (kernel == "lin") {
+      df.get<ova_trained_function_type_lin_df>();
+      deserialize(df.cast_to<ova_trained_function_type_lin_df>(), model);
+    }
+    else if (kernel == "rbf") {
+      df.get<ova_trained_function_type_rbf_df>();
+      deserialize(df.cast_to<ova_trained_function_type_rbf_df>(), model);
+    }
+    else if (kernel == "poly") {
+      df.get<ova_trained_function_type_poly_df>();
+      deserialize(df.cast_to<ova_trained_function_type_poly_df>(), model);
+    }
+    else if (kernel == "sig") {
+      df.get<ova_trained_function_type_sig_df>();
+      deserialize(df.cast_to<ova_trained_function_type_sig_df>(), model);
+    }
   }
-  else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
+  else if (trainer == TrainerName::SVM_MULTICLASS_LINEAR) {
     df.get<svm_ml_trained_function_type>();
     deserialize(df.cast_to<svm_ml_trained_function_type>(), model);
   }
