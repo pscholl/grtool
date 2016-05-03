@@ -128,7 +128,7 @@ int main(int argc, const char *argv[])
   v_sample_type train_samples;
   v_label_type train_labels;
   std::vector<int> train_indices;
-  std::set<string> u_labels;
+  v_label_type u_labels;
 
   string line, label;
 
@@ -158,9 +158,9 @@ int main(int argc, const char *argv[])
     train_samples.push_back(mat(sample));
     train_labels.push_back(label);
     train_indices.push_back(ix);
-    u_labels.insert(label);
     ++ix;
   }
+  u_labels = select_all_distinct_labels(train_labels);
 
   assert((train_samples.size() == train_labels.size()) && (train_samples.size() == train_indices.size()));
 
@@ -317,7 +317,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     p.add<int>("regularization", 'C', "SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
   }
 
-  if (!p.parse(c.rest())) {
+  if (!p.parse(c.rest(), false)) {
     cout << "classifier args error: " << p.error() << endl;
     exit(-1);
   }
@@ -345,8 +345,8 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     exit(-1);
   }
 
-  if (p.rest().size() > 0)
-    input_file = p.rest()[0];
+  if (k.rest().size() > 0)
+    input_file = k.rest()[0];
 
   return trainer;
 }

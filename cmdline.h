@@ -438,14 +438,14 @@ public:
     return parse(args);
   }
 
-  bool parse(const std::vector<std::string> &args){
+  bool parse(const std::vector<std::string> &args, bool fail_on_unknown=true){
     int argc=static_cast<int>(args.size());
     std::vector<const char*> argv(argc);
 
     for (int i=0; i<argc; i++)
       argv[i]=args[i].c_str();
 
-    return parse(argc, &argv[0]);
+    return parse(argc, &argv[0], fail_on_unknown);
   }
 
   bool parse(int argc, const char * const argv[], bool fail_on_unknown=true){
