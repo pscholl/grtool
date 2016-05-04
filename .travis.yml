@@ -16,7 +16,7 @@ before_script:
 #  - git clone https://github.com/sboettcher/grt grt_master
 #  - cd grt_master/build
 #  - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
-  - git submodule update --init --remote
+  - git submodule update --init --remote dlib
 install:
   - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
 addons:
