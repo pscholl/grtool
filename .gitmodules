@@ -1,3 +1,6 @@
 [submodule "wiki"]
 	path = wiki
 	url = ssh://git@github.com/pscholl/grtool.wiki
+[submodule "dlib"]
+	path = dlib
+	url = git@github.com:davisking/dlib.git
