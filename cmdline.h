@@ -197,6 +197,15 @@ private:
 };
 
 template <class T>
+oneof_reader<T> oneof_vector(std::vector<T> v)
+{
+  oneof_reader<T> ret;
+  for (auto i : v)
+    ret.add(i);
+  return ret;
+}
+
+template <class T>
 oneof_reader<T> oneof(T a1)
 {
   oneof_reader<T> ret;

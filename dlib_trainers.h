@@ -82,6 +82,13 @@ bool classifierIsType(string name, TrainerType type) {
   return false;
 }
 
+std::vector<string> classifierGetType(TrainerType type) {
+  std::vector<string> ret;
+  for (auto it = type_name_map.equal_range(type).first; it != type_name_map.equal_range(type).second; ++it)
+    ret.push_back(it->second._to_string());
+  return ret;
+}
+
 
 /*
     ######## ##    ## ########  ######## ########  ######## ########  ######

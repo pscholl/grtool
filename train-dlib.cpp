@@ -321,14 +321,22 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   cmdline::parser p;
   cmdline::parser k;
 
+  std::vector<string> binary(classifierGetType(TrainerType::BINARY));
+  std::vector<string> regression(classifierGetType(TrainerType::REGRESSION));
+  std::vector<string> bin_reg;
+  bin_reg.insert(end(bin_reg), begin(binary), end(binary));
+  bin_reg.insert(end(bin_reg), begin(regression), end(regression));
+
   // add specific options
   if (name == TrainerName::ONE_VS_ONE) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
-    p.add<string>("kernel", 'K', "type of kernel to use in krr trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
+    p.add<string>("trainer", 0, "type of trainer to use for one vs one classification", false, "krr", cmdline::oneof_vector<string>(bin_reg));
+    p.add<string>("kernel", 0, "type of kernel to use in selected trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
   }
   else if (name == TrainerName::ONE_VS_ALL) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
-    p.add<string>("kernel", 'K', "type of kernel to use in krr trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
+    p.add<string>("trainer", 0, "type of trainer to use for one vs one classification", false, "krr", cmdline::oneof_vector<string>(bin_reg));
+    p.add<string>("kernel", 0, "type of kernel to use in krr trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
   }
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
@@ -362,7 +370,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
 
   else {
-    cout << "wtf" << endl;
+    cout << "trainer not implemented yet :(" << endl;
     exit(-1);
   }
 
