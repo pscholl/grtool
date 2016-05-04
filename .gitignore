@@ -1,5 +1,6 @@
 bin/
 build/
+doc/*.1
 
 ### Vim ###
 *.swp

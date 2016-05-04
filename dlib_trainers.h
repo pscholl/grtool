@@ -72,6 +72,13 @@ bool classifierExists(string name) {
   return false;
 }
 
+bool classifierIsType(string name, TrainerType type) {
+  if (classifierExists(name))
+    for (auto it = type_name_map.equal_range(type).first; it != type_name_map.equal_range(type).second; ++it)
+      if (name == it->second)
+        return true;
+  return false;
+}
 
 
 /*
