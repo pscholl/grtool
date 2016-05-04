@@ -38,17 +38,44 @@ BETTER_ENUM(TrainerType, int,
 
 BETTER_ENUM(TrainerName, int,
   TEMPLATE,
+  // multiclass
   ONE_VS_ONE,
   ONE_VS_ALL,
   SVM_MULTICLASS_LINEAR,
-  KRR
+  // binary
+  RVM,
+  SVM_C,
+  SVM_C_LINEAR,
+  SVM_C_EKM,
+  SVM_NU,
+  SVM_PEGASOS,
+  // regression
+  KRLS,
+  KRR,
+  MLP,
+  RBF_NETWORK,
+  RVM_REG,
+  SVR,
+  SVR_LINEAR
 )
 
 multimap<TrainerType, TrainerName> type_name_map = {
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ONE},
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ALL},
   {TrainerType::MULTICLASS, TrainerName::SVM_MULTICLASS_LINEAR},
-  {TrainerType::REGRESSION, TrainerName::KRR}
+  {TrainerType::BINARY, TrainerName::RVM},
+  {TrainerType::BINARY, TrainerName::SVM_C},
+  {TrainerType::BINARY, TrainerName::SVM_C_LINEAR},
+  {TrainerType::BINARY, TrainerName::SVM_C_EKM},
+  {TrainerType::BINARY, TrainerName::SVM_NU},
+  {TrainerType::BINARY, TrainerName::SVM_PEGASOS},
+  {TrainerType::REGRESSION, TrainerName::KRLS},
+  {TrainerType::REGRESSION, TrainerName::KRR},
+  {TrainerType::REGRESSION, TrainerName::MLP},
+  {TrainerType::REGRESSION, TrainerName::RBF_NETWORK},
+  {TrainerType::REGRESSION, TrainerName::RVM_REG},
+  {TrainerType::REGRESSION, TrainerName::SVR},
+  {TrainerType::REGRESSION, TrainerName::SVR_LINEAR}
 };
 
 void printTrainers() {

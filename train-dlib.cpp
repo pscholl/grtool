@@ -323,7 +323,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 
   std::vector<string> binary(classifierGetType(TrainerType::BINARY));
   std::vector<string> regression(classifierGetType(TrainerType::REGRESSION));
-  std::vector<string> bin_reg;
+  std::vector<string> bin_reg(1, "list");
   bin_reg.insert(end(bin_reg), begin(binary), end(binary));
   bin_reg.insert(end(bin_reg), begin(regression), end(regression));
 
@@ -335,8 +335,8 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   }
   else if (name == TrainerName::ONE_VS_ALL) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
-    p.add<string>("trainer", 0, "type of trainer to use for one vs one classification", false, "krr", cmdline::oneof_vector<string>(bin_reg));
-    p.add<string>("kernel", 0, "type of kernel to use in krr trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
+    p.add<string>("trainer", 0, "type of trainer to use for one vs all classification", false, "krr", cmdline::oneof_vector<string>(bin_reg));
+    p.add<string>("kernel", 0, "type of kernel to use in selected trainer", false, "rbf", cmdline::oneof<string>(KERNEL_TYPE));
   }
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR) {
     p.add<int>("threads", 'T', "number of threads/cores to use", false, 4);
@@ -390,8 +390,27 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
   if (!p.has("kernel") && !p.has("trainer"))
     return;
 
+  // add trainer specific args
+  if (p.get<string>("trainer") == "list") {
+    cout << "available trainers:" << endl;
+    cout << "binary" << endl;
+    for (auto i : classifierGetType(TrainerType::BINARY))
+      cout << " - " << i << endl;
+    cout << "regression" << endl;
+    for (auto i : classifierGetType(TrainerType::REGRESSION))
+      cout << " - " << i << endl;
+    cout << "for more information see: http://dlib.net/ml.html" << endl;
+    exit(0);
+  }
+  else if (p.get<string>("trainer") == TrainerName::KRR) {
+    s.add<int>("max-basis", 'B', "TRAINER: maximum number of basis vectors", false, 400);
+    s.add<double>("lambda", 'L', "TRAINER: regularization parameter. 0 triggers automatic calculation using cross-validation.", false, 0);
+    s.add("regression", 'R', "TRAINER: automatic lamda estimation for regression (=true) or classification (=false)");
+  }
+
+  // add kernel specific args
   if (p.get<string>("kernel") == "list") {
-    cout << "available Kernels:" << endl;
+    cout << "available kernels:" << endl;
     cout << " - Histogram Intersection (hist)" << endl;
     cout << " - Linear (lin)" << endl;
     cout << " - Radial Basis Function (rbf)" << endl;
@@ -405,19 +424,19 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
   else if (p.get<string>("kernel") == "lin") {
   }
   else if (p.get<string>("kernel") == "rbf") {
-    s.add<double>("gamma", 'G', "rbf kernel gamma", false, 0.1);
+    s.add<double>("gamma", 'G', "KERNEL: rbf kernel gamma", false, 10);
   }
   else if (p.get<string>("kernel") == "poly") {
-    s.add<double>("gamma", 'G', "polynomial kernel gamma", false, 1);
-    s.add<double>("coef", 'C', "polynomial kernel coefficient", false, 0);
-    s.add<double>("degree", 'D', "polynomial kernel degree", false, 1);
+    s.add<double>("gamma", 'G', "KERNEL: polynomial kernel gamma", false, 1);
+    s.add<double>("coef", 'C', "KERNEL: polynomial kernel coefficient", false, 0);
+    s.add<double>("degree", 'D', "KERNEL: polynomial kernel degree", false, 1);
   }
   else if (p.get<string>("kernel") == "sig") {
-    s.add<double>("gamma", 'G', "sigmoid kernel gamma", false, 0.1);
-    s.add<double>("coef", 'C', "sigmoid kernel coefficient", false, -1);
+    s.add<double>("gamma", 'G', "KERNEL: sigmoid kernel gamma", false, 0.1);
+    s.add<double>("coef", 'C', "KERNEL: sigmoid kernel coefficient", false, -1);
   }
 
-  s.add<double>("offset", 'O', "if > 0, adds a fixed value offset to this kernel", false, 0);
+  s.add<double>("offset", 'O', "KERNEL: if > 0, adds a fixed value offset to this kernel", false, 0);
 
   if (p.rest().size() > 0 && !s.parse(p.rest())) {
     cout << "specific args error: " << s.error() << endl;
