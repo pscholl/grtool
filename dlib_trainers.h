@@ -1,7 +1,7 @@
 /*
  * Author: Sebastian Boettcher
  *
- * Conveniance wrappers for some dlib trainers.
+ * Conveniance wrappers and tools for dlib trainers.
  *
  */
 
@@ -40,13 +40,15 @@ BETTER_ENUM(TrainerName, int,
   TEMPLATE,
   ONE_VS_ONE,
   ONE_VS_ALL,
-  SVM_MULTICLASS_LINEAR
+  SVM_MULTICLASS_LINEAR,
+  KRR
 )
 
 multimap<TrainerType, TrainerName> type_name_map = {
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ONE},
   {TrainerType::MULTICLASS, TrainerName::ONE_VS_ALL},
-  {TrainerType::MULTICLASS, TrainerName::SVM_MULTICLASS_LINEAR}
+  {TrainerType::MULTICLASS, TrainerName::SVM_MULTICLASS_LINEAR},
+  {TrainerType::REGRESSION, TrainerName::KRR}
 };
 
 void printTrainers() {
@@ -220,7 +222,7 @@ class ovo_trainer : public trainer_template {
  public:
   typedef ovo_trainer_type T;
 
-  ovo_trainer(bool verbose = false, int num_threads = 4, string kernel = "", any_trainer<sample_type> bin_tr = NULL) {
+  ovo_trainer(bool verbose = false, int num_threads = 4, string kernel = "", any_trainer<sample_type> bin_tr = krr_trainer<rbf_kernel>()) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ONE);
     m_verbose = verbose;
@@ -262,7 +264,7 @@ class ova_trainer : public trainer_template {
  public:
   typedef ova_trainer_type T;
 
-  ova_trainer(bool verbose = false, int num_threads = 4, string kernel = "", any_trainer<sample_type> bin_tr = NULL) {
+  ova_trainer(bool verbose = false, int num_threads = 4, string kernel = "", any_trainer<sample_type> bin_tr = krr_trainer<rbf_kernel>()) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::ONE_VS_ALL);
     m_verbose = verbose;
@@ -331,6 +333,46 @@ class svm_ml_trainer : public trainer_template {
   }
 };
 
+
+
+/*
+    #    # ######  ######
+    #   #  #     # #     #
+    #  #   #     # #     #
+    ###    ######  ######
+    #  #   #   #   #   #
+    #   #  #    #  #    #
+    #    # #     # #     #
+*/
+
+//_______________________________________________________________________________________________________
+template <typename K>
+class kernelridge_trainer : public trainer_template {
+ public:
+  typedef krr_trainer<K> T;
+
+  kernelridge_trainer(bool verbose = false, K kernel = K()) {
+    setTrainerType(TrainerType::REGRESSION);
+    setTrainerName(TrainerName::KRR);
+    m_verbose = verbose;
+
+    m_trainer.clear();
+    m_trainer.get<T>();
+
+    m_trainer.cast_to<T>().set_kernel(kernel);
+
+    if (m_verbose)
+      m_trainer.cast_to<T>().be_verbose();
+  }
+
+  matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
+    if (m_trainer.is_empty()) {
+      cerr << "Trainer not set!" << endl;
+      exit(-1);
+    }
+    return cross_validate_regression_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
+  }
+};
 
 
 
