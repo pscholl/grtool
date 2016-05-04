@@ -35,7 +35,7 @@ SET( COMPILER_CAN_DO_CPP_11 1 )
 SET( CMAKE_CXX_STANDARD 14 )
 
 # dlib config
-INCLUDE( dlib/cmake )
+INCLUDE( dlib/dlib/cmake )
 
 # Set compiler and linker flags
 SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fdiagnostics-color=always" )
