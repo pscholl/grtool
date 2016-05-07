@@ -408,14 +408,14 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     cout << "for more information see: http://dlib.net/ml.html" << endl << endl;
   }
   else if (p.get<string>("trainer") == TrainerName::RVM) {
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
+    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 2000);
+  }
+  else if (p.get<string>("trainer") == TrainerName::SVM_C) {
     s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
     s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
     s.add<int>("cache", 'M', "TRAINER: megabytes of cache to use", false, 200);
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
-  }
-  else if (p.get<string>("trainer") == TrainerName::SVM_C) {
-    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
-    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 2000);
   }
   else if (p.get<string>("trainer") == TrainerName::KRR) {
     s.add<int>("max-basis", 'B', "TRAINER: maximum number of basis vectors", false, 400);
