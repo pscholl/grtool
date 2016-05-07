@@ -9,7 +9,7 @@ using namespace dlib;
 
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file);
 void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s);
-any_trainer<sample_type> process_specific_args(string kernel, cmdline::parser &s);
+any_trainer<sample_type> process_specific_args(string trainer_str, string kernel_str, cmdline::parser &s);
 
 //_______________________________________________________________________________________________________
 int main(int argc, const char *argv[])
@@ -43,16 +43,18 @@ int main(int argc, const char *argv[])
   if (c.rest().size() == 0) {
     cout << c.usage() << endl;
     cout << "Available Classifiers:" << endl;
-    printTrainers();
+    for (auto i : classifierGetType(TrainerType::MULTICLASS))
+      cout << i << endl;
     return -1;
   }
 
   string classifier_str = c.rest()[0];
 
-  if (!classifierExists(classifier_str)) {
+  if (!classifierIsType(classifier_str, TrainerType::MULTICLASS)) {
     cout << c.usage() << endl;
     cout << "Available Classifiers:" << endl;
-    printTrainers();
+    for (auto i : classifierGetType(TrainerType::MULTICLASS))
+      cout << i << endl;
     return -1;
   }
 
@@ -367,9 +369,9 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 
   // create trainer
   if (name == TrainerName::ONE_VS_ONE)
-    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("kernel"), s));
+    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("trainer"), p.get<string>("kernel"), s));
   else if (name == TrainerName::ONE_VS_ALL)
-    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("kernel"), s));
+    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("trainer"), p.get<string>("kernel"), s));
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
 
@@ -444,33 +446,65 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
   }
 }
 
-any_trainer<sample_type> process_specific_args(string kernel, cmdline::parser &s) {
+any_trainer<sample_type> process_specific_args(string trainer_str, string kernel_str, cmdline::parser &s) {
   any_trainer<sample_type> trainer;
 
-  if (kernel == "hist") {
-    krr_trainer<offset_kernel<hist_kernel>> tmp;
-    tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), s.get<double>("offset")));
-    trainer = tmp;
-  }
-  else if (kernel == "lin") {
-    krr_trainer<offset_kernel<lin_kernel>> tmp;
-    tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), s.get<double>("offset")));
-    trainer = tmp;
-  }
-  else if (kernel == "rbf") {
-    krr_trainer<offset_kernel<rbf_kernel>> tmp;
-    tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
-    trainer = tmp;
-  }
-  else if (kernel == "poly") {
-    krr_trainer<offset_kernel<poly_kernel>> tmp;
-    tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(s.get<double>("gamma"), s.get<double>("coef"), s.get<double>("degree")), s.get<double>("offset")));
-    trainer = tmp;
-  }
-  else if (kernel == "sig") {
-    krr_trainer<offset_kernel<sig_kernel>> tmp;
-    tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
-    trainer = tmp;
+  if (trainer_str == TrainerName::KRR) {
+    if (kernel_str == "hist") {
+      krr_trainer<offset_kernel<hist_kernel>> tmp;
+
+      tmp.set_max_basis_size(s.get<int>("max-basis"));
+      tmp.set_lambda(s.get<double>("lambda"));
+      if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
+      else tmp.use_classification_loss_for_loo_cv();
+
+      tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "lin") {
+      krr_trainer<offset_kernel<lin_kernel>> tmp;
+
+      tmp.set_max_basis_size(s.get<int>("max-basis"));
+      tmp.set_lambda(s.get<double>("lambda"));
+      if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
+      else tmp.use_classification_loss_for_loo_cv();
+
+      tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "rbf") {
+      krr_trainer<offset_kernel<rbf_kernel>> tmp;
+
+      tmp.set_max_basis_size(s.get<int>("max-basis"));
+      tmp.set_lambda(s.get<double>("lambda"));
+      if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
+      else tmp.use_classification_loss_for_loo_cv();
+
+      tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "poly") {
+      krr_trainer<offset_kernel<poly_kernel>> tmp;
+
+      tmp.set_max_basis_size(s.get<int>("max-basis"));
+      tmp.set_lambda(s.get<double>("lambda"));
+      if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
+      else tmp.use_classification_loss_for_loo_cv();
+
+      tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(s.get<double>("gamma"), s.get<double>("coef"), s.get<double>("degree")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "sig") {
+      krr_trainer<offset_kernel<sig_kernel>> tmp;
+
+      tmp.set_max_basis_size(s.get<int>("max-basis"));
+      tmp.set_lambda(s.get<double>("lambda"));
+      if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
+      else tmp.use_classification_loss_for_loo_cv();
+
+      tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
+      trainer = tmp;
+    }
   }
 
   return trainer;

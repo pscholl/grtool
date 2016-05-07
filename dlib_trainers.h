@@ -229,11 +229,6 @@ class trainer_template {
 };
 
 
-//template<typename T> trainer_template * createInstance() { return new T; }
-//typedef std::map<std::string, trainer_template*(*)()> map_type;
-//map_type type_map;
-//type_map["ONE_VS_ONE"] = &createInstance<ovo_trainer>;
-
 
 
 /*
@@ -367,46 +362,6 @@ class svm_ml_trainer : public trainer_template {
   }
 };
 
-
-
-/*
-    #    # ######  ######
-    #   #  #     # #     #
-    #  #   #     # #     #
-    ###    ######  ######
-    #  #   #   #   #   #
-    #   #  #    #  #    #
-    #    # #     # #     #
-*/
-
-//_______________________________________________________________________________________________________
-template <typename K>
-class kernelridge_trainer : public trainer_template {
- public:
-  typedef krr_trainer<K> T;
-
-  kernelridge_trainer(bool verbose = false, K kernel = K()) {
-    setTrainerType(TrainerType::REGRESSION);
-    setTrainerName(TrainerName::KRR);
-    m_verbose = verbose;
-
-    m_trainer.clear();
-    m_trainer.get<T>();
-
-    m_trainer.cast_to<T>().set_kernel(kernel);
-
-    if (m_verbose)
-      m_trainer.cast_to<T>().be_verbose();
-  }
-
-  matrix<double> crossValidation(const v_sample_type& samples, const v_label_type& labels, const long folds = 5) {
-    if (m_trainer.is_empty()) {
-      cerr << "Trainer not set!" << endl;
-      exit(-1);
-    }
-    return cross_validate_regression_trainer(m_trainer.cast_to<T>(), samples, labels, folds);
-  }
-};
 
 
 
