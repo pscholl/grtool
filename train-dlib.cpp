@@ -417,6 +417,33 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     s.add<int>("cache", 'M', "TRAINER: megabytes of cache to use", false, 200);
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
   }
+  else if (p.get<string>("trainer") == TrainerName::SVM_C_LINEAR) {
+    s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
+    s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
+    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 10000);
+    p.add("nonneg", 'N', "learn only nonnegative weights");
+  }
+  else if (p.get<string>("trainer") == TrainerName::SVM_C_LINEAR_DCD) {
+    s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
+    s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.1);
+    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 10000);
+  }
+  else if (p.get<string>("trainer") == TrainerName::SVM_C_EKM) {
+    s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
+    s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
+    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 10000);
+    s.add<int>("basis-max", 0, "TRAINER: maximum number of basis vectors", false, 300);
+    s.add<int>("basis-init", 0, "TRAINER: initial number of basis vectors", false, 10);
+    s.add<int>("basis-inc", 0, "TRAINER: number of basis vectors to add each increment", false, 50);
+  }
+  else if (p.get<string>("trainer") == TrainerName::SVM_NU) {
+    s.add<double>("nu", 'N', "TRAINER: nu svm parameter", false, 0.1, cmdline::range(0, 1));
+    s.add<int>("cache", 'M', "TRAINER: megabytes of cache to use", false, 200);
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
+  }
   else if (p.get<string>("trainer") == TrainerName::KRR) {
     s.add<int>("max-basis", 'B', "TRAINER: maximum number of basis vectors", false, 400);
     s.add<double>("lambda", 'L', "TRAINER: regularization parameter. 0 triggers automatic calculation using cross-validation.", false, 0);
@@ -554,6 +581,135 @@ any_trainer<sample_type> process_specific_args(string trainer_str, string kernel
       svm_c_trainer<offset_kernel<sig_kernel>> tmp;
       tmp.set_c_class1(s.get<double>("regularization1"));
       tmp.set_c_class2(s.get<double>("regularization2"));
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+  }
+
+  // C SUPPORT VECTOR MACHINE - LINEAR
+  else if (trainer_str == TrainerName::SVM_C_LINEAR) {
+    svm_c_linear_trainer<lin_kernel> tmp;
+    tmp.set_c_class1(s.get<double>("regularization1"));
+    tmp.set_c_class2(s.get<double>("regularization2"));
+    tmp.set_epsilon(s.get<double>("epsilon"));
+    tmp.set_max_iterations(s.get<int>("max-iter"));
+    tmp.set_learns_nonnegative_weights(s.exist("nonneg"));
+    trainer = tmp;
+  }
+
+  // C SUPPORT VECTOR MACHINE - LINEAR DUAL COORDINATE DESCENT
+  else if (trainer_str == TrainerName::SVM_C_LINEAR_DCD) {
+    svm_c_linear_dcd_trainer<lin_kernel> tmp;
+    tmp.set_c_class1(s.get<double>("regularization1"));
+    tmp.set_c_class2(s.get<double>("regularization2"));
+    tmp.set_epsilon(s.get<double>("epsilon"));
+    tmp.set_max_iterations(s.get<int>("max-iter"));
+    trainer = tmp;
+  }
+
+  // C SUPPORT VECTOR MACHINE - EMPIRICAL KERNEL MAP
+  else if (trainer_str == TrainerName::SVM_C_EKM) {
+    if (kernel_str == "hist") {
+      svm_c_ekm_trainer<offset_kernel<hist_kernel>> tmp;
+      tmp.set_c_class1(s.get<double>("regularization1"));
+      tmp.set_c_class2(s.get<double>("regularization2"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_max_iterations(s.get<int>("max-iter"));
+      tmp.set_max_basis_size(s.get<int>("basis-max"));
+      tmp.set_initial_basis_size(s.get<int>("basis-init"));
+      tmp.set_basis_size_increment(s.get<int>("basis-inc"));
+      tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "lin") {
+      svm_c_ekm_trainer<offset_kernel<lin_kernel>> tmp;
+      tmp.set_c_class1(s.get<double>("regularization1"));
+      tmp.set_c_class2(s.get<double>("regularization2"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_max_iterations(s.get<int>("max-iter"));
+      tmp.set_max_basis_size(s.get<int>("basis-max"));
+      tmp.set_initial_basis_size(s.get<int>("basis-init"));
+      tmp.set_basis_size_increment(s.get<int>("basis-inc"));
+      tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "rbf") {
+      svm_c_ekm_trainer<offset_kernel<rbf_kernel>> tmp;
+      tmp.set_c_class1(s.get<double>("regularization1"));
+      tmp.set_c_class2(s.get<double>("regularization2"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_max_iterations(s.get<int>("max-iter"));
+      tmp.set_max_basis_size(s.get<int>("basis-max"));
+      tmp.set_initial_basis_size(s.get<int>("basis-init"));
+      tmp.set_basis_size_increment(s.get<int>("basis-inc"));
+      tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "poly") {
+      svm_c_ekm_trainer<offset_kernel<poly_kernel>> tmp;
+      tmp.set_c_class1(s.get<double>("regularization1"));
+      tmp.set_c_class2(s.get<double>("regularization2"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_max_iterations(s.get<int>("max-iter"));
+      tmp.set_max_basis_size(s.get<int>("basis-max"));
+      tmp.set_initial_basis_size(s.get<int>("basis-init"));
+      tmp.set_basis_size_increment(s.get<int>("basis-inc"));
+      tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(s.get<double>("gamma"), s.get<double>("coef"), s.get<double>("degree")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "sig") {
+      svm_c_ekm_trainer<offset_kernel<sig_kernel>> tmp;
+      tmp.set_c_class1(s.get<double>("regularization1"));
+      tmp.set_c_class2(s.get<double>("regularization2"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_max_iterations(s.get<int>("max-iter"));
+      tmp.set_max_basis_size(s.get<int>("basis-max"));
+      tmp.set_initial_basis_size(s.get<int>("basis-init"));
+      tmp.set_basis_size_increment(s.get<int>("basis-inc"));
+      tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+  }
+
+  // NU SUPPORT VECTOR MACHINE
+  else if (trainer_str == TrainerName::SVM_NU) {
+    if (kernel_str == "hist") {
+      svm_nu_trainer<offset_kernel<hist_kernel>> tmp;
+      tmp.set_nu(s.get<double>("nu"));
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "lin") {
+      svm_nu_trainer<offset_kernel<lin_kernel>> tmp;
+      tmp.set_nu(s.get<double>("nu"));
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "rbf") {
+      svm_nu_trainer<offset_kernel<rbf_kernel>> tmp;
+      tmp.set_nu(s.get<double>("nu"));
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "poly") {
+      svm_nu_trainer<offset_kernel<poly_kernel>> tmp;
+      tmp.set_nu(s.get<double>("nu"));
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(s.get<double>("gamma"), s.get<double>("coef"), s.get<double>("degree")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "sig") {
+      svm_nu_trainer<offset_kernel<sig_kernel>> tmp;
+      tmp.set_nu(s.get<double>("nu"));
       tmp.set_cache_size(s.get<int>("cache"));
       tmp.set_epsilon(s.get<double>("epsilon"));
       tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
