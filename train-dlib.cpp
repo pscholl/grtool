@@ -409,6 +409,10 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     s.add<double>("lambda", 'L', "TRAINER: regularization parameter. 0 triggers automatic calculation using cross-validation.", false, 0);
     s.add("regression", 'R', "TRAINER: automatic lamda estimation for regression (=true) or classification (=false)");
   }
+  else {
+    cout << "trainer not implemented yet :(" << endl;
+    exit(-1);
+  }
 
   // add kernel specific args
   if (p.get<string>("kernel") == "list") {

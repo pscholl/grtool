@@ -159,6 +159,10 @@ a_df df_from_stream(istream &model) {
       df.get<ovo_trained_function_type_sig_df>();
       deserialize(df.cast_to<ovo_trained_function_type_sig_df>(), model);
     }
+    else {
+      df.get<ovo_trained_function_type>();
+      deserialize(df.cast_to<ovo_trained_function_type>(), model);
+    }
   }
   else if (trainer == TrainerName::ONE_VS_ALL) {
     if (kernel == "hist") {
@@ -180,6 +184,10 @@ a_df df_from_stream(istream &model) {
     else if (kernel == "sig") {
       df.get<ova_trained_function_type_sig_df>();
       deserialize(df.cast_to<ova_trained_function_type_sig_df>(), model);
+    }
+    else {
+      df.get<ova_trained_function_type>();
+      deserialize(df.cast_to<ova_trained_function_type>(), model);
     }
   }
   else if (trainer == TrainerName::SVM_MULTICLASS_LINEAR) {
