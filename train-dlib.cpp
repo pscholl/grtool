@@ -9,7 +9,7 @@ using namespace dlib;
 
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file);
 void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s);
-any_trainer<sample_type> process_specific_args(string trainer_str, string kernel_str, cmdline::parser &s);
+any_trainer<sample_type> process_specific_args(string &trainer_str, string &kernel_str, cmdline::parser &s);
 
 //_______________________________________________________________________________________________________
 int main(int argc, const char *argv[])
@@ -270,6 +270,8 @@ int main(int argc, const char *argv[])
       serialize(ovo_trained_function_type_hist_df(df), output);
     else if (trainer->getKernel() == "lin")
       serialize(ovo_trained_function_type_lin_df(df), output);
+    else if (trainer->getKernel() == "lin_no")
+      serialize(ovo_trained_function_type_lin_no_df(df), output);
     else if (trainer->getKernel() == "rbf")
       serialize(ovo_trained_function_type_rbf_df(df), output);
     else if (trainer->getKernel() == "poly")
@@ -283,6 +285,8 @@ int main(int argc, const char *argv[])
       serialize(ova_trained_function_type_hist_df(df), output);
     else if (trainer->getKernel() == "lin")
       serialize(ova_trained_function_type_lin_df(df), output);
+    else if (trainer->getKernel() == "lin_no")
+      serialize(ova_trained_function_type_lin_no_df(df), output);
     else if (trainer->getKernel() == "rbf")
       serialize(ova_trained_function_type_rbf_df(df), output);
     else if (trainer->getKernel() == "poly")
@@ -376,11 +380,15 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     exit(0);
   }
 
+  string kernel_str = p.get<string>("kernel");
+  string trainer_str = p.get<string>("trainer");
+  any_trainer<sample_type> subtrainer = process_specific_args(trainer_str, kernel_str, s);
+
   // create trainer
   if (name == TrainerName::ONE_VS_ONE)
-    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("trainer"), p.get<string>("kernel"), s));
+    trainer = new ovo_trainer(c.exist("verbose"), p.get<int>("threads"), kernel_str, subtrainer);
   else if (name == TrainerName::ONE_VS_ALL)
-    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("trainer"), p.get<string>("kernel"), s));
+    trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), kernel_str, subtrainer);
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
     trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<double>("regularization"));
 
@@ -529,7 +537,7 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
 
 // process the arguments given in parse_specific_args(). returns an any_trainer type that is used in the ovo/ova_trainer class.
 //_______________________________________________________________________________________________________
-any_trainer<sample_type> process_specific_args(string trainer_str, string kernel_str, cmdline::parser &s) {
+any_trainer<sample_type> process_specific_args(string &trainer_str, string &kernel_str, cmdline::parser &s) {
   any_trainer<sample_type> trainer;
 
   // RELEVANCE VECTOR MACHINE
@@ -629,6 +637,7 @@ any_trainer<sample_type> process_specific_args(string trainer_str, string kernel
     tmp.set_max_iterations(s.get<int>("max-iter"));
     tmp.set_learns_nonnegative_weights(s.exist("nonneg"));
     trainer = tmp;
+    kernel_str = "lin_no";
   }
 
   // C SUPPORT VECTOR MACHINE - LINEAR DUAL COORDINATE DESCENT
@@ -639,6 +648,7 @@ any_trainer<sample_type> process_specific_args(string trainer_str, string kernel
     tmp.set_epsilon(s.get<double>("epsilon"));
     tmp.set_max_iterations(s.get<int>("max-iter"));
     trainer = tmp;
+    kernel_str = "lin_no";
   }
 
   // C SUPPORT VECTOR MACHINE - EMPIRICAL KERNEL MAP
@@ -817,6 +827,7 @@ any_trainer<sample_type> process_specific_args(string trainer_str, string kernel
     if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
     else tmp.use_classification_loss_for_loo_cv();
     trainer = tmp;
+    kernel_str = "lin_no";
   }
 
   // RELEVANCE VECTOR MACHINE FOR REGRESSION
@@ -911,6 +922,7 @@ any_trainer<sample_type> process_specific_args(string trainer_str, string kernel
     tmp.set_max_iterations(s.get<int>("max-iter"));
     tmp.set_learns_nonnegative_weights(s.exist("nonneg"));
     trainer = tmp;
+    kernel_str = "lin_no";
   }
 
   return trainer;

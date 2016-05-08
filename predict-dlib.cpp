@@ -147,6 +147,10 @@ a_df df_from_stream(istream &model) {
       df.get<ovo_trained_function_type_lin_df>();
       deserialize(df.cast_to<ovo_trained_function_type_lin_df>(), model);
     }
+    else if (kernel == "lin_no") {
+      df.get<ovo_trained_function_type_lin_no_df>();
+      deserialize(df.cast_to<ovo_trained_function_type_lin_no_df>(), model);
+    }
     else if (kernel == "rbf") {
       df.get<ovo_trained_function_type_rbf_df>();
       deserialize(df.cast_to<ovo_trained_function_type_rbf_df>(), model);
@@ -172,6 +176,10 @@ a_df df_from_stream(istream &model) {
     else if (kernel == "lin") {
       df.get<ova_trained_function_type_lin_df>();
       deserialize(df.cast_to<ova_trained_function_type_lin_df>(), model);
+    }
+    else if (kernel == "lin_no") {
+      df.get<ova_trained_function_type_lin_no_df>();
+      deserialize(df.cast_to<ova_trained_function_type_lin_no_df>(), model);
     }
     else if (kernel == "rbf") {
       df.get<ova_trained_function_type_rbf_df>();

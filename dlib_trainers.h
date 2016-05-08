@@ -153,6 +153,7 @@ typedef one_vs_one_trainer<any_trainer<sample_type>, label_type> ovo_trainer_typ
 typedef one_vs_one_decision_function<ovo_trainer_type> ovo_trained_function_type;
 typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<hist_kernel>>> ovo_trained_function_type_hist_df;
 typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<lin_kernel>>> ovo_trained_function_type_lin_df;
+typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<lin_kernel>> ovo_trained_function_type_lin_no_df;
 typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<rbf_kernel>>> ovo_trained_function_type_rbf_df;
 typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<poly_kernel>>> ovo_trained_function_type_poly_df;
 typedef one_vs_one_decision_function<ovo_trainer_type, decision_function<offset_kernel<sig_kernel>>> ovo_trained_function_type_sig_df;
@@ -162,6 +163,7 @@ typedef one_vs_all_trainer<any_trainer<sample_type>, label_type> ova_trainer_typ
 typedef one_vs_all_decision_function<ova_trainer_type> ova_trained_function_type;
 typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<hist_kernel>>> ova_trained_function_type_hist_df;
 typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<lin_kernel>>> ova_trained_function_type_lin_df;
+typedef one_vs_all_decision_function<ova_trainer_type, decision_function<lin_kernel>> ova_trained_function_type_lin_no_df;
 typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<rbf_kernel>>> ova_trained_function_type_rbf_df;
 typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<poly_kernel>>> ova_trained_function_type_poly_df;
 typedef one_vs_all_decision_function<ova_trainer_type, decision_function<offset_kernel<sig_kernel>>> ova_trained_function_type_sig_df;
