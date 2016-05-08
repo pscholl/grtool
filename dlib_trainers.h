@@ -333,7 +333,7 @@ class svm_ml_trainer : public trainer_template {
  public:
   typedef svm_ml_trainer_type T;
 
-  svm_ml_trainer(bool verbose = false, int num_threads = 4, bool nonneg = false, double epsilon = 0.001, int iterations = 10000, int regularization = 1) {
+  svm_ml_trainer(bool verbose = false, int num_threads = 4, bool nonneg = false, double epsilon = 0.001, int iterations = 10000, double regularization = 1) {
     setTrainerType(TrainerType::MULTICLASS);
     setTrainerName(TrainerName::SVM_MULTICLASS_LINEAR);
     m_verbose = verbose;

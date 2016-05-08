@@ -314,8 +314,17 @@ int main(int argc, const char *argv[])
 
 
 
+/*
+    ##     ## ######## ##       ########  ######## ########
+    ##     ## ##       ##       ##     ## ##       ##     ##
+    ##     ## ##       ##       ##     ## ##       ##     ##
+    ######### ######   ##       ########  ######   ########
+    ##     ## ##       ##       ##        ##       ##   ##
+    ##     ## ##       ##       ##        ##       ##    ##
+    ##     ## ######## ######## ##        ######## ##     ##
+*/
 
-
+// toplevel trainer argument parsing. returns a new object from dlib_trainers.h, according to cli options.
 //_______________________________________________________________________________________________________
 trainer_template* trainer_from_args(string name, cmdline::parser &c, string &input_file)
 {
@@ -345,7 +354,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
     p.add("nonneg", 'N', "learn only nonnegative weights");
     p.add<double>("epsilon", 'E', "set error epsilon", false, 0.001);
     p.add<int>("iterations", 'I', "set maximum number of SVM optimizer iterations", false, 10000);
-    p.add<int>("regularization", 'C', "SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
+    p.add<double>("regularization", 'C', "SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
   }
 
   if (!p.parse(c.rest(), false)) {
@@ -373,7 +382,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
   else if (name == TrainerName::ONE_VS_ALL)
     trainer = new ova_trainer(c.exist("verbose"), p.get<int>("threads"), p.get<string>("kernel"), process_specific_args(p.get<string>("trainer"), p.get<string>("kernel"), s));
   else if (name == TrainerName::SVM_MULTICLASS_LINEAR)
-    trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<int>("regularization"));
+    trainer = new svm_ml_trainer(c.exist("verbose"), p.get<int>("threads"), p.exist("nonneg"), p.get<double>("epsilon"), p.get<int>("iterations"), p.get<double>("regularization"));
 
   else {
     cout << "trainer not implemented yet :(" << endl;
@@ -389,7 +398,7 @@ trainer_template* trainer_from_args(string name, cmdline::parser &c, string &inp
 
 
 
-
+// parsing 2nd level arguments. specify ovo/ova binary trainer arguments and their kernel arguments if applicable.
 //_______________________________________________________________________________________________________
 void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
 {
@@ -409,7 +418,7 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
   }
   else if (p.get<string>("trainer") == TrainerName::RVM) {
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
-    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 2000);
+    s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 2000);
   }
   else if (p.get<string>("trainer") == TrainerName::SVM_C) {
     s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
@@ -421,20 +430,20 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
     s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
-    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 10000);
-    p.add("nonneg", 'N', "learn only nonnegative weights");
+    s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 10000);
+    s.add("nonneg", 'N', "learn only nonnegative weights");
   }
   else if (p.get<string>("trainer") == TrainerName::SVM_C_LINEAR_DCD) {
     s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
     s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.1);
-    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 10000);
+    s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 10000);
   }
   else if (p.get<string>("trainer") == TrainerName::SVM_C_EKM) {
     s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
     s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
-    s.add<int>("max-iter", 'I', "TRAINER: maximum number of iterations", false, 10000);
+    s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 10000);
     s.add<int>("basis-max", 0, "TRAINER: maximum number of basis vectors", false, 300);
     s.add<int>("basis-init", 0, "TRAINER: initial number of basis vectors", false, 10);
     s.add<int>("basis-inc", 0, "TRAINER: number of basis vectors to add each increment", false, 50);
@@ -448,6 +457,29 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     s.add<int>("max-basis", 'B', "TRAINER: maximum number of basis vectors", false, 400);
     s.add<double>("lambda", 'L', "TRAINER: regularization parameter. 0 triggers automatic calculation using cross-validation.", false, 0);
     s.add("regression", 'R', "TRAINER: automatic lamda estimation for regression (=true) or classification (=false)");
+  }
+  else if (p.get<string>("trainer") == TrainerName::RBF_NETWORK) {
+    s.add<int>("max-centers", 'C', "TRAINER: maximum number of centers when training", false, 10);
+  }
+  else if (p.get<string>("trainer") == TrainerName::RR) {
+    s.add<double>("lambda", 'L', "TRAINER: regularization parameter. 0 triggers automatic calculation using cross-validation.", false, 0);
+    s.add("regression", 'R', "TRAINER: automatic lamda estimation for regression (=true) or classification (=false)");
+  }
+  else if (p.get<string>("trainer") == TrainerName::RVM_REG) {
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
+  }
+  else if (p.get<string>("trainer") == TrainerName::SVR) {
+    s.add<double>("regularization", 'C', "TRAINER: SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
+    s.add<double>("insensitivity", 'I', "TRAINER: epsilon insensitivity", false, 0.1);
+    s.add<int>("cache", 'M', "TRAINER: megabytes of cache to use", false, 200);
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
+  }
+  else if (p.get<string>("trainer") == TrainerName::SVR_LINEAR) {
+    s.add<double>("regularization", 'C', "TRAINER: SVM regularization parameter. Larger values encourage exact fitting while smaller values of C may encourage better generalization.", false, 1);
+    s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.01);
+    s.add<double>("insensitivity", 'I', "TRAINER: epsilon insensitivity", false, 0.1);
+    s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 10000);
+    s.add("nonneg", 'N', "learn only nonnegative weights");
   }
   else {
     cout << "trainer not implemented yet :(" << endl;
@@ -473,12 +505,12 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
   }
   else if (p.get<string>("kernel") == "poly") {
     s.add<double>("gamma", 'G', "KERNEL: polynomial kernel gamma", false, 1);
-    s.add<double>("coef", 'C', "KERNEL: polynomial kernel coefficient", false, 0);
+    s.add<double>("coef", 'X', "KERNEL: polynomial kernel coefficient", false, 0);
     s.add<double>("degree", 'D', "KERNEL: polynomial kernel degree", false, 1);
   }
   else if (p.get<string>("kernel") == "sig") {
     s.add<double>("gamma", 'G', "KERNEL: sigmoid kernel gamma", false, 0.1);
-    s.add<double>("coef", 'C', "KERNEL: sigmoid kernel coefficient", false, -1);
+    s.add<double>("coef", 'X', "KERNEL: sigmoid kernel coefficient", false, -1);
   }
 
   s.add<double>("offset", 'O', "KERNEL: if > 0, adds a fixed value offset to this kernel", false, 0);
@@ -495,7 +527,7 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
 
 
 
-
+// process the arguments given in parse_specific_args(). returns an any_trainer type that is used in the ovo/ova_trainer class.
 //_______________________________________________________________________________________________________
 any_trainer<sample_type> process_specific_args(string trainer_str, string kernel_str, cmdline::parser &s) {
   any_trainer<sample_type> trainer;
@@ -764,6 +796,121 @@ any_trainer<sample_type> process_specific_args(string trainer_str, string kernel
       tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
       trainer = tmp;
     }
+  }
+
+  // RADIAL BASIS FUNCTION NETWORK
+  else if (trainer_str == TrainerName::RBF_NETWORK) {
+    if (kernel_str != "rbf") {
+      cerr << "You really should use a rbf kernel in a rbf network." << endl;
+      exit(-1);
+    }
+    rbf_network_trainer<offset_kernel<rbf_kernel>> tmp;
+    tmp.set_num_centers(s.get<int>("max-centers"));
+    tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
+    trainer = tmp;
+  }
+
+  // LINEAR RIDGE REGRESSION
+  else if (trainer_str == TrainerName::RR) {
+    rr_trainer<lin_kernel> tmp;
+    tmp.set_lambda(s.get<double>("lambda"));
+    if (s.exist("regression")) tmp.use_regression_loss_for_loo_cv();
+    else tmp.use_classification_loss_for_loo_cv();
+    trainer = tmp;
+  }
+
+  // RELEVANCE VECTOR MACHINE FOR REGRESSION
+  else if (trainer_str == TrainerName::RVM_REG) {
+    if (kernel_str == "hist") {
+      rvm_regression_trainer<offset_kernel<hist_kernel>> tmp;
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "lin") {
+      rvm_regression_trainer<offset_kernel<lin_kernel>> tmp;
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "rbf") {
+      rvm_regression_trainer<offset_kernel<rbf_kernel>> tmp;
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "poly") {
+      rvm_regression_trainer<offset_kernel<poly_kernel>> tmp;
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(s.get<double>("gamma"), s.get<double>("coef"), s.get<double>("degree")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "sig") {
+      rvm_regression_trainer<offset_kernel<sig_kernel>> tmp;
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+  }
+
+  // SUPPORT VECTOR REGRESSION
+  else if (trainer_str == TrainerName::SVR) {
+    if (kernel_str == "hist") {
+      svr_trainer<offset_kernel<hist_kernel>> tmp;
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_epsilon_insensitivity(s.get<double>("insensitivity"));
+      tmp.set_c(s.get<double>("regularization"));
+      tmp.set_kernel(offset_kernel<hist_kernel>(hist_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "lin") {
+      svr_trainer<offset_kernel<lin_kernel>> tmp;
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_epsilon_insensitivity(s.get<double>("insensitivity"));
+      tmp.set_c(s.get<double>("regularization"));
+      tmp.set_kernel(offset_kernel<lin_kernel>(lin_kernel(), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "rbf") {
+      svr_trainer<offset_kernel<rbf_kernel>> tmp;
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_epsilon_insensitivity(s.get<double>("insensitivity"));
+      tmp.set_c(s.get<double>("regularization"));
+      tmp.set_kernel(offset_kernel<rbf_kernel>(rbf_kernel(s.get<double>("gamma")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "poly") {
+      svr_trainer<offset_kernel<poly_kernel>> tmp;
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_epsilon_insensitivity(s.get<double>("insensitivity"));
+      tmp.set_c(s.get<double>("regularization"));
+      tmp.set_kernel(offset_kernel<poly_kernel>(poly_kernel(s.get<double>("gamma"), s.get<double>("coef"), s.get<double>("degree")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+    else if (kernel_str == "sig") {
+      svr_trainer<offset_kernel<sig_kernel>> tmp;
+      tmp.set_cache_size(s.get<int>("cache"));
+      tmp.set_epsilon(s.get<double>("epsilon"));
+      tmp.set_epsilon_insensitivity(s.get<double>("insensitivity"));
+      tmp.set_c(s.get<double>("regularization"));
+      tmp.set_kernel(offset_kernel<sig_kernel>(sig_kernel(s.get<double>("gamma"), s.get<double>("coef")), s.get<double>("offset")));
+      trainer = tmp;
+    }
+  }
+
+  // LINEAR SUPPORT VECTOR REGRESSION
+  else if (trainer_str == TrainerName::SVR_LINEAR) {
+    svr_linear_trainer<lin_kernel> tmp;
+    tmp.set_c(s.get<double>("regularization"));
+    tmp.set_epsilon(s.get<double>("epsilon"));
+    tmp.set_epsilon_insensitivity(s.get<double>("insensitivity"));
+    tmp.set_max_iterations(s.get<int>("max-iter"));
+    tmp.set_learns_nonnegative_weights(s.exist("nonneg"));
+    trainer = tmp;
   }
 
   return trainer;
