@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   cmdline::parser c;
 
   c.add        ("help",    'h', "print this message");
-  c.footer     ("<classifier> [classifier-model-file] [testsample-file]...");
+  c.footer     ("[classifier-model-file] [testsample-file]...");
 
   /* parse common arguments */
   if (!c.parse(argc, argv, false)) {
@@ -36,8 +36,6 @@ int main(int argc, char *argv[])
 
   if (c.exist("help")) {
     cout << c.usage() << endl;
-    cout << "Available Classifiers:" << endl;
-    printTrainers();
     return 0;
   }
 

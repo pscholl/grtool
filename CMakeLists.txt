@@ -40,6 +40,9 @@ INCLUDE( dlib/dlib/cmake )
 # Set compiler and linker flags
 SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fdiagnostics-color=always" )
 
+# set binary output directory
+SET( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} )
+
 
 #
 # EXECUTABLES
