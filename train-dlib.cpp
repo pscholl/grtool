@@ -54,7 +54,7 @@ int main(int argc, const char *argv[])
     cout << c.usage() << endl;
     cout << "Available Classifiers:" << endl;
     for (auto i : classifierGetType(TrainerType::MULTICLASS))
-      cout << i << endl;
+      cout << " - " << i << endl;
     return -1;
   }
 
@@ -439,7 +439,7 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     s.add<double>("regularization2", '2', "TRAINER: regularization parameter for the -1 class", false, 1);
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.001);
     s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 10000);
-    s.add("nonneg", 'N', "learn only nonnegative weights");
+    s.add("nonneg", 'N', "TRAINER: learn only nonnegative weights");
   }
   else if (p.get<string>("trainer") == TrainerName::SVM_C_LINEAR_DCD) {
     s.add<double>("regularization1", '1', "TRAINER: regularization parameter for the +1 class", false, 1);
@@ -487,7 +487,7 @@ void parse_specific_args(string name, cmdline::parser &p, cmdline::parser &s)
     s.add<double>("epsilon", 'E', "TRAINER: error epsilon", false, 0.01);
     s.add<double>("insensitivity", 'I', "TRAINER: epsilon insensitivity", false, 0.1);
     s.add<int>("max-iter", 'M', "TRAINER: maximum number of iterations", false, 10000);
-    s.add("nonneg", 'N', "learn only nonnegative weights");
+    s.add("nonneg", 'N', "TRAINER: learn only nonnegative weights");
   }
   else {
     cout << "trainer not implemented yet :(" << endl;

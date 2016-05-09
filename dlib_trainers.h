@@ -11,7 +11,7 @@
 #include <dlib/svm.h>
 #include <dlib/svm_threaded.h>
 
-#include <unordered_map>
+#include <map>
 
 #include "enum.h"
 

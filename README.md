@@ -46,3 +46,14 @@ and install the documentation (needs pandoc) with
 ## Android
 
 http://kevinboone.net/android_native.html
+
+## Dlib
+
+If you want to use the Dlib part of the tool, **before** installing grtool as described in the [Building](#building) section:
+
+    git submodule update --init dlib
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+    make -j
+
