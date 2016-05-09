@@ -4,18 +4,18 @@ sudo: required
 dist: trusty
 language: cpp
 script: 
-#  - make DESTDIR=$(pwd)/test test
-  - mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make && cd ..
+  - mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make && cd ..
+  - make DESTDIR=$(pwd)/test test
 python: 
   - "3.5"
 before_script:
-#  - sudo add-apt-repository ppa:mc3man/trusty-media -y
-#  - sudo apt-get update
-#  - sudo apt-get -y -q install ffmpeg
+  - sudo add-apt-repository ppa:mc3man/trusty-media -y
+  - sudo apt-get update
+  - sudo apt-get -y -q install ffmpeg
   - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
-#  - git clone https://github.com/sboettcher/grt grt_master
-#  - cd grt_master/build
-#  - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
+  - git clone https://github.com/pscholl/grt grt_master
+  - cd grt_master/build
+  - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
   - git submodule update --init --remote dlib
 install:
   - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
