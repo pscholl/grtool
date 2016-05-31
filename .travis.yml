@@ -3,7 +3,9 @@ git:
 sudo: required
 dist: trusty
 language: cpp
-script: make DESTDIR=$(pwd)/test test
+script: 
+  - mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make && cd ..
+  - make DESTDIR=$(pwd)/test test
 python: 
   - "3.5"
 before_script:
@@ -14,8 +16,9 @@ before_script:
   - git clone https://github.com/pscholl/grt grt_master
   - cd grt_master/build
   - cmake  -DCMAKE_INSTALL_PREFIX:PATH=/usr . && sudo make install && cd ../../
+  - git submodule update --init --remote dlib
 install:
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
 addons:
   apt:
     sources:
@@ -23,7 +26,9 @@ addons:
     - deadsnakes
     - pythonxy-devel
     packages:
-    - gcc-4.8
-    - g++-4.8
+    - gcc-5
+    - g++-5
     - clang
     - python3.5
+    - libopenblas-dev
+    - liblapack-dev

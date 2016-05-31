@@ -1,3 +1,12 @@
+bin/
+build/
+doc/*.1
+
+### Vim ###
+*.swp
+*.un~
+*~
+
 # Compiled Object files
 *.slo
 *.lo

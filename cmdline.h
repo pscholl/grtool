@@ -51,7 +51,7 @@ public:
     std::stringstream ss;
     if (!(ss<<arg && ss>>ret && ss.eof()))
       throw std::bad_cast();
-    
+
     return ret;
   }
 };
@@ -61,7 +61,7 @@ class lexical_cast_t<Target, Source, true>{
 public:
   static Target cast(const Source &arg){
     return arg;
-  }  
+  }
 };
 
 template <typename Source>
@@ -195,6 +195,15 @@ struct oneof_reader{
 private:
   std::vector<T> alt;
 };
+
+template <class T>
+oneof_reader<T> oneof_vector(std::vector<T> v)
+{
+  oneof_reader<T> ret;
+  for (auto i : v)
+    ret.add(i);
+  return ret;
+}
 
 template <class T>
 oneof_reader<T> oneof(T a1)
@@ -370,6 +379,9 @@ public:
     prog_name=name;
   }
 
+  bool has(const std::string &name) const {
+    return options.count(name) != 0;
+  }
   bool exist(const std::string &name) const {
     if (options.count(name)==0) throw cmdline_error("there is no flag: --"+name);
     return options.find(name)->second->has_set();
@@ -435,14 +447,14 @@ public:
     return parse(args);
   }
 
-  bool parse(const std::vector<std::string> &args){
+  bool parse(const std::vector<std::string> &args, bool fail_on_unknown=true){
     int argc=static_cast<int>(args.size());
     std::vector<const char*> argv(argc);
 
     for (int i=0; i<argc; i++)
       argv[i]=args[i].c_str();
 
-    return parse(argc, &argv[0]);
+    return parse(argc, &argv[0], fail_on_unknown);
   }
 
   bool parse(int argc, const char * const argv[], bool fail_on_unknown=true){
