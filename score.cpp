@@ -24,7 +24,7 @@ class Group {
   vector< double >   Fbeta,recall,precision,TNR,NPV;
 
   string to_string(cmdline::parser&, string tag);
-  string to_flat_string(cmdline::parser&, string tag);
+  string to_flat_string(cmdline::parser&, string tag, bool first);
 
   string last_label = "NULL", last_prediction = "NULL";
 
@@ -199,10 +199,12 @@ int main(int argc, char *argv[])
   }
   else {
     int i=0;
-    for (auto &group : groups)
-      cout << (i++ != 0 ? "\n" : "") << (c.exist("flat") ?
-              group.second.to_flat_string(c,group.first) :
+    for (auto &group : groups) {
+      cout << (i != 0 ? "\n" : "") << (c.exist("flat") ?
+              group.second.to_flat_string(c,group.first,i==0) :
                    group.second.to_string(c,group.first));
+      i++;
+    }
   }
 
   return 0;
@@ -327,7 +329,7 @@ double Group::get_meanscore(string which, double beta)
   return nonan.size()==0 ? 0. : sum(nonan)/nonan.size();
 }
 
-string Group::to_flat_string(cmdline::parser &c, string tag) {
+string Group::to_flat_string(cmdline::parser &c, string tag, bool printheader) {
   stringstream ss;
   calculate_score(c.get<double>("F-score"));
 
@@ -341,20 +343,23 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
 
   /* print the header */
   double beta = c.get<double>("F-score");
-  ss << "# ";
-  ss << " groupname ";
-  ss << "total_recall ";
-  ss << "total_precision ";
-  ss << "total_Fbeta ";
-  ss << "total_NPV ";
-  ss << "total_TNR ";
-  for (auto label : labelset) {
-    ss << label << "_recall ";
-    ss << label << "_precision ";
-    ss << label << "_Fbeta ";
-    ss << label << "_NPV ";
-    ss << label << "_TNR ";
-  } ss << endl;
+
+  if (printheader) {
+    ss << "# ";
+    ss << " groupname ";
+    ss << "total_recall ";
+    ss << "total_precision ";
+    ss << "total_Fbeta ";
+    ss << "total_NPV ";
+    ss << "total_TNR ";
+    for (auto label : labelset) {
+      ss << label << "_recall ";
+      ss << label << "_precision ";
+      ss << label << "_Fbeta ";
+      ss << label << "_NPV ";
+      ss << label << "_TNR ";
+    } ss << endl;
+  }
 
   /* print out the total scores first */
   ss << tag << " ";
@@ -370,7 +375,7 @@ string Group::to_flat_string(cmdline::parser &c, string tag) {
     ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
     ss << (std::isnan(NPV[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
     ss << (std::isnan(TNR[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
-  } ss << endl;
+  }
 
   return ss.str();
 
