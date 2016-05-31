@@ -275,6 +275,13 @@ if __name__ == '__main__':
     cmdline.add_argument('-v', '--verbose', action="store_true"           , help="more verbose output")
     args = cmdline.parse_args()
 
+    #
+    # check for correct version of ffmpeg for stream seek
+    #
+    version = subprocess.check_output('ffmpeg -version'.split())
+    if args.ss != 0 and not b'2016' in version:
+        sys.stderr.write("WARN: streamseeking with this version of ffmpeg is buggy")
+
     # we open each file here already and create an input buffer
     # for probing each input and then writing the read data to
     # ffmpeg in order to not have to read something twice
