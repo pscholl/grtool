@@ -13,7 +13,9 @@
      help[h] - prints this message or the help for the specified command
      info[i] - print stats about a dataset file
      train[t] - trains a prediction model
+     train-dlib[td] - trains a prediction model, uses dlib multiclass machine learning trainers
      predict[p] - predict from unseen data
+     predict-dlib[pd] - predict from unseen data, processes trainers created from train-dlib
      score[s] - calculate classifcation score for prediction
      extract[e] - extract features from a data sequence
      preprocess[pp] - preprocess data sequence

@@ -40,32 +40,39 @@ int usage(int exit_code, string msg="") {
   return exit_code;
 }
 
+const char* expand(char *arg) {
+  for (size_t i=0; i<cmds.size(); i++)
+    if (strcmp(cmds[i][1], arg)==0)
+      return cmds[i][0];
+  return arg;
+}
 
-int main(int argc, char *argv[]) 
+
+int main(int argc, char *argv[])
 {
   char *goal = argv[1];
 
-  if (argc <= 1 || (argc <= 2 && strcmp("help",argv[1])==0))
+  if (argc <= 1 || (argc <= 2 && strcmp("help",expand(argv[1]))==0))
     return usage(0, "missing arguments");
 
-  if (strcmp(argv[1], "help")==0) {
-    char executable[256]; snprintf(executable,sizeof(executable),"grt-%s",argv[2]);
+  if (strcmp(expand(argv[1]), "help")==0)
+  {
+    char executable[256];
     char *const args[] = {"man", executable, (char*) NULL};
+    snprintf(executable,sizeof(executable),"grt-%s",expand(argv[2]));
     int err = execvp("man", args);
     if (err) cerr << "exec failed: " << strerror(err) << endl;
     return err;
   }
-
-  for (int i=1; i<cmds.size(); i++) {
-    const char *cmd=cmds[i][0], *shorthand=cmds[i][1];
-    if (strcmp(cmd,argv[1])==0 || strcmp(shorthand,argv[1])==0) {
-      char executable[256];
-      snprintf(executable,sizeof(executable),"grt-%s",cmd);
-      return execvp(executable, &argv[1]);
-  }}
-
-  string s = "command not found: ";
-         s+= argv[1];
-
-  return usage(-1, s);
+  else
+  {
+    char executable[256];
+    snprintf(executable,sizeof(executable),"grt-%s",expand(argv[1]));
+    int err = execvp(executable, &argv[1]);
+    if (err) {
+      snprintf(executable,sizeof(executable),"unable to exec 'grt-%s': ",expand(argv[1]));
+      perror(executable);
+    }
+    return err;
+  }
 }
