@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys, os
+import argparse, fileinput
+from collections import OrderedDict
+
+
+
+class timeline:
+    def __init__(self, args):
+        self.gt = list() # full list with all labels
+        self.pred = list() # full list with all predictions
+
+        self.hyst = list() # full list with all predictions after hysteresis
+        self.hyst_th = args.threshold # hysteresis parameter for predictions; after this many equal predictions switch to that label
+        self.default = args.default # NULL
+
+        # unique lists
+        self.u_gt_labels = list() # unique labels
+        self.u_gt_num_labels = 0 # number of unique labels
+        self.u_gt_samples_num = list() # number of samples for a unique label, same order as [self.u_labels]
+
+        self.u_pred_labels = list() # unique labels
+        self.u_pred_num_labels = 0 # number of unique labels
+        self.u_pred_samples_num = list() # number of samples for a unique label, same order as [self.u_labels]
+
+        self.u_hyst_labels = list() # unique labels
+        self.u_hyst_num_labels = 0 # number of unique labels
+        self.u_hyst_samples_num = list() # number of samples for a unique label, same order as [self.u_labels]
+
+        # timeline lists
+        self.tl_gt_labels = list() # timeline labels
+        self.tl_gt_num_labels = 0 # number of timeline labels
+        self.tl_gt_samples_num = list() # number of samples for a timeline label, same order as [self.tl_labels]
+
+        self.tl_pred_labels = list() # timeline of predictions after hysteresis
+        self.tl_pred_num_labels = 0 # number of timeline labels
+        self.tl_pred_samples_num = list() # number of samples for a timeline label, same order as [self.tl_labels]
+
+        self.tl_hyst_labels = list() # timeline of predictions after hysteresis
+        self.tl_hyst_num_labels = 0 # number of timeline labels
+        self.tl_hyst_samples_num = list() # number of samples for a timeline label, same order as [self.tl_labels]
+
+
+
+    def check(self):
+        if len(self.gt) != len(self.pred) or len(self.gt) != len(self.hyst):
+            return False
+
+        # TODO: bugfix!
+        if len(self.u_gt_labels) != len(self.u_gt_samples_num) != self.u_gt_num_labels:
+            return False
+        if len(self.u_pred_labels) != len(self.u_pred_samples_num) != self.u_pred_num_labels:
+            return False
+
+        if len(self.tl_gt_labels) != len(self.tl_gt_samples_num) != self.tl_gt_num_labels:
+            return False
+        if len(self.tl_pred_labels) != len(self.tl_pred_samples_num) != self.tl_pred_num_labels:
+            return False
+
+        return True
+
+
+    def load_samples(self, stream):
+        for line in fileinput.input(stream, bufsize=1000):
+            line = line.strip()
+            line = line.strip('\n')
+
+            if line == "":
+                continue
+            if line[0] == '#':
+                print(line)
+                continue
+
+            self.add_sample(line.split())
+
+        self.hyst = self.hysteresis(self.pred, self.hyst_th, self.default)
+
+        # unique sets
+        self.u_gt_labels, self.u_gt_samples_num = self.get_tl(self.gt, True)
+        self.u_gt_num_labels = len(self.u_gt_labels)
+
+        self.u_pred_labels, self.u_pred_samples_num = self.get_tl(self.pred, True)
+        self.u_pred_num_labels = len(self.u_pred_labels)
+
+        self.u_hyst_labels, self.u_hyst_samples_num = self.get_tl(self.hyst, True)
+        self.u_hyst_num_labels = len(self.u_hyst_labels)
+
+        # timeline sets
+        self.tl_gt_labels, self.tl_gt_samples_num = self.get_tl(self.gt)
+        self.tl_gt_num_labels = len(self.tl_gt_labels)
+
+        self.tl_pred_labels, self.tl_pred_samples_num = self.get_tl(self.pred)
+        self.tl_pred_num_labels = len(self.tl_pred_labels)
+
+        self.tl_hyst_labels, self.tl_hyst_samples_num = self.get_tl(self.hyst)
+        self.tl_hyst_num_labels = len(self.tl_hyst_labels)
+
+        if not self.check():
+            self.print_info(True)
+            quit()
+
+
+    def add_sample(self, sample):
+        if len(sample) != 2:
+            print("Wrong sample format!")
+            print("is:", sample)
+            print("should be:", "[groundtruth, prediction]")
+            quit()
+
+        self.gt.append(sample[0])
+        self.pred.append(sample[1])
+
+
+    def hysteresis(self, pred, threshold, default):
+        hyst = list(pred)
+
+        current = default
+        last = None
+        num = 1
+        for i in range(0, len(hyst)):
+            if hyst[i] == last:
+                num += 1
+            else:
+                num = 1
+            if num >= threshold:
+                num = 1
+                current = hyst[i]
+                for j in range(1, threshold):
+                    hyst[i-j] = current
+
+            last = hyst[i]
+            hyst[i] = current
+
+        return hyst
+
+
+    def get_tl(self, samples, unique=False):
+        last = None
+        ret_labels = list()
+        ret_num = list()
+
+        for item in samples:
+            if item != last and (not unique or ret_labels.count(item) == 0):
+                ret_labels.append(item)
+                ret_num.append(1)
+            else:
+                if unique:
+                    ret_num[ret_labels.index(item)] += 1
+                else:
+                    ret_num[len(ret_num) - 1] += 1
+            last = item
+
+        return ret_labels, ret_num
+
+
+    def print_hyst(self):
+        for i in range(0, len(self.gt)):
+            print(self.gt[i], self.hyst[i], sep='\t')
+
+
+    def print_info(self, unique=False, timeline=False, hyst=False):
+        print()
+        if self.check():
+            print("sample set is valid")
+        else:
+            print("sample set is invalid")
+
+        print("groundtruth samples:", len(self.gt))
+        print("prediction samples:", len(self.pred))
+        print("hysteresis samples:", len(self.hyst))
+
+        if not hyst:
+            if unique:
+                self.print_helper("Unique:", self.u_gt_labels, self.u_gt_samples_num, self.u_pred_labels, self.u_pred_samples_num)
+            if timeline:
+                self.print_helper("Timeline:", self.tl_gt_labels, self.tl_gt_samples_num, self.tl_pred_labels, self.tl_pred_samples_num)
+        else:
+            print("\nAfter Hysteresis (", self.hyst_th, "):", sep='')
+            if unique:
+                self.print_helper("Unique:", self.u_gt_labels, self.u_gt_samples_num, self.u_hyst_labels, self.u_hyst_samples_num)
+            if timeline:
+                self.print_helper("Timeline:", self.tl_gt_labels, self.tl_gt_samples_num, self.tl_hyst_labels, self.tl_hyst_samples_num)
+
+        print()
+        sys.stdout.flush()
+
+    def print_helper(self, heading, labels_1, num_1, labels_2, num_2):
+        pad_num = max(len(str(sum(num_1))), len(str(sum(num_2)))) + 1
+        pad_text = 12
+        print()
+        print(heading)
+        print("\t", '{:<{}}'.format('', pad_num), " ", '{:<{}}'.format('groundtruth', pad_text), sep='', end='')
+        print("\t\t", '{:<{}}'.format('', pad_num), " ", '{:<{}}'.format('prediction', pad_text), sep='', end='')
+        print()
+        print("\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print("\t\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print()
+        for i in range(0, max(len(labels_1), len(labels_2))):
+            if i < len(labels_1):
+                print("\t", '{0:{pad_num}d}'.format(num_1[i], pad_num=pad_num), " ", '{:<{}}'.format(labels_1[i], pad_text), sep='', end='')
+            else:
+                print("\t", '{:>{}}'.format('', pad_num), " ", '{:<{}}'.format('', pad_text), sep='', end='')
+            if i < len(labels_2):
+                print("\t\t", '{0:{pad_num}d}'.format(num_2[i], pad_num=pad_num), " ", '{:<{}}'.format(labels_2[i], pad_text), sep='', end='')
+            else:
+                print("\t\t", '{:>{}}'.format('', pad_num), " ", '{:<{}}'.format('', pad_text), sep='', end='')
+            print()
+        print("\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print("\t\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print()
+        print("\t", '{0:{pad_num}d}'.format(sum(num_1), pad_num=pad_num), " ", '{:<{}}'.format(len(labels_1), pad_text), sep='', end='')
+        print("\t\t", '{0:{pad_num}d}'.format(sum(num_2), pad_num=pad_num), " ", '{:<{}}'.format(len(labels_2), pad_text), sep='', end='')
+        print()
+
+
+
+
+
+if __name__=="__main__":
+    class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): pass
+    cmdline = argparse.ArgumentParser(description="Scoring for a fixed timeline of activities\nApply hysteresis on predictions\nPrint various infos on sample sets", epilog="Default output: groundtruth and predictions after hysteresis", formatter_class=Formatter)
+    #cmdline.add_argument('-v', '--verbose', help='increase output verbosity', action='store_true')
+    #cmdline.add_argument('-m', '--margin', metavar='N', type=int, default=5, help="margin around transition; 0-1: percentage of whole set, int: num samples")
+    #cmdline.add_argument('-gt', '--groundtruth', metavar='GT', type=str, nargs='?', help="ground truth file")
+    cmdline.add_argument('pred', metavar='PRED', type=str, nargs='?', default='-', help="predictions sample stream")
+
+    cmdline_info_group = cmdline.add_argument_group('info arguments', '')
+    cmdline_info_group.add_argument('-i', '--info', help='(= -iu -it -ih)', action='store_true')
+    cmdline_info_group.add_argument('-iu', '--info-unique', help='print info on the unique labels in the loaded set and quit', action='store_true')
+    cmdline_info_group.add_argument('-it', '--info-timeline', help='print info on the timeline labels in the loaded set and quit', action='store_true')
+    cmdline_info_group.add_argument('-ih', '--info-hyst', help='use hysteresis set instead of original predictions for info', action='store_true')
+
+    cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments', '')
+    cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label")
+    cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=int, default=5, help="number of equal-label samples indicating a hysteresis label change")
+
+    args = cmdline.parse_args()
+
+    tl = timeline(args)
+    tl.load_samples(args.pred)
+
+    if args.info:
+        tl.print_info(True, True, True)
+        quit()
+    if args.info_unique or args.info_timeline or args.info_hyst:
+        tl.print_info(args.info_unique, args.info_timeline, args.info_hyst)
+        quit()
+
+    tl.print_hyst()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
