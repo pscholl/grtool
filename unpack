@@ -116,7 +116,7 @@ def duration2ticks(s, rate):
     return None
 
 
-def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None):
+def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None,sub_only=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
     # not be taught to use the soxr resampler (the default one does not work)
@@ -210,7 +210,10 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None
             n = min(len(v) for v in ibuf.values())
             for i in range(n):
                 bufs = [ y for x in ibuf.values() for y in x.pop()]
-                print(fmt(subr.label(t) or default if sub is not None else default, *bufs))
+                if sub_only:
+                    print(subr.label(t) or default if sub is not None else default)
+                else:
+                    print(fmt(subr.label(t) or default if sub is not None else default, *bufs))
                 t += 1
 
 def py3k(tup):
@@ -272,6 +275,7 @@ if __name__ == '__main__':
     cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given ")
     cmdline.add_argument('-ss', type=str, default="0",                      help="seeks to a start position, format is documented in ffmpeg-utils(1)")
     cmdline.add_argument('-sd', type=str, default=None,                     help="duration of the playback, format is documented in ffmpeg-utils(1)")
+    cmdline.add_argument('-so', '--sub-only', action="store_true"         , help="output only subtitle labels, no numerical data")
     cmdline.add_argument('-v', '--verbose', action="store_true"           , help="more verbose output")
     args = cmdline.parse_args()
 
@@ -308,7 +312,7 @@ if __name__ == '__main__':
             sys.exit(-1)
 
         try:
-            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd,args.rate)
+            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd,args.rate,args.sub_only)
         except struct.error:
             raise
             sys.exit(0)
