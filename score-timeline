@@ -15,8 +15,8 @@ class timeline:
         self.hyst_th = args.threshold # hysteresis parameter for predictions; after this many equal predictions switch to that label
         self.default = args.default # NULL
 
-        self.tlc_rejected = args.rejected_string
-        self.tlc_missed = args.missed_string
+        self.tlc_rejected = args.rejected
+        self.tlc_missed = args.missed
         self.tlc_margin = args.margin
 
         # unique lists
@@ -165,7 +165,6 @@ class timeline:
 
 
     def print_info(self, unique=False, timeline=False, hyst=False):
-        print()
         if self.check():
             print("sample set is valid")
         else:
@@ -229,14 +228,14 @@ if __name__=="__main__":
     cmdline.add_argument('pred', metavar='PRED', type=str, nargs='?', default='-', help="predictions sample stream")
 
     cmdline_tlc_group = cmdline.add_argument_group('timeline check arguments', '')
-    cmdline_tlc_group.add_argument('-m', '--margin', metavar='N', type=int, default=5, help="margin around transition\n0-1: percentage of whole set\nint: num samples")
+    cmdline_tlc_group.add_argument('-m', '--margin', metavar='N', type=float, default=0, help="margin around transition\n > 0-1: percentage of whole set\n > int: num samples\n")
     cmdline_tlc_group.add_argument('--rejected', metavar='STR', type=str, default='REJECTED', help="output for predicted label transition without groundtruth match")
     cmdline_tlc_group.add_argument('--missed', metavar='STR', type=str, default='MISSED', help="output for groundtruth label transition without prediction match")
 
     cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments', '')
     cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit', action='store_true')
-    cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label")
     cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=int, default=5, help="number of equal-label samples indicating a hysteresis label change")
+    cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label")
 
     cmdline_info_group = cmdline.add_argument_group('info arguments', '')
     cmdline_info_group.add_argument('-i', '--info', help='(= -iu -it -ih)', action='store_true')
@@ -249,6 +248,8 @@ if __name__=="__main__":
 
     tl = timeline(args)
     tl.load_samples(args.pred)
+
+    print()
 
     if args.info:
         tl.print_info(True, True, True)
