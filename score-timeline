@@ -145,18 +145,91 @@ class timeline:
         return ret_labels, ret_num
 
 
-    def timeline_check(self, hyst = True):
-        labels_1 = tl.tl_gt_labels
-        num_1 = tl.tl_gt_samples_num
-        labels_2 = tl.tl_hyst_labels
-        num_2 = tl.tl_hyst_samples_num
+    def timeline_check(self):
+        gt = self.gt
+        pred = self.hyst
 
-        for i in range(0, max(len(labels_1), len(labels_2))):
-            if len(labels_1) - 1 < i:
-                print(self.tlc_rejected, labels_2[i], sep='\t')
-            if len(labels_2) - 1 < i:
-                print(labels_1[i], self.tlc_missed, sep='\t')
+        # get margin
+        margin = 0
+        if self.tlc_margin <= 0:
+            margin = 0
+        elif self.tlc_margin > 0 and self.tlc_margin < 1:
+            margin = int(len(self.gt) * self.tlc_margin)
+        elif self.tlc_margin >= 1:
+            margin = int(self.tlc_margin)
+        else:
+            print("margin error:", self.tlc_margin)
+            quit()
 
+        if margin > self.hyst_th:
+            print("margin", margin, "greater than threshold", self.hyst_th)
+            quit()
+
+        ix_gt = -1
+        ix_pred = -1
+        last_gt = None
+        last_pred = None
+        while True:
+            # increment indices
+            ix_gt += 1
+            ix_pred += 1
+            if ix_gt >= len(gt) and ix_pred >= len(pred):
+                break
+            if ix_gt >= len(gt):
+                ix_gt = len(gt) - 1
+            if ix_pred >= len(pred):
+                ix_pred = len(pred) - 1
+
+            t_gt = False # transition
+            t_pred = False # transition
+            l_gt = gt[ix_gt] # label
+            l_pred = pred[ix_pred] # label
+
+            # find transition
+            if l_gt != last_gt:
+                t_gt = True
+            if l_pred != last_pred:
+                t_pred = True
+
+            if t_gt and not t_pred:
+                for i in range(-margin,margin+1):
+                    if pred[ix_pred+i-1] != pred[ix_pred+i] and pred[ix_pred+i] == l_gt:
+                        t_pred = True
+                        l_pred = pred[ix_pred+i]
+                        break
+
+            if t_pred and not t_gt:
+                for i in range(-margin,margin+1):
+                    if gt[ix_gt+i-1] != gt[ix_gt+i] and gt[ix_gt+i] == l_pred:
+                        t_gt = True
+                        l_gt = gt[ix_gt+i]
+                        break
+
+
+            if t_gt or t_pred:
+                print(ix_gt, end=' ')
+
+            if t_gt and t_pred:
+                if l_gt == l_pred:
+                    print("*", end=' ')
+                    self.hit(l_gt, l_pred)
+                else:
+                    self.reject(l_pred)
+                    self.miss(l_gt)
+            elif t_gt:
+                self.miss(l_gt)
+            elif t_pred:
+                self.reject(l_pred)
+
+            last_gt = gt[ix_gt]
+            last_pred = pred[ix_pred]
+
+    def reject(self, label):
+        print(self.tlc_rejected, label, sep='\t')
+    def miss(self, label):
+        print(label, self.tlc_missed, sep='\t')
+    def hit(self, label_1, label_2):
+        print(label_1, label_2, sep='\t')
 
 
     def print_hyst(self):
