@@ -41,6 +41,19 @@ class timeline:
 
 
 
+    def get_percentage_of_set(self, percentage, base_set):
+        print(percentage, len(base_set))
+        if percentage <= 0:
+            return 0
+        elif percentage > 0 and percentage < 1:
+            return int(len(base_set) * percentage)
+        elif percentage >= 1:
+            return int(percentage)
+        else:
+            print("percentage error:", percentage)
+            quit()
+
+
     def check(self):
         if len(self.gt) != len(self.pred) or len(self.gt) != len(self.hyst):
             return False
@@ -74,6 +87,10 @@ class timeline:
                 continue
 
             self.add_sample(line.split())
+
+        # reset threshold and margin
+        self.hyst_th = self.get_percentage_of_set(self.hyst_th, self.gt)
+        self.tlc_margin = self.get_percentage_of_set(self.tlc_margin, self.gt)
 
         self.hyst = self.hysteresis(self.pred, self.hyst_th, self.default)
 
@@ -148,22 +165,13 @@ class timeline:
     def timeline_check(self):
         gt = self.gt
         pred = self.hyst
-
-        # get margin
-        margin = 0
-        if self.tlc_margin <= 0:
-            margin = 0
-        elif self.tlc_margin > 0 and self.tlc_margin < 1:
-            margin = int(len(self.gt) * self.tlc_margin)
-        elif self.tlc_margin >= 1:
-            margin = int(self.tlc_margin)
-        else:
-            print("margin error:", self.tlc_margin)
-            quit()
+        margin = self.tlc_margin
 
         if margin > self.hyst_th:
             print("margin", margin, "greater than threshold", self.hyst_th)
             quit()
+
+        print("# samples:", len(gt), "threshold:", self.hyst_th, "margin:", margin)
 
         ix_gt = -1
         ix_pred = -1
@@ -195,6 +203,8 @@ class timeline:
 
             if t_gt and not t_pred:
                 for i in range(-margin,margin+1):
+                    if ix_pred+i-1 < 0 or ix_pred+i >= len(pred):
+                        continue
                     if pred[ix_pred+i-1] != pred[ix_pred+i] and pred[ix_pred+i] == l_gt:
                         t_pred = True
                         l_pred = pred[ix_pred+i]
@@ -202,6 +212,8 @@ class timeline:
 
             if t_pred and not t_gt:
                 for i in range(-margin,margin+1):
+                    if ix_gt+i-1 < 0 or ix_gt+i >= len(gt):
+                        continue
                     if gt[ix_gt+i-1] != gt[ix_gt+i] and gt[ix_gt+i] == l_pred:
                         t_gt = True
                         l_gt = gt[ix_gt+i]
@@ -309,9 +321,9 @@ if __name__=="__main__":
     cmdline_tlc_group.add_argument('--missed', metavar='STR', type=str, default='MISSED', help="output for groundtruth label transition without prediction match")
 
     cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments', '')
-    cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit', action='store_true')
-    cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=int, default=5, help="number of equal-label samples indicating a hysteresis label change")
+    cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=float, default=5, help="number of equal-label samples indicating a hysteresis label change\n > 0-1: percentage of whole set\n > int: num samples\n")
     cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label")
+    cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit', action='store_true')
 
     cmdline_info_group = cmdline.add_argument_group('info arguments', '')
     cmdline_info_group.add_argument('-i', '--info', help='(= -iu -it -ih)', action='store_true')
