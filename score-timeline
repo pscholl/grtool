@@ -15,6 +15,8 @@ class timeline:
         self.hyst_th = args.threshold # hysteresis parameter for predictions; after this many equal predictions switch to that label
         self.default = args.default # NULL
 
+        self.hyst_gt_th = args.groundtruth_hyst # hysteresis parameter for groundtruth
+
         self.tlc_rejected = args.rejected # rejected string
         self.tlc_missed = args.missed # missed string
         self.tlc_margin = args.margin # margin around transition where it is still counted as hit
@@ -96,8 +98,11 @@ class timeline:
         # reset threshold and margin
         self.hyst_th = self.get_percentage_of_set(self.hyst_th, self.gt)
         self.tlc_margin = self.get_percentage_of_set(self.tlc_margin, self.gt)
+        self.hyst_gt_th = self.get_percentage_of_set(self.hyst_gt_th, self.gt)
 
         # do hysteresis
+        if self.hyst_gt_th > 0:
+            self.gt = self.hysteresis(self.gt, self.hyst_gt_th, self.default)
         self.hyst = self.hysteresis(self.pred, self.hyst_th, self.default)
 
         # get unique sets
@@ -351,6 +356,7 @@ if __name__=="__main__":
 
     cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments', '')
     cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=float, default=5, help="number of equal-label samples indicating a hysteresis label change\n > 0-1: percentage of whole set\n > int: num samples\n")
+    cmdline_hyst_group.add_argument('--groundtruth-hyst', metavar='N', type=float, default=0, help="hystresis parameter on groundtruth, same as -t")
     cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label")
     cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit', action='store_true')
 
