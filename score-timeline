@@ -169,6 +169,8 @@ class timeline:
         ix_pred = -1
         last_gt = None
         last_pred = None
+        last_out_gt = None
+        last_out_pred = None
         while True:
             # increment indices
             ix_gt += 1
@@ -205,22 +207,23 @@ class timeline:
                         l_gt = gt[ix_gt+i]
                         break
 
+            if l_gt == last_out_gt and l_pred == last_out_pred:
+                pass
+            else:
+                if t_gt and t_pred:
+                    if l_gt == l_pred:
+                        self.hit(l_gt, l_pred)
+                    else:
+                        self.reject(l_pred)
+                        self.miss(l_gt)
+                elif t_gt:
+                    self.miss(l_gt)
+                elif t_pred:
+                    self.reject(l_pred)
 
             if t_gt or t_pred:
-                print(ix_gt, end=' ')
-
-            if t_gt and t_pred:
-                if l_gt == l_pred:
-                    print("*", end=' ')
-                    self.hit(l_gt, l_pred)
-                else:
-                    self.reject(l_pred)
-                    self.miss(l_gt)
-            elif t_gt:
-                self.miss(l_gt)
-            elif t_pred:
-                self.reject(l_pred)
-
+                last_out_gt = l_gt
+                last_out_pred = l_pred
             last_gt = gt[ix_gt]
             last_pred = pred[ix_pred]
 
