@@ -15,9 +15,9 @@ class timeline:
         self.hyst_th = args.threshold # hysteresis parameter for predictions; after this many equal predictions switch to that label
         self.default = args.default # NULL
 
-        self.tlc_rejected = args.rejected
-        self.tlc_missed = args.missed
-        self.tlc_margin = args.margin
+        self.tlc_rejected = args.rejected # rejected string
+        self.tlc_missed = args.missed # missed string
+        self.tlc_margin = args.margin # margin around transition where it is still counted as hit
 
         # unique lists
         self.u_gt_labels = list() # unique labels
@@ -41,8 +41,8 @@ class timeline:
 
 
 
+    # get the number of samples from a percentage of a set, if the number is between 0 and 1
     def get_percentage_of_set(self, percentage, base_set):
-        print(percentage, len(base_set))
         if percentage <= 0:
             return 0
         elif percentage > 0 and percentage < 1:
@@ -54,6 +54,7 @@ class timeline:
             quit()
 
 
+    # do some sanity checks on the loaded sets
     def check(self):
         if len(self.gt) != len(self.pred) or len(self.gt) != len(self.hyst):
             return False
@@ -75,40 +76,47 @@ class timeline:
         return True
 
 
+    # load samples from a file stream, with the format
+    # label_1 label_2
     def load_samples(self, stream):
+        # load stream
         for line in fileinput.input(stream, bufsize=1000):
             line = line.strip()
             line = line.strip('\n')
 
+            # skip empty and comment lines
             if line == "":
                 continue
             if line[0] == '#':
                 print(line)
                 continue
 
-            self.add_sample(line.split())
+            self.add_sample(line.split()) # add sample to lists
 
         # reset threshold and margin
         self.hyst_th = self.get_percentage_of_set(self.hyst_th, self.gt)
         self.tlc_margin = self.get_percentage_of_set(self.tlc_margin, self.gt)
 
+        # do hysteresis
         self.hyst = self.hysteresis(self.pred, self.hyst_th, self.default)
 
-        # unique sets
+        # get unique sets
         self.u_gt_labels, self.u_gt_samples_num = self.get_tl(self.gt, True)
         self.u_pred_labels, self.u_pred_samples_num = self.get_tl(self.pred, True)
         self.u_hyst_labels, self.u_hyst_samples_num = self.get_tl(self.hyst, True)
 
-        # timeline sets
+        # get timeline sets
         self.tl_gt_labels, self.tl_gt_samples_num = self.get_tl(self.gt)
         self.tl_pred_labels, self.tl_pred_samples_num = self.get_tl(self.pred)
         self.tl_hyst_labels, self.tl_hyst_samples_num = self.get_tl(self.hyst)
 
+        # sanity check
         if not self.check():
             self.print_info(True)
             quit()
 
 
+    # add single sample to lists
     def add_sample(self, sample):
         if len(sample) != 2:
             print("Wrong sample format!")
@@ -120,6 +128,7 @@ class timeline:
         self.pred.append(sample[1])
 
 
+    # do hysteresis on prediction set
     def hysteresis(self, pred, threshold, default):
         hyst = list(pred)
 
@@ -127,13 +136,16 @@ class timeline:
         last = None
         num = 1
         for i in range(0, len(hyst)):
+            # increment counter if same label, reset if not
             if hyst[i] == last:
                 num += 1
             else:
                 num = 1
+            # if counter above threshold, reset it and set current label
             if num >= threshold:
                 num = 1
                 current = hyst[i]
+                # may have overwritten some labels before, make sure everything is correct
                 for j in range(1, threshold):
                     hyst[i-j] = current
 
@@ -143,12 +155,15 @@ class timeline:
         return hyst
 
 
+    # get an ordered timeline of a sample set, i.e. merge concurrent same lable samples into one and note number of samples (RLE)
+    # optionally get only unique labels and their count
     def get_tl(self, samples, unique=False):
         last = None
         ret_labels = list()
         ret_num = list()
 
         for item in samples:
+            # if new label append to lists, otherwise increment current labels counter
             if item != last and (not unique or ret_labels.count(item) == 0):
                 ret_labels.append(item)
                 ret_num.append(1)
@@ -162,19 +177,23 @@ class timeline:
         return ret_labels, ret_num
 
 
+    # analyse hysteresis timeline and print resulting stream of [gt pred] with added rejection and miss labels
     def timeline_check(self):
         gt = self.gt
         pred = self.hyst
         margin = self.tlc_margin
 
+        # currently probably better to restrict margin, so that no weird edge cases may happen TODO: maybe this can be avoided?
         if margin > self.hyst_th:
             print("margin", margin, "greater than threshold", self.hyst_th)
             quit()
 
         print("# samples:", len(gt), "threshold:", self.hyst_th, "margin:", margin)
 
+        # set indices
         ix_gt = -1
         ix_pred = -1
+        # last considered label and last output label
         last_gt = None
         last_pred = None
         last_out_gt = None
@@ -183,7 +202,7 @@ class timeline:
             # increment indices
             ix_gt += 1
             ix_pred += 1
-            if ix_gt >= len(gt) and ix_pred >= len(pred):
+            if ix_gt >= len(gt) and ix_pred >= len(pred): # break condition, both set indices at max
                 break
             if ix_gt >= len(gt):
                 ix_gt = len(gt) - 1
@@ -201,6 +220,7 @@ class timeline:
             if l_pred != last_pred:
                 t_pred = True
 
+            # if only gt transition, check on pred set within margin if a correct transition exists
             if t_gt and not t_pred:
                 for i in range(-margin,margin+1):
                     if ix_pred+i-1 < 0 or ix_pred+i >= len(pred):
@@ -210,6 +230,7 @@ class timeline:
                         l_pred = pred[ix_pred+i]
                         break
 
+            # if only pred transition, check on gt set within margin if a correct transition exists
             if t_pred and not t_gt:
                 for i in range(-margin,margin+1):
                     if ix_gt+i-1 < 0 or ix_gt+i >= len(gt):
@@ -219,6 +240,9 @@ class timeline:
                         l_gt = gt[ix_gt+i]
                         break
 
+            # pass if both labels were already output in last loop
+            # this may intuitively never happen, and makes sure a transition isn't counted twice because of a margin
+            # output corresponding result otherwise
             if l_gt == last_out_gt and l_pred == last_out_pred:
                 pass
             else:
@@ -226,6 +250,7 @@ class timeline:
                     if l_gt == l_pred:
                         self.hit(l_gt, l_pred)
                     else:
+                        # reject and miss if both transition but to different labels
                         self.reject(l_pred)
                         self.miss(l_gt)
                 elif t_gt:
@@ -239,6 +264,7 @@ class timeline:
             last_gt = gt[ix_gt]
             last_pred = pred[ix_pred]
 
+    # print helper for rejection (pred transition without gt match), miss (gt transition without pred match), or hit (both transition to same label)
     def reject(self, label):
         print(self.tlc_rejected, label, sep='\t')
     def miss(self, label):
@@ -247,11 +273,13 @@ class timeline:
         print(label_1, label_2, sep='\t')
 
 
+    # print groundtruth and prediction set after hysteresis
     def print_hyst(self):
         for i in range(0, len(self.gt)):
             print(self.gt[i], self.hyst[i], sep='\t')
 
 
+    # print some info on the loaded sets
     def print_info(self, unique=False, timeline=False, hyst=False):
         if self.check():
             print("sample set is valid")
@@ -277,6 +305,7 @@ class timeline:
         print()
         sys.stdout.flush()
 
+    # proper formatting for timeline lists with gt and pred next to each other
     def print_helper(self, heading, labels_1, num_1, labels_2, num_2):
         pad_num = max(len(str(sum(num_1))), len(str(sum(num_2)))) + 1 # longest number
         pad_text = max(len(max(max(labels_1, key=len), max(labels_2, key=len), key=len)), len("groundtruth"), len("prediction")) # longest string
