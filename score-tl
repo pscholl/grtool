@@ -17,8 +17,8 @@ class timeline:
 
         self.hyst_gt_th = args.groundtruth_hyst # hysteresis parameter for groundtruth
 
-        self.tlc_rejected = args.rejected # rejected string
-        self.tlc_missed = args.missed # missed string
+        self.tlc_insert = args.insert # insert string
+        self.tlc_delete = args.delete # delete string
         self.tlc_margin = args.margin # margin around transition where it is still counted as hit
 
         # unique lists
@@ -182,7 +182,7 @@ class timeline:
         return ret_labels, ret_num
 
 
-    # analyse hysteresis timeline and print resulting stream of [gt pred] with added rejection and miss labels
+    # analyse hysteresis timeline and print resulting stream of [gt pred] with added insertion and delete labels
     def timeline_check(self):
         gt = self.gt
         pred = self.hyst
@@ -255,13 +255,13 @@ class timeline:
                     if l_gt == l_pred:
                         self.hit(l_gt, l_pred)
                     else:
-                        # reject and miss if both transition but to different labels
-                        self.reject(l_pred)
-                        self.miss(l_gt)
+                        # insert and delete if both transition but to different labels
+                        self.insert(l_pred)
+                        self.delete(l_gt)
                 elif t_gt:
-                    self.miss(l_gt)
+                    self.delete(l_gt)
                 elif t_pred:
-                    self.reject(l_pred)
+                    self.insert(l_pred)
 
             if t_gt or t_pred:
                 last_out_gt = l_gt
@@ -269,11 +269,11 @@ class timeline:
             last_gt = gt[ix_gt]
             last_pred = pred[ix_pred]
 
-    # print helper for rejection (pred transition without gt match), miss (gt transition without pred match), or hit (both transition to same label)
-    def reject(self, label):
-        print(self.tlc_rejected, label, sep='\t')
-    def miss(self, label):
-        print(label, self.tlc_missed, sep='\t')
+    # print helper for insertion (pred transition without gt match), delete (gt transition without pred match), or hit (both transition to same label)
+    def insert(self, label):
+        print(self.tlc_insert, label, sep='\t')
+    def delete(self, label):
+        print(label, self.tlc_delete, sep='\t')
     def hit(self, label_1, label_2):
         print(label_1, label_2, sep='\t')
 
@@ -351,13 +351,13 @@ if __name__=="__main__":
 
     cmdline_tlc_group = cmdline.add_argument_group('timeline check arguments', '')
     cmdline_tlc_group.add_argument('-m', '--margin', metavar='N', type=float, default=0, help="margin around transition\n > 0-1: percentage of whole set\n > int: num samples\n")
-    cmdline_tlc_group.add_argument('--rejected', metavar='STR', type=str, default='REJECTED', help="output for predicted label transition without groundtruth match")
-    cmdline_tlc_group.add_argument('--missed', metavar='STR', type=str, default='MISSED', help="output for groundtruth label transition without prediction match")
+    cmdline_tlc_group.add_argument('--insert', metavar='STR', type=str, default='INSERT', help="output for predicted label transition without groundtruth match (non-binary mode)")
+    cmdline_tlc_group.add_argument('--delete', metavar='STR', type=str, default='DELETE', help="output for groundtruth label transition without prediction match (non-binary mode)")
 
     cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments', '')
     cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=float, default=5, help="number of equal-label samples indicating a hysteresis label change\n > 0-1: percentage of whole set\n > int: num samples\n")
     cmdline_hyst_group.add_argument('--groundtruth-hyst', metavar='N', type=float, default=0, help="hystresis parameter on groundtruth, same as -t")
-    cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label")
+    cmdline_hyst_group.add_argument('-d', '--default', type=str, default="NULL", help="default class label") # TODO: probably dont need this
     cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit', action='store_true')
 
     cmdline_info_group = cmdline.add_argument_group('info arguments', '')
