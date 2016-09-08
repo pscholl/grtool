@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys, os
+import argparse, fileinput
+import numpy as np
+
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+from sklearn import cluster
+
+
+estimators_help = {
+            'AffinityPropagation': 'Perform Affinity Propagation Clustering of data.',
+            'AgglomerativeClustering': 'Agglomerative Clustering',
+            'Birch': 'Implements the Birch clustering algorithm.',
+            'DBSCAN': 'Perform DBSCAN clustering from vector array or distance matrix.',
+            'FeatureAgglomeration': 'Agglomerate features.',
+            'KMeans': 'K-Means clustering',
+            'MiniBatchKMeans': 'Mini-Batch K-Means clustering',
+            'MeanShift': 'Mean shift clustering using a flat kernel.',
+            'SpectralClustering': 'Apply clustering to a projection to the normalized laplacian.',
+            } # estimator help text
+
+estimators_params = dict() # estimator parameters
+estimators = dict() # estimator classes
+
+# fill estimator dicts
+def get_estimators():
+    for e in list(estimators_help.keys()):
+        tmp = None
+        try:
+            tmp = getattr(cluster, e)
+        except AttributeError:
+            raise NotImplementedError("Class `{}` does not implement `{}`".format(cluster.__class__.__name__, e))
+            sys.exit(-1)
+        estimators[e] = tmp()
+        estimators_params[e] = estimators[e].get_params()
+
+    #print_dict('estimators_help', estimators_help, '')
+    #print_dict('estimators_params', estimators_params, '')
+    #print_dict('estimators', estimators, '')
+
+
+# load stream
+def load(stream):
+    labels = list()
+    features_l = list()
+    num_features = 0
+
+    for line in fileinput.input(stream, bufsize=1000):
+        line = line.strip()
+        line = line.strip('\n')
+
+        # skip empty and comment lines
+        if line == "":
+            continue
+        if line[0] == '#':
+            #print(line)
+            continue
+
+        fields = line.split()
+        if len(fields) < 2:
+            print("no features? |", fields)
+            quit()
+
+        if not num_features:
+            num_features = len(fields[1:])
+        elif len(fields[1:]) != num_features:
+            print("incorrect number of features:", len(fields[1:]), "!=", num_features, "|", fields)
+            quit()
+
+        labels.append(fields[0])
+        features_l.append([ float(x) for x in fields[1:] ])
+
+    return labels, np.array(features_l)
+
+
+
+# output graphs showing the results of the last fitting of the given estimator
+def graph_result(estimator, labels, features):
+    ulabels, ilabels = list(), list()
+    for i in labels:
+        if ulabels.count(i) == 0:
+            ulabels.append(i)
+    for i in labels:
+        ilabels.append(ulabels.index(i))
+
+    print("samples:", len(labels))
+    print("uniques:", len(ulabels))
+    print("estimator:", estimator)
+
+    centers = estimator.cluster_centers_
+
+    fig = plt.figure(1, figsize=(20,12))
+    fig.clf()
+    fig.canvas.set_window_title('train-sklearn: ' + str(estimator)[:str(estimator).find("(")])
+
+    ax = fig.add_subplot(2,3,1)
+    ax.scatter(features[:,0], features[:,1], c=ilabels, cmap=plt.get_cmap('gist_rainbow'))
+    ax.scatter(centers[:,0], centers[:,1], marker='x', color='r', s=150, linewidths=2)
+    ax.set_title('X-Y')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+
+    ax = fig.add_subplot(2,3,2)
+    ax.scatter(features[:,0], features[:,2], c=ilabels, cmap=plt.get_cmap('gist_rainbow'))
+    ax.scatter(centers[:,0], centers[:,2], marker='x', color='r', s=150, linewidths=2)
+    ax.set_title('X-Z')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Z')
+
+    ax = fig.add_subplot(2,3,3)
+    ax.scatter(features[:,1], features[:,2], c=ilabels, cmap=plt.get_cmap('gist_rainbow'))
+    ax.scatter(centers[:,1], centers[:,2], marker='x', color='r', s=150, linewidths=2)
+    ax.set_title('Y-Z')
+    ax.set_xlabel('Y')
+    ax.set_ylabel('Z')
+
+    ax = fig.add_subplot(2,3,5, projection='3d')
+    ax.scatter(features[:,0], features[:,1], features[:,2], c=ilabels, cmap=plt.get_cmap('gist_rainbow'))
+    ax.scatter(centers[:,0], centers[:,1], centers[:,2], marker='x', color='r', s=150, linewidths=2)
+    ax.set_title('X-Y-Z')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.show()
+
+
+
+# helper to print dictionaries somewhat readable
+def print_dict(header, d, *args):
+    pad_text = len(max(list(d.keys()), key=len)) # longest string
+    print(header)
+    for i in sorted(d.keys()):
+        print("  ", '{:<{}}'.format(i, pad_text), "   ", d[i], sep='')
+    for i in args:
+        print(i)
+
+
+
+
+
+if __name__=="__main__":
+    get_estimators()
+
+    class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
+    cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn", epilog="Default output:", formatter_class=Formatter)
+
+    # create subparsers for each estimator
+    est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description='used to fit model to sample features\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', metavar='ESTIMATOR')
+    est_cmdline_subs = dict()
+    for e in sorted(estimators_help.keys()):
+        est_cmdline_subs[e] = est_cmdline.add_parser(e, help=estimators_help[e], description=estimators_help[e]+'\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', formatter_class=Formatter)
+        # fill arguments with available parameters
+        group = est_cmdline_subs[e].add_argument_group('estimator parameters')
+        for a in sorted(estimators_params[e].keys()):
+            group.add_argument('--'+a, type=type(estimators_params[e][a]), default=estimators_params[e][a], metavar=type(estimators_params[e][a]).__name__, help=' ')
+
+    cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]")
+    cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting', action='store_true')
+
+    args = cmdline.parse_args()
+
+    # load sample stream and fill label and feature containers
+    labels, features = load(args.samples)
+
+    # get the estimator class
+    estimator = estimators[args.estimator]
+
+    # set the estimators parameters from cli
+    params = dict(args.__dict__)
+    del params['estimator'], params['samples'], params['graph'] # filter other cli arguments
+    estimator.set_params(**params)
+
+    # fit model
+    estimator.fit(features)
+
+    # graph
+    if args.graph:
+        graph_result(estimator, labels, features)
+        quit()
+
+
+    # TODO: output
+
+
+
+
+
+
+
