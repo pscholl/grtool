@@ -204,7 +204,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None
             for key, mask in events:
                 if key.data(): sel.unregister(key.fileobj)
 
-            if block % 10000 != 0 and len(sel.get_map().values()) != 0:
+            if block % 1000000 != 0 and len(sel.get_map().values()) != 0:
                 continue
 
             n = min(len(v) for v in ibuf.values())
