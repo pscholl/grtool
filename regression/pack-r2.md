@@ -34,6 +34,5 @@
 
  Ah this should fail in a reasonable way:
 
-    echo "1 2
-    2 1" | grt pack -i - - | grt unpack -
-    abc
+   echo "1 2
+   > 2 1" | grt pack -i - - | grt unpack -

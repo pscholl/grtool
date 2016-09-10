@@ -246,6 +246,9 @@ def group(files):
 def probe(f):
     buf = b""
     while len(buf) < 2e6:
+        newdata = f.peek(int(2e6))
+        if len(newdata) == 0:
+            sys.exit(-1)
         buf += f.peek(int(2e6))
 
     cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams -".split()
