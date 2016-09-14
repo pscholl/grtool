@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn import cluster
+import pickle
 
 
 estimators_help = {
@@ -21,7 +22,7 @@ estimators_help = {
             'MiniBatchKMeans': 'Mini-Batch K-Means clustering',
             'MeanShift': 'Mean shift clustering using a flat kernel.',
             'SpectralClustering': 'Apply clustering to a projection to the normalized laplacian.',
-            } # estimator help text
+            } # estimator help text, estimator objects constructed from the keys
 
 estimators_params = dict() # estimator parameters
 estimators = dict() # estimator classes
@@ -147,7 +148,7 @@ if __name__=="__main__":
     get_estimators()
 
     class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
-    cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn", epilog="Default output:", formatter_class=Formatter)
+    cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn\[train module]", epilog="Default output: estimator dump", formatter_class=Formatter)
 
     # create subparsers for each estimator
     est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description='used to fit model to sample features\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', metavar='ESTIMATOR')
@@ -162,6 +163,7 @@ if __name__=="__main__":
     cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]")
     cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting', action='store_true')
     cmdline.add_argument('-p', '--prediction', help='output the prediction for the loaded samples', action='store_true')
+    cmdline.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file')
 
     args = cmdline.parse_args()
 
@@ -177,7 +179,7 @@ if __name__=="__main__":
 
     # set the estimators parameters from cli
     params = dict(args.__dict__)
-    del params['estimator'], params['samples'], params['graph'], params['prediction'] # filter other cli arguments
+    del params['estimator'], params['samples'], params['graph'], params['prediction'], params['file'] # filter other cli arguments
     estimator.set_params(**params)
 
     # fit model
@@ -194,9 +196,14 @@ if __name__=="__main__":
             print(labels[i], pred[i], sep='\t')
         quit()
 
-    # TODO: output
+    if args.file:
+        pickle.dump(estimator, args.file)
+    else:
+        print(pickle.dumps(estimator).__sizeof__()) # size of the object, to be read by predict TODO: 33 Bytes inaccurate
+        print(pickle.dumps(estimator).decode('latin-1'), flush=True)
 
-
+    print()
+    print()
 
 
 
