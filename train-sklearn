@@ -161,8 +161,13 @@ if __name__=="__main__":
 
     cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]")
     cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting', action='store_true')
+    cmdline.add_argument('-p', '--prediction', help='output the prediction for the loaded samples', action='store_true')
 
     args = cmdline.parse_args()
+
+    if args.estimator == None:
+        cmdline.print_help()
+        quit()
 
     # load sample stream and fill label and feature containers
     labels, features = load(args.samples)
@@ -172,7 +177,7 @@ if __name__=="__main__":
 
     # set the estimators parameters from cli
     params = dict(args.__dict__)
-    del params['estimator'], params['samples'], params['graph'] # filter other cli arguments
+    del params['estimator'], params['samples'], params['graph'], params['prediction'] # filter other cli arguments
     estimator.set_params(**params)
 
     # fit model
@@ -183,10 +188,13 @@ if __name__=="__main__":
         graph_result(estimator, labels, features)
         quit()
 
+    if args.prediction:
+        pred = estimator.predict(features)
+        for i in range(0, len(labels)):
+            print(labels[i], pred[i], sep='\t')
+        quit()
 
     # TODO: output
-
-
 
 
 
