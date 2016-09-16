@@ -1,5 +1,5 @@
 #include "cmdline.h"
-#include <math.h>
+#include <cmath>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>

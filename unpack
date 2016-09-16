@@ -205,7 +205,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,veryverbose=False,ss=0
             for key, mask in events:
                 if key.data(): sel.unregister(key.fileobj)
 
-            if block % 10000 != 0 and len(sel.get_map().values()) != 0:
+            if block % 1000000 != 0 and len(sel.get_map().values()) != 0:
                 continue
 
             n = min(len(v) for v in ibuf.values())
@@ -250,6 +250,9 @@ def group(files):
 def probe(f):
     buf = b""
     while len(buf) < 2e6:
+        newdata = f.peek(int(2e6))
+        if len(newdata) == 0:
+            sys.exit(-1)
         buf += f.peek(int(2e6))
 
     cmd = "ffprobe -hide_banner -loglevel quiet -of json -show_streams -".split()

@@ -31,3 +31,8 @@
     abc 2.000000 
     cde 3.000000 
 
+
+ Ah this should fail in a reasonable way:
+
+   echo "1 2
+   > 2 1" | grt pack -i - - | grt unpack -

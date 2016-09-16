@@ -10,7 +10,7 @@
  grt pack [-h|--help] [-i|--input] <file> [-n|--name] \<name\>
           [-r|--rate] \<rate\> [-m|--media] \<media\> [-v|--verbose]
           [-ss|--seek] \<offset\> [-l|--label] \<subtitle\>
-          <output-file>
+          \<output-file\>
 
 # DESCRIPTION
 
