@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys, os
 import argparse, fileinput
+import math
 import numpy as np
 
 import matplotlib
@@ -46,10 +47,46 @@ def get_estimators():
 
 
 # load stream
-def load(stream):
-    labels = list()
-    features_l = list()
+def load(stream, trainset):
+    train_labels = list()
+    train_features_l = list()
+    test_labels = list()
+    test_features_l = list()
     num_features = 0
+
+    ratio, fraction, integral = 0, 0, 0
+
+    # get trainset modes
+    # TODO: support k greater 9
+    try:
+        ratio = float(trainset)
+        fraction, integral = math.modf(ratio)
+        integral = int(integral)
+        fraction = round(fraction*10)
+    except ValueError:
+        stream = trainset
+
+    # special case for a ratio of 100%
+    if ratio == 1:
+        ratio = 0
+
+    # sanity checks on trainset
+    if ratio > 0:
+        if fraction < 0:
+            print("no fold number given, specify with k.x or use a ratio (0,1] for random split")
+            sys.exit(-1)
+
+        if integral >= 1 and fraction > integral:
+            print("fold number (", fraction, ") must be greater than 0 and less than or equal the number of folds (", integral, ")", sep='')
+            sys.exit(-1)
+
+        if ratio > 1 and fraction < 1:
+            print("fold number (", fraction, ") must be greater than 0 and less than or equal the number of folds (", integral, ")", sep='')
+            sys.exit(-1)
+
+        if integral > 9:
+            print("k > 9 not supported currently")
+            sys.exit(-1)
 
     for line in fileinput.input(stream, bufsize=1000):
         line = line.strip()
@@ -73,10 +110,33 @@ def load(stream):
             print("incorrect number of features:", len(fields[1:]), "!=", num_features, "|", fields)
             sys.exit(-1)
 
-        labels.append(fields[0])
-        features_l.append([ float(x) for x in fields[1:] ])
+        train_labels.append(fields[0])
+        train_features_l.append([ float(x) for x in fields[1:] ])
 
-    return labels, np.array(features_l)
+    # do splitting
+    if ratio <= 0:
+        pass
+    elif ratio < 1:
+        # random stratified split:
+        # 1. for each class, create a vector containing their respective indices (strata)
+        # 2. randomize each stratum and split them according to the provided ratio
+        # 3. according to the created index strata, move the selected samples to the test vectors
+        pass
+    elif ratio > 1:
+        # k-fold split:
+        samples_per_fold = int(len(train_labels) / integral)
+
+        # last fold might be larger since only integers
+        if integral == fraction:
+            for i in reversed(range((fraction-1) * samples_per_fold, len(train_labels))):
+                test_labels.insert(0, train_labels.pop(i))
+                test_features_l.insert(0, train_features_l.pop(i))
+        else:
+            for i in reversed(range(0, samples_per_fold)):
+                test_labels.insert(0, train_labels.pop((fraction - 1) * samples_per_fold + i))
+                test_features_l.insert(0, train_features_l.pop((fraction - 1) * samples_per_fold + i))
+
+    return train_labels, np.array(train_features_l), test_labels, np.array(test_features_l)
 
 
 
@@ -169,6 +229,7 @@ if __name__=="__main__":
     cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting\n', action='store_true')
     cmdline.add_argument('-p', '--prediction', help='output the prediction for the test set (needs --trainset)\n', action='store_true')
     cmdline.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file\n')
+    cmdline.add_argument('-n', '--trainset', type=str, default='0', help='training/test set customization:\n- <= 0: no split\n- < 1: random stratified split, rest is test set\n- > 1: k-fold split, selected fold is test set (k.x, [folds].[select])\n- file: use this file as sample source, no split\n')
 
     args = cmdline.parse_args()
 
@@ -177,28 +238,33 @@ if __name__=="__main__":
         quit()
 
     # load sample stream and fill label and feature containers
-    labels, features = load(args.samples)
+    train_labels, train_features, test_labels, test_features = load(args.samples, args.trainset)
 
     # get the estimator class
     estimator = estimators[args.estimator]
 
     # set the estimators parameters from cli
     params = dict(args.__dict__)
-    del params['estimator'], params['samples'], params['graph'], params['prediction'], params['file'] # filter other cli arguments
+    # filter other cli arguments
+    del params['estimator'], params['samples'], \
+        params['graph'], params['prediction'], \
+        params['file'], params['trainset']
     estimator.set_params(**params)
 
     # fit model
-    estimator.fit(features)
+    estimator.fit(train_features)
 
     # graph
     if args.graph:
-        graph_result(estimator, labels, features)
+        graph_result(estimator, train_labels, train_features)
         quit()
 
-    if args.prediction:
-        pred = estimator.predict(features)
-        for i in range(0, len(labels)):
-            print(labels[i], pred[i], sep='\t')
+    if args.prediction and not len(test_labels) > 0:
+        quit()
+    elif args.prediction:
+        pred = estimator.predict(test_features)
+        for i in range(0, len(test_labels)):
+            print(test_labels[i], pred[i], sep='\t')
         quit()
 
     if args.file:
@@ -207,8 +273,14 @@ if __name__=="__main__":
         print(pickle.dumps(estimator).__sizeof__()) # size of the object, to be read by predict TODO: 33 Bytes inaccurate
         print(pickle.dumps(estimator).decode('latin-1'), flush=True)
 
-    print()
-    print()
+    if len(test_labels) > 0:
+        print()
+        print()
+        for i in range(0, len(test_labels)):
+            print(test_labels[i], end='\t')
+            for feature in test_features[i]:
+                print(feature, end='\t')
+            print()
 
 
 
