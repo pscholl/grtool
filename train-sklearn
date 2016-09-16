@@ -34,7 +34,8 @@ def get_estimators():
         try:
             tmp = getattr(cluster, e)
         except AttributeError:
-            raise NotImplementedError("Class `{}` does not implement `{}`".format(cluster.__class__.__name__, e))
+            #raise NotImplementedError("Class `{}` does not implement `{}`".format(cluster.__name__, e))
+            print(cluster.__name__, "does not implement estimator", e)
             sys.exit(-1)
         estimators[e] = tmp()
         estimators_params[e] = estimators[e].get_params()
@@ -64,13 +65,13 @@ def load(stream):
         fields = line.split()
         if len(fields) < 2:
             print("no features? |", fields)
-            quit()
+            sys.exit(-1)
 
         if not num_features:
             num_features = len(fields[1:])
         elif len(fields[1:]) != num_features:
             print("incorrect number of features:", len(fields[1:]), "!=", num_features, "|", fields)
-            quit()
+            sys.exit(-1)
 
         labels.append(fields[0])
         features_l.append([ float(x) for x in fields[1:] ])
@@ -92,7 +93,11 @@ def graph_result(estimator, labels, features):
     print("uniques:", len(ulabels))
     print("estimator:", estimator)
 
-    centers = estimator.cluster_centers_
+    try:
+        centers = estimator.cluster_centers_
+    except AttributeError:
+        print("sorry, graphing for the selected estimator is not supported yet")
+        sys.exit(-1)
 
     fig = plt.figure(1, figsize=(20,12))
     fig.clf()
@@ -148,7 +153,7 @@ if __name__=="__main__":
     get_estimators()
 
     class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
-    cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn\[train module]", epilog="Default output: estimator dump", formatter_class=Formatter)
+    cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn\n[train module]", epilog="Default output: estimator dump", formatter_class=Formatter)
 
     # create subparsers for each estimator
     est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description='used to fit model to sample features\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', metavar='ESTIMATOR')
@@ -160,10 +165,10 @@ if __name__=="__main__":
         for a in sorted(estimators_params[e].keys()):
             group.add_argument('--'+a, type=type(estimators_params[e][a]), default=estimators_params[e][a], metavar=type(estimators_params[e][a]).__name__, help=' ')
 
-    cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]")
-    cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting', action='store_true')
-    cmdline.add_argument('-p', '--prediction', help='output the prediction for the loaded samples', action='store_true')
-    cmdline.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file')
+    cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]\n")
+    cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting\n', action='store_true')
+    cmdline.add_argument('-p', '--prediction', help='output the prediction for the test set (needs --trainset)\n', action='store_true')
+    cmdline.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file\n')
 
     args = cmdline.parse_args()
 
