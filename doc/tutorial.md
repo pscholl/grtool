@@ -14,9 +14,12 @@
      info[i] - print stats about a dataset file
      train[t] - trains a prediction model
      train-dlib[td] - trains a prediction model, uses dlib multiclass machine learning trainers
+     train-skl[ts] - trains a prediction model, uses scikit-learn unsupervised estimators
      predict[p] - predict from unseen data
      predict-dlib[pd] - predict from unseen data, processes trainers created from train-dlib
+     predict-skl[ps] - predict from unseen data, processes models created from train-skl
      score[s] - calculate classifcation score for prediction
+     score-tl[stl] - scoring tools for a fixed timeline of activities
      extract[e] - extract features from a data sequence
      preprocess[pp] - preprocess data sequence
      postprocess[pop] - postprocess label streams

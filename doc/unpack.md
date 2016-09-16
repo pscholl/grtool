@@ -53,7 +53,7 @@ data again.
     echo "abc 1 1 2
     > abc 2 2 2
     > cde 3 4 5 
-    > tfe 6 7 8" > data && grt pack -l data -i data -r 2 -n test test.mkv && grt unpack test.mkv
+    > tfe 6 7 8" > data && grt pack -l data -i data -r 50 -n test test.mkv && grt unpack test.mkv
     abc 1.000000 1.000000 2.000000 
     abc 2.000000 2.000000 2.000000 
     cde 3.000000 4.000000 5.000000 
@@ -67,6 +67,6 @@ not NULL, however this is an ffmpeg bug when seeking subtitles.
    echo "abc 1 1 2
    > abc 2 2 2
    > cde 3 4 5 
-   > tfe 6 7 8" > data && grt pack -l data -i data -r 2 -n test test.mkv && grt unpack -ss 0.5 -sd 1 test.mkv
+   > tfe 6 7 8" > data && grt pack -l data -i data -r 50 -n test test.mkv && grt unpack -ss 0.5 -sd 1 test.mkv
    NULL 2.000000 2.000000 2.000000 
    cde 3.000000 4.000000 5.000000 
