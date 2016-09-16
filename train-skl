@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys, os
 import argparse, fileinput
-import math
+import math, random
 import numpy as np
 
 import matplotlib
@@ -121,7 +121,35 @@ def load(stream, trainset):
         # 1. for each class, create a vector containing their respective indices (strata)
         # 2. randomize each stratum and split them according to the provided ratio
         # 3. according to the created index strata, move the selected samples to the test vectors
-        pass
+
+        # init
+        train_strata = list()
+        test_strata = list()
+        u_labels = list(set(train_labels))
+
+        # create strata vector with sample indices
+        for l in u_labels:
+            train_strata.append([ x for x,y in enumerate(train_labels) if y==l ])
+
+        # randomize index strata
+        for s in train_strata:
+            random.shuffle(s)
+
+        # split index strata
+        for s in train_strata:
+            test_strata.append([ y for x,y in enumerate(s) if x < len(s) * (1-ratio) ])
+
+        # combine test strata to one list and sort it
+        test_set = list()
+        for s in test_strata:
+            test_set.extend(s)
+        test_set.sort(reverse=True)
+
+        # move test set samples from train list to test list
+        for i in test_set:
+            test_labels.insert(0, train_labels.pop(i))
+            test_features_l.insert(0, train_features_l.pop(i))
+
     elif ratio > 1:
         # k-fold split:
         samples_per_fold = int(len(train_labels) / integral)
