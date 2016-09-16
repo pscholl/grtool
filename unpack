@@ -116,7 +116,7 @@ def duration2ticks(s, rate):
     return None
 
 
-def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None,sub_only=False):
+def unpack_to_str(streams,sub,default,style,verbose=False,veryverbose=False,ss=0,sd=None,rate=None,sub_only=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
     # not be taught to use the soxr resampler (the default one does not work)
@@ -144,7 +144,8 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None
 
     # build the command line
     cmd  = 'ffmpeg'
-    cmd += '' if verbose else ' -hide_banner -loglevel quiet'
+    cmd += '' if not veryverbose else ' -loglevel repeat+trace'
+    cmd += '' if verbose or veryverbose else ' -hide_banner -loglevel quiet'
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
     cmd += '' if not sub else ' -map %d:%d -f ass %s pipe:%d'%(sub[0]['file_index'],sub[0]['index'],ssd,subp[1])
 
@@ -155,7 +156,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None
         cmd += ssd
         cmd += ' pipe:%d'%w
 
-    if verbose:
+    if verbose or veryverbose:
         sys.stderr.write(cmd+"\n")
 
     # cmdline built, now copy all files to their respective w parts of in,
@@ -277,6 +278,7 @@ if __name__ == '__main__':
     cmdline.add_argument('-sd', type=str, default=None,                     help="duration of the playback, format is documented in ffmpeg-utils(1)")
     cmdline.add_argument('-so', '--sub-only', action="store_true"         , help="output only subtitle labels, no numerical data")
     cmdline.add_argument('-v', '--verbose', action="store_true"           , help="more verbose output")
+    cmdline.add_argument('-vv', '--veryverbose', action="store_true"      , help="even more verbose output")
     args = cmdline.parse_args()
 
     #
@@ -312,7 +314,7 @@ if __name__ == '__main__':
             sys.exit(-1)
 
         try:
-            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd,args.rate,args.sub_only)
+            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.veryverbose,args.ss,args.sd,args.rate,args.sub_only)
         except struct.error:
             raise
             sys.exit(0)
