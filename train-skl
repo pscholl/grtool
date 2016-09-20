@@ -250,10 +250,10 @@ if __name__=="__main__":
     cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn\n[train module]", epilog="Default output: estimator dump", formatter_class=Formatter)
 
     # create subparsers for each estimator
-    est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description='used to fit model to sample features\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', metavar='ESTIMATOR')
+    est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description='used to fit model to sample features\nSee http://scikit-learn.org/stable/modules/clustering.html for more info.', metavar='ESTIMATOR')
     est_cmdline_subs = dict()
     for e in sorted(estimators_help.keys()):
-        est_cmdline_subs[e] = est_cmdline.add_parser(e, help=estimators_help[e], description=estimators_help[e]+'\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', formatter_class=Formatter)
+        est_cmdline_subs[e] = est_cmdline.add_parser(e, help=estimators_help[e], description=estimators_help[e]+'\n\nSee http://scikit-learn.org/stable/modules/clustering.html for more info.', formatter_class=Formatter)
         general_args(est_cmdline_subs[e])
         # fill arguments with available parameters
         group = est_cmdline_subs[e].add_argument_group('estimator parameters')
@@ -266,6 +266,10 @@ if __name__=="__main__":
         print('no estimator given')
         cmdline.print_help()
         quit()
+
+    if args.estimator in {'AffinityPropagation', 'SpectralClustering'}:
+        print('# NOTE: Selected algorithm takes a similarity matrix as input!')
+        # TODO: can we automatically transform samples into similarity matrix in this case?
 
     # load sample stream and fill label and feature containers
     train_labels, train_features, test_labels, test_features = load(args.samples, args.trainset)

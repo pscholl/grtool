@@ -59,9 +59,14 @@ def graph_result(estimator, labels, features):
 
     print("samples:", len(labels))
     print("uniques:", len(ulabels))
+    print("features:", len(features[0]))
     print("estimator:", estimator)
 
-    centers = estimator.cluster_centers_
+    try:
+        centers = estimator.cluster_centers_
+    except AttributeError:
+        print("sorry, graphing for the selected estimator is not supported yet")
+        sys.exit(-1)
 
     fig = plt.figure(1, figsize=(20,12))
     fig.clf()
