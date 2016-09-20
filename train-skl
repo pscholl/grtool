@@ -179,6 +179,7 @@ def graph_result(estimator, labels, features):
 
     print("samples:", len(labels))
     print("uniques:", len(ulabels))
+    print("features:", len(features[0]))
     print("estimator:", estimator)
 
     try:
@@ -235,7 +236,12 @@ def print_dict(header, d, *args):
 
 
 
-
+def general_args(parser):
+    parser.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]\n")
+    parser.add_argument('-g', '--graph', help='graph results of estimator fitting\n', action='store_true')
+    parser.add_argument('-p', '--prediction', help='output the prediction for the test set (needs --trainset)\n', action='store_true')
+    parser.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file\n')
+    parser.add_argument('-n', '--trainset', type=str, default='0', help='training/test set customization:\n- <= 0: no split\n- < 1: random stratified split, rest is test set\n- > 1: k-fold split, selected fold is test set (k.x, [folds].[select])\n- file: use this file as sample source, no split\n')
 
 if __name__=="__main__":
     get_estimators()
@@ -248,20 +254,16 @@ if __name__=="__main__":
     est_cmdline_subs = dict()
     for e in sorted(estimators_help.keys()):
         est_cmdline_subs[e] = est_cmdline.add_parser(e, help=estimators_help[e], description=estimators_help[e]+'\nSee http://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster for more info.', formatter_class=Formatter)
+        general_args(est_cmdline_subs[e])
         # fill arguments with available parameters
         group = est_cmdline_subs[e].add_argument_group('estimator parameters')
         for a in sorted(estimators_params[e].keys()):
             group.add_argument('--'+a, type=type(estimators_params[e][a]), default=estimators_params[e][a], metavar=type(estimators_params[e][a]).__name__, help=' ')
 
-    cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]\n")
-    cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting\n', action='store_true')
-    cmdline.add_argument('-p', '--prediction', help='output the prediction for the test set (needs --trainset)\n', action='store_true')
-    cmdline.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file\n')
-    cmdline.add_argument('-n', '--trainset', type=str, default='0', help='training/test set customization:\n- <= 0: no split\n- < 1: random stratified split, rest is test set\n- > 1: k-fold split, selected fold is test set (k.x, [folds].[select])\n- file: use this file as sample source, no split\n')
-
     args = cmdline.parse_args()
 
     if args.estimator == None:
+        print('no estimator given')
         cmdline.print_help()
         quit()
 
