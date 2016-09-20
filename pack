@@ -198,7 +198,7 @@ def pack(ins,labels,rate=[],name=[],media=[],verbose=False,veryverbose=False,out
     # now build the ffmpeg command line
     cmd,i = ['ffmpeg'],0
     cmd += ["-nostdin"]
-    cmd += [] if not veryverbose else '-loglevel repeat+trace'.split()
+    cmd += [] if not veryverbose else '-loglevel debug'.split()
     cmd += [] if verbose or veryverbose else '-hide_banner -loglevel quiet'.split()
     for f in filters: cmd += f.ffmpeg()
     cmd += "-c:a wavpack -c:v copy -c:s srt".split()

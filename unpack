@@ -144,7 +144,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,veryverbose=False,ss=0
 
     # build the command line
     cmd  = 'ffmpeg'
-    cmd += '' if not veryverbose else ' -loglevel repeat+trace'
+    cmd += '' if not veryverbose else ' -loglevel debug'
     cmd += '' if verbose or veryverbose else ' -hide_banner -loglevel quiet'
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
     cmd += '' if not sub else ' -map %d:%d -f ass %s pipe:%d'%(sub[0]['file_index'],sub[0]['index'],ssd,subp[1])
