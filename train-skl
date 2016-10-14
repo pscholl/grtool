@@ -286,7 +286,12 @@ if __name__=="__main__":
     estimator.set_params(**params)
 
     # fit model
-    estimator.fit(train_features)
+    try:
+        estimator.fit(train_features)
+    except ValueError as ex:
+        sys.stderr.write("train-skl: ValueError when fitting estimator!")
+        sys.stderr.write(str(ex))
+        sys.exit(-1)
 
     # graph
     if args.graph:

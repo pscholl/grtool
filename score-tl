@@ -144,7 +144,13 @@ class timeline:
     def hysteresis(self, pred, threshold, default):
         hyst = list(pred)
 
-        current = pred[0]
+        try:
+            current = pred[0]
+        except IndexError as ex:
+            print("score-tl: IndexError during hysteresis, no predictions given!")
+            print(ex)
+            sys.exit(-1)
+
         last = None
         num = 1
         for i in range(0, len(hyst)):

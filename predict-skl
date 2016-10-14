@@ -152,7 +152,12 @@ if __name__=="__main__":
         quit()
 
     # fit model
-    pred = estimator.predict(features)
+    try:
+        pred = estimator.predict(features)
+    except ValueError as ex:
+        print("predict-skl: ValueError when fitting estimator!")
+        print(ex)
+        sys.exit(-1)
 
     # graph
     if args.graph:
