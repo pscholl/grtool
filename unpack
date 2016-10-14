@@ -276,7 +276,7 @@ if __name__ == '__main__':
     cmdline.add_argument('-r', '--rate', type=float, default=None,          help="resample stream to given rate in Hz")
     cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
     cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
-    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given ")
+    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given, can be comma-seperated ")
     cmdline.add_argument('-ss', type=str, default="0",                      help="seeks to a start position, format is documented in ffmpeg-utils(1)")
     cmdline.add_argument('-sd', type=str, default=None,                     help="duration of the playback, format is documented in ffmpeg-utils(1)")
     cmdline.add_argument('-so', '--sub-only', action="store_true"         , help="output only subtitle labels, no numerical data")
@@ -299,6 +299,10 @@ if __name__ == '__main__':
     files = (iopen(f) if f != '-' else sopen(f) for f in args.files )
     files = [ (probe(f),f) for f in files ]
     sids  = [ sid(s) for (ss,f) in files for s in ss if s['codec_type']=='audio' ]
+
+    args.stream = [ item for sublist in [ x.split(',') for x in args.stream ] for item in sublist ]
+    #for i in args.stream: sys.stderr.write(i + " ")
+    #sys.stderr.write('\n')
 
     # selector audio and subtitle stream
     okay = lambda d: d['codec_type']=='subtitle' or\
