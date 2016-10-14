@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import sys, os
+import sys, os, time
 import argparse, fileinput
 import numpy as np
 
@@ -126,6 +126,7 @@ if __name__=="__main__":
     cmdline.add_argument('samples', metavar='SAMPLES', type=str, nargs='?', default='-', help="sample stream, format: [label] [[features]]\n")
     cmdline.add_argument('-g', '--graph', help='graph results of estimator fitting\n', action='store_true')
     cmdline.add_argument('-i', '--info', help='print estimator info and quit\n', action='store_true')
+    cmdline.add_argument('-r', '--retry', metavar=('X','Y'), type=int, nargs=2, default=(10,1), help='retry loading model X times in Y-second intervals before giving up\n')
 
     args = cmdline.parse_args()
 
@@ -133,12 +134,22 @@ if __name__=="__main__":
         cmdline.print_help()
         quit()
 
+    estimator = None
     # get the estimator, if estimator FileType reset to not binary, source is stdin
-    if args.estimator.mode == 'r':
-        size = int(args.estimator.readline())
-        estimator = pickle.loads(args.estimator.read(size-33).encode('latin-1')) # TODO: -33 because sizeof in train is not accurate 
-    else:
-        estimator = pickle.load(args.estimator)
+    for i in range(args.retry[0]):
+        try:
+            if args.estimator.mode == 'r':
+                size = int(args.estimator.readline())
+                estimator = pickle.loads(args.estimator.read(size-33).encode('latin-1')) # TODO: -33 because sizeof in train is not accurate 
+            else:
+                estimator = pickle.load(args.estimator)
+            break;
+        except EOFError:
+            time.sleep(args.retry[1])
+
+    if estimator == None:
+        print("predict-skl: model loading error")
+        sys.exit(-1)
 
     if args.info:
         print(estimator)

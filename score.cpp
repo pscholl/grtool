@@ -375,7 +375,7 @@ string Group::to_flat_string(cmdline::parser &c, string tag, bool printheader) {
     ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
     ss << (std::isnan(NPV[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
     ss << (std::isnan(TNR[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
-  }
+  } ss << endl;
 
   return ss.str();
 
