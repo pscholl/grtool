@@ -152,7 +152,7 @@ def unpack_to_str(streams,sub,default,style,verbose=False,veryverbose=False,ss=0
     for (d,f),(_,w) in zip(streams,outs):
         cmd += ' -map %d:%d'%(d['file_index'],d['index'])
         cmd += ' -f f32le -ar %f'%rate
-        cmd += '' if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
+        cmd += '' #if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
         cmd += ssd
         cmd += ' pipe:%d'%w
 
