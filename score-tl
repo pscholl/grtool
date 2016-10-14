@@ -308,15 +308,18 @@ class timeline:
             for i in range(0, len(self.tlc_gt)):
                 if self.tlc_gt[i] == self.tlc_pred[i]:
                     print(self.transition, self.transition, sep='\t')
+                    print(self.default, self.default, sep='\t')
                 else:
                     if self.tlc_gt[i] == self.tlc_insert and self.tlc_pred[i] == self.default:
                         print(self.default, self.default, sep='\t')
                     elif self.tlc_gt[i] == self.tlc_insert and self.tlc_pred[i] != self.default:
                         print(self.default, self.transition, sep='\t')
+                        print(self.default, self.default, sep='\t')
                     elif self.tlc_pred[i] == self.tlc_delete and self.tlc_gt[i] == self.default:
                         print(self.default, self.default, sep='\t')
                     elif self.tlc_pred[i] == self.tlc_delete and self.tlc_gt[i] != self.default:
                         print(self.transition, self.default, sep='\t')
+                        print(self.default, self.default, sep='\t')
                     else:
                         print("# this never happened", self.tlc_gt[i], self.tlc_pred[i])
 

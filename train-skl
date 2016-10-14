@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn import cluster
+from sklearn import mixture
 import pickle
 
 
@@ -23,6 +24,8 @@ estimators_help = {
             'MiniBatchKMeans': 'Mini-Batch K-Means clustering',
             'MeanShift': 'Mean shift clustering using a flat kernel.',
             'SpectralClustering': 'Apply clustering to a projection to the normalized laplacian.',
+            'GaussianMixture': 'Gaussian Mixture Model',
+            'BayesianGaussianMixture': 'Variational Bayesian estimation of a Gaussian mixture.',
             } # estimator help text, estimator objects constructed from the keys
 
 estimators_params = dict() # estimator parameters
@@ -32,12 +35,20 @@ estimators = dict() # estimator classes
 def get_estimators():
     for e in list(estimators_help.keys()):
         tmp = None
+        module = None
+
+        if e == 'GaussianMixture' or e == 'BayesianGaussianMixture':
+            module = mixture
+        else:
+            module = cluster
+
         try:
-            tmp = getattr(cluster, e)
+            tmp = getattr(module, e)
         except AttributeError:
-            #raise NotImplementedError("Class `{}` does not implement `{}`".format(cluster.__name__, e))
-            print(cluster.__name__, "does not implement estimator", e)
+            #raise NotImplementedError("Class `{}` does not implement `{}`".format(module.__name__, e))
+            sys.stderr.write(module.__name__ + ' does not implement estimator ' + e + '\n')
             sys.exit(-1)
+
         estimators[e] = tmp()
         estimators_params[e] = estimators[e].get_params()
 
