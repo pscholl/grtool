@@ -166,9 +166,20 @@ if __name__=="__main__":
     try:
         pred = estimator.predict(features)
     except ValueError as ex:
-        print("predict-skl: ValueError when fitting estimator!")
-        print(ex)
+        print("# predict-skl: ValueError when predicting with estimator!")
+        print('# ' + str(ex))
         sys.exit(-1)
+    except AttributeError as ex:
+        print("# predict-skl: AttributeError when predicting with estimator!")
+        print('# ' + str(ex))
+        print("# predict-skl: trying fit_predict()!")
+        try:
+            pred = estimator.fit_predict(features)
+        except ValueError as ex:
+            print("# predict-skl: ValueError when predicting with estimator!")
+            print('# ' + str(ex))
+            sys.exit(-1)
+
 
     # graph
     if args.graph:
