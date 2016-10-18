@@ -166,18 +166,18 @@ if __name__=="__main__":
     try:
         pred = estimator.predict(features)
     except ValueError as ex:
-        print("# predict-skl: ValueError when predicting with estimator!")
-        print('# ' + str(ex))
+        sys.stderr.write("# predict-skl: ValueError when predicting with estimator!\n")
+        sys.stderr.write('# ' + str(ex) + '\n')
         sys.exit(-1)
     except AttributeError as ex:
-        print("# predict-skl: AttributeError when predicting with estimator!")
-        print('# ' + str(ex))
-        print("# predict-skl: trying fit_predict()!")
+        sys.stderr.write("# predict-skl: AttributeError when predicting with estimator!\n")
+        sys.stderr.write('# ' + str(ex) + '\n')
+        sys.stderr.write("# predict-skl: trying fit_predict()!\n")
         try:
             pred = estimator.fit_predict(features)
         except ValueError as ex:
-            print("# predict-skl: ValueError when predicting with estimator!")
-            print('# ' + str(ex))
+            sys.stderr.write("# predict-skl: ValueError when predicting with estimator!\n")
+            sys.stderr.write('# ' + str(ex) + '\n')
             sys.exit(-1)
 
 
