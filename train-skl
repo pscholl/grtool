@@ -46,7 +46,7 @@ def get_estimators():
             tmp = getattr(module, e)
         except AttributeError:
             #raise NotImplementedError("Class `{}` does not implement `{}`".format(module.__name__, e))
-            sys.stderr.write(module.__name__ + ' does not implement estimator ' + e + '\n')
+            sys.stderr.write("train-skl: " + module.__name__ + ' does not implement estimator ' + e + '\n')
             sys.exit(-1)
 
         estimators[e] = tmp()
@@ -84,19 +84,19 @@ def load(stream, trainset):
     # sanity checks on trainset
     if ratio > 0:
         if fraction < 0:
-            print("no fold number given, specify with k.x or use a ratio (0,1] for random split")
+            sys.stderr.write("train-skl: no fold number given, specify with k.x or use a ratio (0,1] for random split\n")
             sys.exit(-1)
 
         if integral >= 1 and fraction > integral:
-            print("fold number (", fraction, ") must be greater than 0 and less than or equal the number of folds (", integral, ")", sep='')
+            sys.stderr.write("train-skl: fold number (" + str(fraction) + ") must be greater than 0 and less than or equal the number of folds (" + str(integral) + ")\n")
             sys.exit(-1)
 
         if ratio > 1 and fraction < 1:
-            print("fold number (", fraction, ") must be greater than 0 and less than or equal the number of folds (", integral, ")", sep='')
+            sys.stderr.write("train-skl: fold number (" + str(fraction) + ") must be greater than 0 and less than or equal the number of folds (" + str(integral) + ")\n")
             sys.exit(-1)
 
         if integral > 9:
-            print("k > 9 not supported currently")
+            sys.stderr.write("train-skl: k > 9 not supported currently\n")
             sys.exit(-1)
 
     for line in fileinput.input(stream, bufsize=1000):
@@ -112,13 +112,13 @@ def load(stream, trainset):
 
         fields = line.split()
         if len(fields) < 2:
-            print("no features? |", fields)
+            sys.stderr.write("train-skl: no features?\n")
             sys.exit(-1)
 
         if not num_features:
             num_features = len(fields[1:])
         elif len(fields[1:]) != num_features:
-            print("incorrect number of features:", len(fields[1:]), "!=", num_features, "|", fields)
+            sys.stderr.write("train-skl: incorrect number of features:" + str(len(fields[1:])) + "!=" + str(num_features) + '\n')
             sys.exit(-1)
 
         train_labels.append(fields[0])
@@ -196,12 +196,12 @@ def graph_result(estimator, labels, features):
     try:
         centers = estimator.cluster_centers_
     except AttributeError:
-        print("sorry, graphing for the selected estimator is not supported yet")
+        sys.stderr.write("train-skl: sorry, graphing for the selected estimator is not supported yet\n")
         sys.exit(-1)
 
     fig = plt.figure(1, figsize=(20,12))
     fig.clf()
-    fig.canvas.set_window_title('train-sklearn: ' + str(estimator)[:str(estimator).find("(")])
+    fig.canvas.set_window_title('train-skl: ' + str(estimator)[:str(estimator).find("(")])
 
     ax = fig.add_subplot(2,3,1)
     ax.scatter(features[:,0], features[:,1], c=ilabels, cmap=plt.get_cmap('gist_rainbow'))
@@ -300,8 +300,8 @@ if __name__=="__main__":
     try:
         estimator.fit(train_features)
     except ValueError as ex:
-        sys.stderr.write("# train-skl: ValueError when fitting estimator!\n")
-        sys.stderr.write('# ' + str(ex) + '\n')
+        sys.stderr.write("train-skl: ValueError when fitting estimator!\n")
+        sys.stderr.write(str(ex) + '\n')
         sys.exit(-1)
 
     # graph

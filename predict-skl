@@ -32,14 +32,14 @@ def load(stream):
 
         fields = line.split()
         if len(fields) < 2:
-            print("no features? |", fields)
-            quit()
+            sys.stderr.write("predict-skl: no features?\n")
+            sys.exit(-1)
 
         if not num_features:
             num_features = len(fields[1:])
         elif len(fields[1:]) != num_features:
-            print("incorrect number of features:", len(fields[1:]), "!=", num_features, "|", fields)
-            quit()
+            sys.stderr.write("predict-skl: incorrect number of features:" + str(len(fields[1:])) + "!=" + str(num_features) + '\n')
+            sys.exit(-1)
 
         labels.append(fields[0])
         features_l.append([ float(x) for x in fields[1:] ])
@@ -65,12 +65,12 @@ def graph_result(estimator, labels, features):
     try:
         centers = estimator.cluster_centers_
     except AttributeError:
-        print("sorry, graphing for the selected estimator is not supported yet")
+        sys.stderr.write("predict-skl: sorry, graphing for the selected estimator is not supported yet\n")
         sys.exit(-1)
 
     fig = plt.figure(1, figsize=(20,12))
     fig.clf()
-    fig.canvas.set_window_title('train-sklearn: ' + str(estimator)[:str(estimator).find("(")])
+    fig.canvas.set_window_title('predict-skl: ' + str(estimator)[:str(estimator).find("(")])
 
     ax = fig.add_subplot(2,3,1)
     ax.scatter(features[:,0], features[:,1], c=ilabels, cmap=plt.get_cmap('gist_rainbow'))
@@ -148,7 +148,7 @@ if __name__=="__main__":
             time.sleep(args.retry[1])
 
     if estimator == None:
-        print("predict-skl: model loading error")
+        sys.stderr.write("predict-skl: model loading error\n")
         sys.exit(-1)
 
     if args.info:
@@ -159,15 +159,15 @@ if __name__=="__main__":
     labels, features = load(args.samples)
 
     if len(labels) == 0:
-        print("no samples loaded")
-        quit()
+        sys.stderr.write("predict-skl: no samples loaded\n")
+        sys.exit(-1)
 
     # fit model
     try:
         pred = estimator.predict(features)
     except ValueError as ex:
-        sys.stderr.write("# predict-skl: ValueError when predicting with estimator!\n")
-        sys.stderr.write('# ' + str(ex) + '\n')
+        sys.stderr.write("predict-skl: ValueError when predicting with estimator!\n")
+        sys.stderr.write(str(ex) + '\n')
         sys.exit(-1)
     except AttributeError as ex:
         #sys.stderr.write("# predict-skl: AttributeError when predicting with estimator!\n")
@@ -176,8 +176,8 @@ if __name__=="__main__":
         try:
             pred = estimator.fit_predict(features)
         except ValueError as ex:
-            sys.stderr.write("# predict-skl: ValueError when predicting with estimator!\n")
-            sys.stderr.write('# ' + str(ex) + '\n')
+            sys.stderr.write("predict-skl: ValueError when predicting with estimator!\n")
+            sys.stderr.write(str(ex) + '\n')
             sys.exit(-1)
 
 

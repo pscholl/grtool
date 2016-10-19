@@ -55,8 +55,8 @@ class timeline:
         elif percentage >= 1:
             return int(percentage)
         else:
-            print("percentage error:", percentage)
-            quit()
+            sys.stderr.write("score-tl: percentage error: " + str(percentage) + '\n')
+            sys.exit(-1)
 
 
     # do some sanity checks on the loaded sets
@@ -65,7 +65,7 @@ class timeline:
             return False
 
         if len(self.gt) == 0:
-            print("No samples provided!")
+            #print("No samples provided!")
             return False
 
         if len(self.u_gt_labels) != len(self.u_gt_samples_num):
@@ -131,10 +131,8 @@ class timeline:
     # add single sample to lists
     def add_sample(self, sample):
         if len(sample) != 2:
-            print("Wrong sample format!")
-            print("is:", sample)
-            print("should be:", "[groundtruth, prediction]")
-            quit()
+            sys.stderr.write("score-tl: Wrong sample format! Should be: [groundtruth, prediction]\n")
+            sys.exit(-1)
 
         self.gt.append(sample[0])
         self.pred.append(sample[1])
@@ -147,8 +145,8 @@ class timeline:
         try:
             current = pred[0]
         except IndexError as ex:
-            print("score-tl: IndexError during hysteresis, no predictions given!")
-            print(ex)
+            sys.stderr.write("score-tl: IndexError during hysteresis, no predictions given!\n")
+            sys.stderr.write(str(ex) + '\n')
             sys.exit(-1)
 
         last = None
@@ -203,8 +201,8 @@ class timeline:
 
         # currently probably better to restrict margin, so that no weird edge cases may happen TODO: maybe this can be avoided?
         if margin > self.hyst_th:
-            print("margin", margin, "greater than threshold", self.hyst_th)
-            quit()
+            sys.stderr.write("score-tl: margin " + str(margin) + " greater than threshold " + str(self.hyst_th) + '\n')
+            sys.exit(-1)
 
         # set indices
         ix_gt = -1
@@ -296,8 +294,8 @@ class timeline:
     # print tlc results as binary or non-binary
     def print_tlc(self, binary=True):
         if len(self.tlc_gt) != len(self.tlc_pred):
-            print("tlc error!")
-            quit()
+            sys.stderr.write("score-tl: tlc error!\n")
+            sys.exit(-1)
 
         print("# samples:", len(self.gt), "threshold:", self.hyst_th, "margin:", self.tlc_margin)
 
