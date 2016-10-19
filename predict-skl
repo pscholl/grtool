@@ -170,9 +170,9 @@ if __name__=="__main__":
         sys.stderr.write('# ' + str(ex) + '\n')
         sys.exit(-1)
     except AttributeError as ex:
-        sys.stderr.write("# predict-skl: AttributeError when predicting with estimator!\n")
-        sys.stderr.write('# ' + str(ex) + '\n')
-        sys.stderr.write("# predict-skl: trying fit_predict()!\n")
+        #sys.stderr.write("# predict-skl: AttributeError when predicting with estimator!\n")
+        #sys.stderr.write('# ' + str(ex) + '\n')
+        #sys.stderr.write("# predict-skl: trying fit_predict()!\n")
         try:
             pred = estimator.fit_predict(features)
         except ValueError as ex:
