@@ -296,6 +296,7 @@ if __name__ == '__main__':
     # ffmpeg in order to not have to read something twice
     iopen = lambda f: open(f,'rb',buffering=2**21)
     sopen = lambda f: os.fdopen(sys.stdin.fileno(),'rb',buffering=2**21)
+    args.files = [ item for sublist in [ x.split(',') for x in args.files ] for item in sublist ]
     files = (iopen(f) if f != '-' else sopen(f) for f in args.files )
     files = [ (probe(f),f) for f in files ]
     sids  = [ sid(s) for (ss,f) in files for s in ss if s['codec_type']=='audio' ]
