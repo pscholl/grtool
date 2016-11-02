@@ -309,12 +309,13 @@ if __name__=="__main__":
         graph_result(estimator, train_labels, train_features)
         quit()
 
-    if args.prediction and not len(test_labels) > 0:
-        quit()
-    elif args.prediction:
-        pred = estimator.predict(test_features)
-        for i in range(0, len(test_labels)):
-            print(test_labels[i], pred[i], sep='\t')
+    if args.prediction:
+        if len(test_labels) == 0:
+            pred = estimator.predict(train_features)
+            for i in range(0, len(train_labels)): print(train_labels[i], pred[i], sep='\t')
+        else:
+            pred = estimator.predict(test_features)
+            for i in range(0, len(test_labels)): print(test_labels[i], pred[i], sep='\t')
         quit()
 
     if args.file:
