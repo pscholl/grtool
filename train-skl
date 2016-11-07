@@ -311,7 +311,10 @@ if __name__=="__main__":
 
     if args.prediction:
         if len(test_labels) == 0:
-            pred = estimator.fit_predict(train_features)
+            try:
+                pred = estimator.fit_predict(train_features)
+            except AttributeError:
+                pred = estimator.predict(train_features)
             for i in range(0, len(train_labels)): print(train_labels[i], pred[i], sep='\t')
         else:
             pred = estimator.predict(test_features)
