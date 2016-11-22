@@ -278,9 +278,10 @@ if __name__=="__main__":
         cmdline.print_help()
         quit()
 
-    if args.estimator in {'AffinityPropagation', 'SpectralClustering'}:
-        print('# NOTE: Selected algorithm takes a similarity matrix as input!')
-        # TODO: can we automatically transform samples into similarity matrix in this case?
+    # sklearn now does this by itself
+    #if args.estimator in {'AffinityPropagation', 'SpectralClustering'}:
+    #    print('# NOTE: Selected algorithm takes a similarity matrix as input!')
+    #    # TODO: can we automatically transform samples into similarity matrix in this case?
 
     # load sample stream and fill label and feature containers
     train_labels, train_features, test_labels, test_features = load(args.samples, args.trainset)
