@@ -247,6 +247,34 @@ def print_dict(header, d, *args):
     for i in args:
         print(i)
 
+# helper to make a custom args compatibility string into a dictionary-able string
+def custom_args_compat(s):
+    # check if even number of entries
+    if len(s.split(':')) % 2 != 0:
+        sys.stderr.write("Number of dictionary entries must be even!\n")
+        sys.exit(-1)
+
+    # first and last double quote
+    s = s[0] + '"' + s[1:-1] + '"' + s[-1]
+
+    # insert double quote before and after each colon
+    i = 0
+    while True:
+        if i >= len(s): break
+        if s[i] == ':':
+            s = s[:i] + '":"' + s[i+1:]
+            i += 2
+        else: i += 1
+
+    # replace every second colon with comma
+    flag = False
+    for i in range(len(s)):
+        if s[i] == ':' and flag:
+            s = s[:i] + ',' + s[i+1:]
+            flag = False
+        elif s[i] == ':' and not flag: flag = True
+    return s
+
 
 
 def general_args(parser):
@@ -255,7 +283,8 @@ def general_args(parser):
     parser.add_argument('-p', '--prediction', help='output the prediction for the test set, or if no test set specified, the train set\n', action='store_true')
     parser.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file\n')
     parser.add_argument('-n', '--trainset', type=str, default='0', help='training/test set customization:\n- <= 0: no split\n- < 1: random stratified split, rest is test set\n- > 1: k-fold split, selected fold is test set (k.x, [folds].[select])\n- file: use this file as sample source, no split\n')
-    parser.add_argument('--custom-args', metavar=dict.__name__, type=json.loads, help='custom trainer arguments\n')
+    parser.add_argument('--custom-args', metavar='dict', type=str, help='custom trainer arguments\n')
+    parser.add_argument('--custom-args-compat', help='compatibility mode for --custom-args, e.g. when used with GNU parallel\nkeys and values are strings only! format: {key1:value1:key2...}\n', action='store_true')
 
 if __name__=="__main__":
     get_estimators()
@@ -298,8 +327,11 @@ if __name__=="__main__":
     del params['estimator'], params['samples'], \
         params['graph'], params['prediction'], \
         params['file'], params['trainset'], \
-        params['custom_args']
-    if 'connectivity' in args.custom_args and args.custom_args['connectivity'] == 'temp_seq':
+        params['custom_args'], params['custom_args_compat']
+    if args.custom_args_compat:
+        args.custom_args = custom_args_compat(args.custom_args)
+    custom_args = json.loads(args.custom_args)
+    if 'connectivity' in custom_args and custom_args['connectivity'] == 'temp_seq':
         temp_seq = sparse.diags([1,1], [-1,1], shape=(len(train_features), len(train_features)))
         params['connectivity'] = temp_seq
     estimator.set_params(**params)
