@@ -328,12 +328,15 @@ if __name__=="__main__":
         params['graph'], params['prediction'], \
         params['file'], params['trainset'], \
         params['custom_args'], params['custom_args_compat']
-    if args.custom_args_compat:
-        args.custom_args = custom_args_compat(args.custom_args)
-    custom_args = json.loads(args.custom_args)
-    if 'connectivity' in custom_args and custom_args['connectivity'] == 'temp_seq':
-        temp_seq = sparse.diags([1,1], [-1,1], shape=(len(train_features), len(train_features)))
-        params['connectivity'] = temp_seq
+    # set custom estimator args if any
+    if args.custom_args:
+        if args.custom_args_compat:
+            args.custom_args = custom_args_compat(args.custom_args)
+        custom_args = json.loads(args.custom_args)
+        if 'connectivity' in custom_args and custom_args['connectivity'] == 'temp_seq':
+            temp_seq = sparse.diags([1,1], [-1,1], shape=(len(train_features), len(train_features)))
+            params['connectivity'] = temp_seq
+    # set the estimator parameters
     estimator.set_params(**params)
 
     #print(estimator.get_params())
