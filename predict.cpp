@@ -26,6 +26,14 @@ int main(int argc, char *argv[])
   istream &in = grt_fileinput(c,1);
   in.peek(); // block until data there
 
+  if (c.rest().size()) {
+    ifstream test(c.rest()[0], ifstream::binary | ifstream::ate);
+    if (test.tellg() < 1) {
+      cerr << "unable to open model: " << c.rest()[0] << endl;
+      return -1;
+    }
+  }
+
   /* load a classification model */
   ifstream fin; fin.open(c.rest().size() ? c.rest()[0] : "");
   istream &model = c.rest().size() ? fin : cin;
