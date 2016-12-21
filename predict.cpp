@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
   Classifier *classifier = loadClassifierFromFile(model);
 
   if (classifier == NULL && c.rest().size() > 0)
-    for (int i=0; i<255*255 && classifier==NULL; i++, usleep(10*100)) {
+    for (int i=0; i<5 && classifier==NULL; i++, usleep(1000*1000)) {
       ifstream fin(c.rest()[0]);
       classifier = loadClassifierFromFile(fin);
     }
