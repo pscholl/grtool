@@ -7,7 +7,8 @@ import numpy as np
 import csv, sqlite3
 
 
-
+# helper to get uniques from a list or list of lists whilst preserving order
+# https://www.peterbe.com/plog/uniqifiers-benchmark
 def unique_ordered(seq, listlist=False):
   seen = set()
   seen_add = seen.add
@@ -15,7 +16,8 @@ def unique_ordered(seq, listlist=False):
     seq = [ tuple(x) for x in seq ]
   return [ x for x in seq if not (x in seen or seen_add(x)) ]
 
-extensions = False # flag that gets set if extension loading was successful
+# helper for aggregation columns, with an option for shorter column names
+extensions = False # flag that gets set in main if extension loading was successful
 def aggregate_sql(c, sel_as=False):
   ret = 'avg('+c+')' + ('' if not sel_as else 'as avg') + ','
   if extensions:
@@ -27,10 +29,11 @@ def aggregate_sql(c, sel_as=False):
   return ret
 
 
-
+# create a new table with the specified columns
 def db_create_table(cursor, table, fields):
+  # build SQL term
   create_str = 'CREATE TABLE '+table+' ('
-  for i in fields: create_str += i.replace('\"','') + ','
+  for i in fields: create_str += i.replace('\"','') + ',' # remove "
   create_str = create_str[:-1]
   create_str += ');'
   try:
@@ -40,7 +43,10 @@ def db_create_table(cursor, table, fields):
     #print(fields)
     raise ex
 
+
+# add a new row to a table with the specified values
 def db_add_row(cursor, values, args):
+  # build SQL term, add one '?' for each value, for use with execute()
   insert_str = 'INSERT INTO '+args.table+' VALUES ('
   for i in values: insert_str += '?,'
   insert_str = insert_str[:-1]
@@ -49,17 +55,22 @@ def db_add_row(cursor, values, args):
   try:
     cursor.execute(insert_str, values)
   except sqlite3.OperationalError as ex:
+    # parse the number of table columns and specified values from the error
     split = str(ex).split()
     ncol = int(split[split.index('columns')-1])
     nval = int(split[split.index('values')-1])
+    # if more values are given than the table has columns skip the row
     if ncol < nval:
       err = 'sqlite3.OperationalError: {}\n  --> skipped: {}\n'.format(str(ex),str(values))
       if args.verbose: sys.stderr.write(err)
+    # if less values are given than the table has columns extend the value list with NULL values and try again
     elif ncol > nval:
       values.extend([ None for x in range(ncol-nval) ])
       if args.verbose: sys.stderr.write('extended ' + str(nval) + ' --> ' + str(ncol) + '\n')
       db_add_row(cursor, values, args.verbose)
 
+
+# prints some short info on the specified table
 def db_print_info(cursor, table):
   cursor.execute('SELECT * FROM ' + table)
   entries = cursor.fetchall()
@@ -68,8 +79,11 @@ def db_print_info(cursor, table):
   print('columns:')
   for c in [ d[0] for d in cursor.description ]: print(' ', c)
 
+
+# print the loaded table
 def db_print_table(cursor, args):
   sql_select = False
+  # get the selected columns, either by name or index
   if args.select_columns:
     try:
       sel_columns = [int(c) for c in args.select_columns.split(',')]
@@ -80,6 +94,7 @@ def db_print_table(cursor, args):
     sel_columns = []
 
   if not args.sql:
+    # build the SQL term
     args.sql = 'SELECT ' + ('*' if not sql_select else args.select_columns) + ' FROM ' + args.table
     if args.where: args.sql += ' WHERE (' + args.where + ')'
     if args.order_by:
@@ -96,17 +111,20 @@ def db_print_table(cursor, args):
 
   if args.verbose: sys.stderr.write(str(len(rows)) + ' rows in ' + str(len(columns)) + ' columns loaded\n')
 
+  # put limits if specified
   nc = min(len(columns), args.limit_columns)
   if nc == 0: nc = len(columns)
   nr = min(len(rows), args.limit_rows)
   if nr == 0: nr = len(rows)
 
+  # pass on selection, range on limits if none
   if not sql_select and len(sel_columns): scols = sel_columns
   else: scols = range(nc)
   srows = range(nr)
 
   print()
 
+  # if raw only print values without formatting
   if args.raw:
     for c in scols: print(columns[c], end='\t')
     print()
@@ -115,20 +133,26 @@ def db_print_table(cursor, args):
       print()
 
   else:
+    # get the selected and limited rows and columns
     tab_cols=list()
     tab_rows=list()
     for c in scols: tab_cols.append(columns[c])
     for r in srows: tab_rows.append([ c for i,c in enumerate(rows[r]) if scols.count(i) != 0 ])
+    # ordering indicator
     if args.order_by in tab_cols:
       ix = tab_cols.index(args.order_by)
       if args.ascending: tab_cols[ix] = tab_cols[ix] + b' \u25B2'.decode('unicode_escape')
       else: tab_cols[ix] = tab_cols[ix] + b' \u25BC'.decode('unicode_escape')
+    # print table with tabulate
     print(tabulate(tab_rows, headers=tab_cols, tablefmt=args.format))
 
+
+# print aggregation values for the selected columns
 def db_print_aggregate(cursor, args):
+  # get the selected columns, make sure they are strings not indices
   if args.select_columns:
     try:
-      sel_columns = [int(c) for c in args.select_columns.split(',')]
+      sel_columns = [int(c) for c in args.select_columns.split(',')] # TODO: check all columns not just the first occurrence
       sys.stderr.write('Select columns by name, not index!\n')
       sys.exit(-1)
     except ValueError:
@@ -142,6 +166,7 @@ def db_print_aggregate(cursor, args):
   columns = list()
   rows = list()
   for i in sel_columns:
+    # build the SQL term with the aggregating functions
     args.sql = 'SELECT ' + aggregate_sql(i, True)
     args.sql = args.sql[:-1] + ' FROM ' + args.table
     if args.where: args.sql += ' WHERE (' + args.where + ')'
@@ -153,7 +178,9 @@ def db_print_aggregate(cursor, args):
 
     if args.verbose: sys.stderr.write('\n' + args.sql + '\n')
     cursor.execute(args.sql)
+
     columns = [ d[0] for d in cursor.description ]
+    # each result per selected column has only one row (aggregation)
     rows += [list(cursor.fetchall()[0])]
     rows[len(rows) - 1].insert(0,i)
 
@@ -161,10 +188,13 @@ def db_print_aggregate(cursor, args):
   print(tabulate(rows, headers=columns, tablefmt=args.format))
   print()
 
+
+# print distinct values for the selected columns
 def db_print_distinct(cursor, args):
+  # get the selected columns, make sure they are strings not indices
   if args.select_columns:
     try:
-      sel_columns = [int(c) for c in args.select_columns.split(',')]
+      sel_columns = [int(c) for c in args.select_columns.split(',')] # TODO: check all columns not just the first occurrence
       sys.stderr.write('Select columns by name, not index!\n')
       sys.exit(-1)
     except ValueError:
@@ -179,16 +209,22 @@ def db_print_distinct(cursor, args):
   rows = list()
   for ix in range(len(sel_columns)):
     col = sel_columns[ix]
+    # build the SQL term, orders each column
     args.sql = 'SELECT DISTINCT ' + col + ' FROM ' + args.table
     if args.where: args.sql += ' WHERE (' + args.where + ')'
     args.sql += ' ORDER BY ' + col + (' ASC' if args.ascending else ' DESC')
+
     if args.verbose: sys.stderr.write('\n' + args.sql + '\n')
+
+    # add empty column if error
     try: cursor.execute(args.sql)
     except sqlite3.OperationalError as ex:
       columns += [col]
       continue
+
     columns += [ d[0] for d in cursor.description ]
     new = cursor.fetchall()
+    # extend the table if new column has more rows
     if len(rows) < len(new): rows.extend([[None,]*len(sel_columns) for i in range(len(new)-len(rows))])
     for jx in range(len(new)): rows[jx][ix] = new[jx][0]
 
@@ -196,12 +232,23 @@ def db_print_distinct(cursor, args):
   print(tabulate(rows, headers=columns, tablefmt=args.format))
   print()
 
+
+# enables parsing the filename according to a specified key '[sep][key1][sep][key2]...'
+# if a file is specified returns the split values from that filename according to key
+# if no file is specified returns the field names of the key
+# has the possibility of one merged key, for example:
+# key: _cat1_[cat2]_cat3
+# file: this_is_an_example
+# cat1: this
+# cat2: is_an
+# cat3: example
 def parse_filekey(key, file=None):
   sep = key[0]
   keys = key.split(sep)
   del keys[0]
   fields = keys
 
+  # check if merged key exists and set index if so
   merge_ix = -1
   for i in range(len(keys)):
     if keys[i].find('[') != -1 and keys[i].find(']') != -1:
@@ -211,6 +258,7 @@ def parse_filekey(key, file=None):
   if file:
     if merge_ix > -1:
       merge = file.split(sep)
+      # first add the fields before the merge index, then those after, then the rest as one merged field
       for i in range(merge_ix): fields[i] = merge.pop(0)
       for i in reversed([i for i,x in enumerate(fields) if i > merge_ix]): fields[i] = merge.pop()
       fields[merge_ix] = sep.join(merge)
@@ -219,6 +267,7 @@ def parse_filekey(key, file=None):
   return fields
 
 
+# load score files, generated by [grt score -f]
 def load_scores(files, cursor, args):
   init = False
   for f in files:
@@ -234,29 +283,37 @@ def load_scores(files, cursor, args):
       line = line.strip()
       line = line.strip('\n')
 
+      # first line with # has the column headers
       if not init and line[0] == '#':
         fields = line.split()
-        if args.total: fields = fields[:8]
-        fields[0] = 'file'
-        if args.file_key:
+        if args.total: fields = fields[:8] # only load total scores, ignore per class
+        fields[0] = 'file' # first field is the #, change to file name
+        if args.file_key: # insert file key columns on the left of the table
           fields[:0] = parse_filekey(args.file_key)
+        # create new table with loaded columns
         db_create_table(cursor, args.table, fields)
         init = True
 
+      # skip further comment lines
       if line[0] == '#': continue
 
+      # first value is the filename for the 'file' column
       values = [ os.path.basename(f) ]
-      if args.file_key:
+      if args.file_key: # parse the file key values from the filename
         values[:0] = parse_filekey(args.file_key, os.path.basename(f))
+      # load rest of values
       if args.total: values.extend(line.split()[:7])
       else: values.extend(line.split())
+      # cast number strings to floats
       for i in range(len(values)):
         try: values[i] = float(values[i])
         except ValueError: pass
+      # add loaded values to table
       db_add_row(cursor, values, args)
 
 
 # this function can be used to execute complex custom sql queries and calculations, e.g. if they are not supported via sqlite syntax
+# currently gets the intersection of multiple columns over multiple tables, then retrives scores for each intersection result, order by primaryset, get special value from primaryset
 def db_special(cursor, args):
   from operator import itemgetter
 
@@ -349,16 +406,20 @@ if __name__=="__main__":
 
   args = cmdline.parse_args()
 
+  # input checks
   if not len(args.files) and not args.load:
     sys.stderr.write('specify at least one file or the --load option\n')
     sys.exit(-1)
   if len(args.files) and args.load:
     print('warning! if --load is set other specified files will be ignored')
 
+  # lt and get are applied to order-by column
   if (args.lessthan or args.greaterequalthan) and not args.order_by:
     sys.stderr.write('warning: -lt and -get need --order-by to be set!\n')
 
   files = list()
+  # TODO: also allow direct passing of scores via stdin
+  # load score filenames from stdin
   if not args.load and args.files[0] == '-':
     for line in fileinput.input(args.files[0], bufsize=1000):
       line = line.strip()
@@ -370,6 +431,7 @@ if __name__=="__main__":
         print(line)
         continue
       files.append(line)
+  # load score filenames from glob
   else:
     for f in args.files:
       files.extend(glob.glob(f, recursive=args.recursive))
@@ -378,6 +440,7 @@ if __name__=="__main__":
     sys.stderr.write('No files loaded!\n')
     sys.exit(-1)
 
+  # create in-memory database
   db = sqlite3.connect(':memory:')
   # need some aggregating functions
   if args.aggregate:
@@ -389,8 +452,10 @@ if __name__=="__main__":
       sys.stderr.write('Error loading sqlite extension ' + args.sqlitefunctions + '\nsee extension-functions.c for instructions, compile into shared object and set via --sqlitefunctions\n')
       sys.stderr.write(str(ex) + '\ncontinuing without aggregates: var, stdev\n\n')
     db.enable_load_extension(False)
+  # reference db cursor position
   cursor = db.cursor()
 
+  # load score files, or sql dump files
   if not args.load:
     load_scores(files, cursor, args)
   else:
@@ -407,16 +472,19 @@ if __name__=="__main__":
   if len(tables) == 1:
     args.table = tables[0][0]
 
+  # table info
   if args.info:
     db_print_info(cursor, args.table)
     quit()
 
+  # dump loaded table
   if args.dump:
     with open(args.dump, 'w') as f:
       for line in db.iterdump():
         f.write('%s\n' % line)
     quit()
 
+  # need tabulate for formatted table output
   if not args.raw: from tabulate import tabulate
 
   if args.aggregate:
