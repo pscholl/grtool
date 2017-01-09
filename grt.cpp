@@ -14,7 +14,7 @@ vector<vector<const char*>> cmds = {
   {"predict-dlib","pd",  "predict from unseen data, processes trainers created from train-dlib"},
   {"predict-skl", "ps",  "predict from unseen data, processes models created from train-skl"},
   {"score",       "s",   "calculate classifcation score for prediction"},
-  {"score-tl",    "stl", "scoring tools for a fixed timeline of activities"},
+  {"score-tr",    "str", "transition scoring tools: hysteresis, transition check"},
   {"extract",     "e",   "extract features from a data sequence"},
   {"preprocess",  "pp",  "preprocess data sequence"},
   {"postprocess", "pop", "postprocess label streams"},

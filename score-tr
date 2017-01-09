@@ -17,12 +17,12 @@ class timeline:
 
         self.hyst_gt_th = args.groundtruth_hyst # hysteresis parameter for groundtruth
 
-        # timeline check
-        self.tlc_insert = args.insert # insert string
-        self.tlc_delete = args.delete # delete string
-        self.tlc_margin = args.margin # margin around transition where it is still counted as hit
-        self.tlc_gt = list() # gt list after tlc
-        self.tlc_pred = list() # pred list after tlc
+        # transition check
+        self.trc_insert = args.insert # insert string
+        self.trc_delete = args.delete # delete string
+        self.trc_margin = args.margin # margin around transition where it is still counted as hit
+        self.trc_gt = list() # gt list after trc
+        self.trc_pred = list() # pred list after trc
 
         # unique lists
         self.u_gt_labels = list() # unique labels
@@ -55,7 +55,7 @@ class timeline:
         elif percentage >= 1:
             return int(percentage)
         else:
-            sys.stderr.write("score-tl: percentage error: " + str(percentage) + '\n')
+            sys.stderr.write("score-tr: percentage error: " + str(percentage) + '\n')
             sys.exit(-1)
 
 
@@ -104,7 +104,7 @@ class timeline:
 
         # reset threshold and margin
         self.hyst_th = self.get_percentage_of_set(self.hyst_th, self.gt)
-        self.tlc_margin = self.get_percentage_of_set(self.tlc_margin, self.gt)
+        self.trc_margin = self.get_percentage_of_set(self.trc_margin, self.gt)
         self.hyst_gt_th = self.get_percentage_of_set(self.hyst_gt_th, self.gt)
 
         # do hysteresis
@@ -131,7 +131,7 @@ class timeline:
     # add single sample to lists
     def add_sample(self, sample):
         if len(sample) != 2:
-            sys.stderr.write("score-tl: Wrong sample format! Should be: [groundtruth, prediction]\n")
+            sys.stderr.write("score-tr: Wrong sample format! Should be: [groundtruth, prediction]\n")
             sys.exit(-1)
 
         self.gt.append(sample[0])
@@ -145,7 +145,7 @@ class timeline:
         try:
             current = pred[0]
         except IndexError as ex:
-            sys.stderr.write("score-tl: IndexError during hysteresis, no predictions given!\n")
+            sys.stderr.write("score-tr: IndexError during hysteresis, no predictions given!\n")
             sys.stderr.write(str(ex) + '\n')
             sys.exit(-1)
 
@@ -193,15 +193,15 @@ class timeline:
         return ret_labels, ret_num
 
 
-    # analyse hysteresis timeline and save resulting stream of [gt pred] with added insertion and delete labels
+    # analyze hysteresis timeline and save resulting stream of [gt pred] with added insertion and delete labels
     def timeline_check(self, unsupervised=False):
         gt = self.gt
         pred = self.hyst
-        margin = self.tlc_margin
+        margin = self.trc_margin
 
         # currently probably better to restrict margin, so that no weird edge cases may happen TODO: maybe this can be avoided?
         if margin > self.hyst_th:
-            sys.stderr.write("score-tl: margin " + str(margin) + " greater than threshold " + str(self.hyst_th) + '\n')
+            sys.stderr.write("score-tr: margin " + str(margin) + " greater than threshold " + str(self.hyst_th) + '\n')
             sys.exit(-1)
 
         # set indices
@@ -282,44 +282,44 @@ class timeline:
 
     # print helper for insertion (pred transition without gt match), delete (gt transition without pred match), or hit (both transition to same label)
     def insert(self, label):
-        self.tlc_gt.append(self.tlc_insert)
-        self.tlc_pred.append(label)
+        self.trc_gt.append(self.trc_insert)
+        self.trc_pred.append(label)
     def delete(self, label):
-        self.tlc_gt.append(label)
-        self.tlc_pred.append(self.tlc_delete)
+        self.trc_gt.append(label)
+        self.trc_pred.append(self.trc_delete)
     def hit(self, label_1, label_2):
-        self.tlc_gt.append(label_1)
-        self.tlc_pred.append(label_2)
+        self.trc_gt.append(label_1)
+        self.trc_pred.append(label_2)
 
-    # print tlc results as binary or non-binary
-    def print_tlc(self, binary=True):
-        if len(self.tlc_gt) != len(self.tlc_pred):
-            sys.stderr.write("score-tl: tlc error!\n")
+    # print transition check results as binary or non-binary
+    def print_trc(self, binary=True):
+        if len(self.trc_gt) != len(self.trc_pred):
+            sys.stderr.write("score-tr: trc error!\n")
             sys.exit(-1)
 
-        print("# samples:", len(self.gt), "threshold:", self.hyst_th, "margin:", self.tlc_margin)
+        print("# samples:", len(self.gt), "threshold:", self.hyst_th, "margin:", self.trc_margin)
 
         if not binary:
-            for i in range(0, len(self.tlc_gt)):
-                print(self.tlc_gt[i], self.tlc_pred[i], sep='\t')
+            for i in range(0, len(self.trc_gt)):
+                print(self.trc_gt[i], self.trc_pred[i], sep='\t')
         else:
-            for i in range(0, len(self.tlc_gt)):
-                if self.tlc_gt[i] == self.tlc_pred[i]:
+            for i in range(0, len(self.trc_gt)):
+                if self.trc_gt[i] == self.trc_pred[i]:
                     print(self.transition, self.transition, sep='\t')
                     print(self.default, self.default, sep='\t')
                 else:
-                    if self.tlc_gt[i] == self.tlc_insert and self.tlc_pred[i] == self.default:
+                    if self.trc_gt[i] == self.trc_insert and self.trc_pred[i] == self.default:
                         print(self.default, self.default, sep='\t')
-                    elif self.tlc_gt[i] == self.tlc_insert and self.tlc_pred[i] != self.default:
+                    elif self.trc_gt[i] == self.trc_insert and self.trc_pred[i] != self.default:
                         print(self.default, self.transition, sep='\t')
                         print(self.default, self.default, sep='\t')
-                    elif self.tlc_pred[i] == self.tlc_delete and self.tlc_gt[i] == self.default:
+                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] == self.default:
                         print(self.default, self.default, sep='\t')
-                    elif self.tlc_pred[i] == self.tlc_delete and self.tlc_gt[i] != self.default:
+                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] != self.default:
                         print(self.transition, self.default, sep='\t')
                         print(self.default, self.default, sep='\t')
                     else:
-                        print("# this never happened", self.tlc_gt[i], self.tlc_pred[i])
+                        print("# this never happened", self.trc_gt[i], self.trc_pred[i])
 
 
     # print groundtruth and prediction set after hysteresis
@@ -389,22 +389,22 @@ class timeline:
 
 if __name__=="__main__":
     class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
-    cmdline = argparse.ArgumentParser(description="Scoring for a fixed timeline of activities\nApply hysteresis on predictions\nPrint various infos on sample sets", epilog="Default output: binary timeline check", formatter_class=Formatter)
+    cmdline = argparse.ArgumentParser(description="Scoring for transitions in a timeline of activities\nApply hysteresis on predictions\nPrint various infos on sample sets", epilog="Default output: binary transition check", formatter_class=Formatter)
     #cmdline.add_argument('-v', '--verbose', help='increase output verbosity', action='store_true')
     cmdline.add_argument('pred', metavar='PRED', type=str, nargs='?', default='-', help="predictions sample stream\n")
     cmdline.add_argument('-d', '--default', type=str, default="NULL", help="default class label\n") # TODO: need this?
 
-    cmdline_tlc_group = cmdline.add_argument_group('timeline check arguments')
-    cmdline_tlc_group.add_argument('-m', '--margin', metavar='N', type=float, default=0, help="margin around transition\n- 0-1: percentage of whole set\n- int: num samples\n")
-    cmdline_tlc_group.add_argument('--transition', metavar='STR', type=str, default='trans', help="transition label string\n")
-    cmdline_tlc_group_ex1 = cmdline_tlc_group.add_mutually_exclusive_group() # non-binary and unsupervised should be mutually exclusive
-    cmdline_tlc_group_ex1.add_argument('--non-binary', help='non-binary mode:\n- print actual label instead of transition label\n- print insert / delete string where applicable\n', action='store_true')
-    cmdline_tlc_group_ex1.add_argument('-u', '--unsupervised', help='ignore labels and just look for transitions\n', action='store_true')
-    cmdline_tlc_group.add_argument('--insert', metavar='STR', type=str, default='INSERT', help="output for predicted label transition without groundtruth match (non-binary mode)\n")
-    cmdline_tlc_group.add_argument('--delete', metavar='STR', type=str, default='DELETE', help="output for groundtruth label transition without prediction match (non-binary mode)\n")
+    cmdline_trc_group = cmdline.add_argument_group('transition check arguments')
+    cmdline_trc_group.add_argument('-m', '--margin', metavar='N', type=float, default=0, help="margin around transition\n- 0-1: percentage of whole set\n- int: num samples\n")
+    cmdline_trc_group.add_argument('--transition', metavar='STR', type=str, default='trans', help="transition label string\n")
+    cmdline_trc_group_ex1 = cmdline_trc_group.add_mutually_exclusive_group() # non-binary and unsupervised should be mutually exclusive
+    cmdline_trc_group_ex1.add_argument('--non-binary', help='non-binary mode:\n- print actual label instead of transition label\n- print insert / delete string where applicable\n', action='store_true')
+    cmdline_trc_group_ex1.add_argument('-u', '--unsupervised', help='ignore labels and just look for transitions\n', action='store_true')
+    cmdline_trc_group.add_argument('--insert', metavar='STR', type=str, default='INSERT', help="output for predicted label transition without groundtruth match (non-binary mode)\n")
+    cmdline_trc_group.add_argument('--delete', metavar='STR', type=str, default='DELETE', help="output for groundtruth label transition without prediction match (non-binary mode)\n")
 
     cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments')
-    cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=float, default=5, help="number of equal-label samples indicating a hysteresis label change\n- 0-1: percentage of whole set\n- int: num samples\n")
+    cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=float, default=0, help="number of equal-label samples indicating a hysteresis label change\n- 0-1: percentage of whole set\n- int: num samples\n")
     cmdline_hyst_group.add_argument('--groundtruth-hyst', metavar='N', type=float, default=0, help="hystresis parameter on groundtruth, same as -t\n")
     cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit\n', action='store_true')
 
@@ -435,7 +435,7 @@ if __name__=="__main__":
 
     tl.timeline_check(args.unsupervised)
 
-    tl.print_tlc(not args.non_binary)
+    tl.print_trc(not args.non_binary)
 
 
 

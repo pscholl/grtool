@@ -23,7 +23,7 @@ install: $(ALL) # install-doc
 	$(INSTALL_PROGRAM) -D -T postprocess "$(DESTDIR)$(BINDIR)/grt-postprocess"
 	$(INSTALL_PROGRAM) -D -T extract "$(DESTDIR)$(BINDIR)/grt-extract"
 	$(INSTALL_PROGRAM) -D -T score "$(DESTDIR)$(BINDIR)/grt-score"
-	$(INSTALL_PROGRAM) -D -T score-tl "$(DESTDIR)$(BINDIR)/grt-score-tl"
+	$(INSTALL_PROGRAM) -D -T score-tr "$(DESTDIR)$(BINDIR)/grt-score-tr"
 	$(INSTALL_PROGRAM) -D -T info "$(DESTDIR)$(BINDIR)/grt-info"
 	$(INSTALL_PROGRAM) -D -T plot "$(DESTDIR)$(BINDIR)/grt-plot"
 	$(INSTALL_PROGRAM) -D -T segment "$(DESTDIR)$(BINDIR)/grt-segment"
