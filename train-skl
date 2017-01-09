@@ -16,6 +16,7 @@ import pickle
 from scipy import sparse
 
 
+# estimator help text, estimator objects constructed from the keys
 estimators_help = {
             'AffinityPropagation': 'Perform Affinity Propagation Clustering of data.',
             'AgglomerativeClustering': 'Agglomerative Clustering',
@@ -28,7 +29,7 @@ estimators_help = {
             'SpectralClustering': 'Apply clustering to a projection to the normalized laplacian.',
             'GaussianMixture': 'Gaussian Mixture Model',
             'BayesianGaussianMixture': 'Variational Bayesian estimation of a Gaussian mixture.',
-            } # estimator help text, estimator objects constructed from the keys
+            }
 
 estimators_params = dict() # estimator parameters
 estimators = dict() # estimator classes
@@ -39,6 +40,7 @@ def get_estimators():
         tmp = None
         module = None
 
+        # GMM is in a different module
         if e == 'GaussianMixture' or e == 'BayesianGaussianMixture':
             module = mixture
         else:
@@ -70,7 +72,7 @@ def load(stream, trainset):
     ratio, fraction, integral = 0, 0, 0
 
     # get trainset modes
-    # TODO: support k greater 9
+    # TODO: support k greater 9, limited because fraction (select) cannot be greater than 9 -> round(0.9*10)
     try:
         ratio = float(trainset)
         fraction, integral = math.modf(ratio)
@@ -117,6 +119,7 @@ def load(stream, trainset):
             sys.stderr.write("train-skl: no features?\n")
             sys.exit(-1)
 
+        # make sure the number of data fields is always the same
         if not num_features:
             num_features = len(fields[1:])
         elif len(fields[1:]) != num_features:
@@ -128,7 +131,7 @@ def load(stream, trainset):
 
     # do splitting
     if ratio <= 0:
-        pass
+        pass # no split
     elif ratio < 1:
         # random stratified split:
         # 1. for each class, create a vector containing their respective indices (strata)
@@ -182,6 +185,7 @@ def load(stream, trainset):
 
 
 # output graphs showing the results of the last fitting of the given estimator
+# TODO: experimental at best, needs to be extended
 def graph_result(estimator, labels, features):
     ulabels, ilabels = list(), list()
     for i in labels:
@@ -248,6 +252,7 @@ def print_dict(header, d, *args):
         print(i)
 
 # helper to make a custom args compatibility string into a dictionary-able string
+# compatibility string: {key1:value1:key2...}
 def custom_args_compat(s):
     # check if even number of entries
     if len(s.split(':')) % 2 != 0:
@@ -310,11 +315,6 @@ if __name__=="__main__":
         cmdline.print_help()
         quit()
 
-    # sklearn now does this by itself
-    #if args.estimator in {'AffinityPropagation', 'SpectralClustering'}:
-    #    print('# NOTE: Selected algorithm takes a similarity matrix as input!')
-    #    # TODO: can we automatically transform samples into similarity matrix in this case?
-
     # load sample stream and fill label and feature containers
     train_labels, train_features, test_labels, test_features = load(args.samples, args.trainset)
 
@@ -328,14 +328,19 @@ if __name__=="__main__":
         params['graph'], params['prediction'], \
         params['file'], params['trainset'], \
         params['custom_args'], params['custom_args_compat']
+
     # set custom estimator args if any
     if args.custom_args:
-        if args.custom_args_compat:
-            args.custom_args = custom_args_compat(args.custom_args)
+        # compatibility mode
+        if args.custom_args_compat: args.custom_args = custom_args_compat(args.custom_args)
+        # use json to transform dict-like string to actual dict
         custom_args = json.loads(args.custom_args)
+        # entry: "connectivity":"temp_seq"
         if 'connectivity' in custom_args and custom_args['connectivity'] == 'temp_seq':
+            # temporal sequence: each sample connected with its predecessor and successor
             temp_seq = sparse.diags([1,1], [-1,1], shape=(len(train_features), len(train_features)))
             params['connectivity'] = temp_seq
+
     # set the estimator parameters
     estimator.set_params(**params)
 
@@ -345,7 +350,7 @@ if __name__=="__main__":
     try:
         estimator.fit(train_features)
     except ValueError as ex:
-        sys.stderr.write("train-skl: ValueError when fitting estimator!\n")
+        sys.stderr.write("train-skl: ValueError when fitting estimator! (NAN in the data?)\n")
         sys.stderr.write(str(ex) + '\n')
         sys.exit(-1)
 
@@ -354,24 +359,31 @@ if __name__=="__main__":
         graph_result(estimator, train_labels, train_features)
         quit()
 
+    # immediately print cluster predictions, don't dump model
     if args.prediction:
+        # if no test samples, cluster on all train samples
         if len(test_labels) == 0:
+            # there are two predict functions in skl :/
             try:
                 pred = estimator.fit_predict(train_features)
             except AttributeError:
                 pred = estimator.predict(train_features)
             for i in range(0, len(train_labels)): print(train_labels[i], pred[i], sep='\t')
+        # if test set, cluster on test samples only
         else:
             pred = estimator.predict(test_features)
             for i in range(0, len(test_labels)): print(test_labels[i], pred[i], sep='\t')
         quit()
 
     if args.file:
+        # dump into file
         pickle.dump(estimator, args.file)
     else:
-        print(pickle.dumps(estimator).__sizeof__()) # size of the object, to be read by predict TODO: 33 Bytes inaccurate
+        # dump to stdout
+        print(pickle.dumps(estimator).__sizeof__()) # size of the object, to be read by predict TODO: 33 Bytes inaccurate (why?)
         print(pickle.dumps(estimator).decode('latin-1'), flush=True)
 
+    # if there is a test set, print it after the estimator dump
     if len(test_labels) > 0:
         print()
         print()

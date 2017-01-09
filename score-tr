@@ -85,8 +85,8 @@ class timeline:
         return True
 
 
-    # load samples from a file stream, with the format
-    # label_1 label_2
+    # load samples from a file stream, with the format per line:
+    # [groundtruth prediction]
     def load_samples(self, stream):
         # load stream
         for line in fileinput.input(stream, bufsize=1000):
@@ -131,7 +131,7 @@ class timeline:
     # add single sample to lists
     def add_sample(self, sample):
         if len(sample) != 2:
-            sys.stderr.write("score-tr: Wrong sample format! Should be: [groundtruth, prediction]\n")
+            sys.stderr.write("score-tr: Wrong sample format! Should be: [groundtruth prediction]\n")
             sys.exit(-1)
 
         self.gt.append(sample[0])
@@ -150,7 +150,7 @@ class timeline:
             sys.exit(-1)
 
         last = None
-        num = 1
+        num = 0
         for i in range(0, len(hyst)):
             # increment counter if same label, reset if not
             if hyst[i] == last:
@@ -171,7 +171,7 @@ class timeline:
         return hyst
 
 
-    # get an ordered timeline of a sample set, i.e. merge concurrent same lable samples into one and note number of samples (RLE)
+    # get an ordered timeline of a sample set, i.e. merge concurrent same-label samples into one and note number of samples (RLE)
     # optionally get only unique labels and their count
     def get_tl(self, samples, unique=False):
         last = None
@@ -193,8 +193,8 @@ class timeline:
         return ret_labels, ret_num
 
 
-    # analyze hysteresis timeline and save resulting stream of [gt pred] with added insertion and delete labels
-    def timeline_check(self, unsupervised=False):
+    # analyze hysteresis timeline for transitions and save resulting stream of [gt pred] with added insertion and deletion labels
+    def transition_check(self, unsupervised=False):
         gt = self.gt
         pred = self.hyst
         margin = self.trc_margin
@@ -280,7 +280,7 @@ class timeline:
             last_gt = gt[ix_gt]
             last_pred = pred[ix_pred]
 
-    # print helper for insertion (pred transition without gt match), delete (gt transition without pred match), or hit (both transition to same label)
+    # helper for insertion (pred transition without gt match), deletion (gt transition without pred match), or hit (both transition to same label)
     def insert(self, label):
         self.trc_gt.append(self.trc_insert)
         self.trc_pred.append(label)
@@ -304,20 +304,20 @@ class timeline:
                 print(self.trc_gt[i], self.trc_pred[i], sep='\t')
         else:
             for i in range(0, len(self.trc_gt)):
-                if self.trc_gt[i] == self.trc_pred[i]:
-                    print(self.transition, self.transition, sep='\t')
-                    print(self.default, self.default, sep='\t')
+                if self.trc_gt[i] == self.trc_pred[i]:                                              # LABEL LABEL
+                    print(self.transition, self.transition, sep='\t')                               #   -> trans trans
+                    print(self.default, self.default, sep='\t')                                     #   -> NULL NULL
                 else:
-                    if self.trc_gt[i] == self.trc_insert and self.trc_pred[i] == self.default:
-                        print(self.default, self.default, sep='\t')
-                    elif self.trc_gt[i] == self.trc_insert and self.trc_pred[i] != self.default:
-                        print(self.default, self.transition, sep='\t')
-                        print(self.default, self.default, sep='\t')
-                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] == self.default:
-                        print(self.default, self.default, sep='\t')
-                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] != self.default:
-                        print(self.transition, self.default, sep='\t')
-                        print(self.default, self.default, sep='\t')
+                    if self.trc_gt[i] == self.trc_insert and self.trc_pred[i] == self.default:      # INSERT NULL
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    elif self.trc_gt[i] == self.trc_insert and self.trc_pred[i] != self.default:    # INSERT LABEL
+                        print(self.default, self.transition, sep='\t')                              #   -> NULL trans
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] == self.default:    # NULL DELETE
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] != self.default:    # LABEL DELETE
+                        print(self.transition, self.default, sep='\t')                              #   -> trans NULL
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
                     else:
                         print("# this never happened", self.trc_gt[i], self.trc_pred[i])
 

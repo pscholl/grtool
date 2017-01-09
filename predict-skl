@@ -35,6 +35,7 @@ def load(stream):
             sys.stderr.write("predict-skl: no features?\n")
             sys.exit(-1)
 
+        # make sure the number of data fields is always the same
         if not num_features:
             num_features = len(fields[1:])
         elif len(fields[1:]) != num_features:
@@ -49,6 +50,7 @@ def load(stream):
 
 
 # output graphs showing the results of the last fitting of the given estimator
+# TODO: experimental at best, needs to be extended
 def graph_result(estimator, labels, features):
     ulabels, ilabels = list(), list()
     for i in labels:
@@ -105,18 +107,6 @@ def graph_result(estimator, labels, features):
 
 
 
-# helper to print dictionaries somewhat readable
-def print_dict(header, d, *args):
-    pad_text = len(max(list(d.keys()), key=len)) # longest string
-    print(header)
-    for i in sorted(d.keys()):
-        print("  ", '{:<{}}'.format(i, pad_text), "   ", d[i], sep='')
-    for i in args:
-        print(i)
-
-
-
-
 
 if __name__=="__main__":
     class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
@@ -135,15 +125,16 @@ if __name__=="__main__":
         quit()
 
     estimator = None
-    # get the estimator, if estimator FileType reset to not binary, source is stdin
+    # get the estimator; if estimator FileType is reset to not binary then source is stdin else load from file
     for i in range(args.retry[0]):
         try:
             if args.estimator.mode == 'r':
                 size = int(args.estimator.readline())
-                estimator = pickle.loads(args.estimator.read(size-33).encode('latin-1')) # TODO: -33 because sizeof in train is not accurate 
+                estimator = pickle.loads(args.estimator.read(size-33).encode('latin-1')) # TODO: -33 because sizeof in train-skl is not accurate
             else:
                 estimator = pickle.load(args.estimator)
             break;
+        # file is not ready yet, retry after pause
         except EOFError:
             time.sleep(args.retry[1])
 
@@ -163,6 +154,7 @@ if __name__=="__main__":
         sys.exit(-1)
 
     # fit model
+    # there are two predict functions in skl :/
     try:
         pred = estimator.predict(features)
     except ValueError as ex:
@@ -186,6 +178,7 @@ if __name__=="__main__":
         graph_result(estimator, labels, features)
         quit()
 
+    # print predictions
     for i in range(0, len(labels)):
         print(labels[i], pred[i], sep='\t')
 

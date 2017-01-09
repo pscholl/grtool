@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
   istream &in = grt_fileinput(c,1);
   in.peek(); // block until data there
 
+  // check if the model input file exists and is size>0
   if (c.rest().size()) {
     ifstream test(c.rest()[0], ifstream::binary | ifstream::ate);
     if (test.tellg() < 1) {
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
   Classifier *classifier = loadClassifierFromFile(model);
 
   if (classifier == NULL && c.rest().size() > 0)
+    // retry 5 times with 1 sec wait in between
     for (int i=0; i<5 && classifier==NULL; i++, usleep(1000*1000)) {
       ifstream fin(c.rest()[0]);
       classifier = loadClassifierFromFile(fin);
