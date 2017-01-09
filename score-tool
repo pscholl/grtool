@@ -15,10 +15,12 @@ def unique_ordered(seq, listlist=False):
     seq = [ tuple(x) for x in seq ]
   return [ x for x in seq if not (x in seen or seen_add(x)) ]
 
+extensions = False # flag that gets set if extension loading was successful
 def aggregate_sql(c, sel_as=False):
   ret = 'avg('+c+')' + ('' if not sel_as else 'as avg') + ','
-  ret += 'variance('+c+')' + ('' if not sel_as else 'as var') + ','
-  ret += 'stdev('+c+')' + ('' if not sel_as else 'as stdev') + ','
+  if extensions:
+    ret += 'variance('+c+')' + ('' if not sel_as else 'as var') + ','
+    ret += 'stdev('+c+')' + ('' if not sel_as else 'as stdev') + ','
   ret += 'min('+c+')' + ('' if not sel_as else 'as min') + ','
   ret += 'max('+c+')' + ('' if not sel_as else 'as max') + ','
   ret += 'count('+c+')' + ('' if not sel_as else 'as count') + ','
@@ -317,7 +319,7 @@ def db_special(cursor, args):
 
 if __name__=="__main__":
   class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
-  cmdline = argparse.ArgumentParser(description="parse scoring files\nfiles generated via [grt score -f]", epilog="", formatter_class=Formatter)
+  cmdline = argparse.ArgumentParser(description="parse scoring files\nfiles generated via [grt score -f]", epilog="Default output: all rows and columns of the loaded table", formatter_class=Formatter)
   cmdline.add_argument('files', type=str, nargs='*', help='files to parse (stdin reads one path per line, e.g. per [find])')
   cmdline.add_argument('-v', '--verbose', help='be verbose\n', action='store_true')
   cmdline.add_argument('--recursive', help='enable recursive file glob\n', action='store_true')
@@ -328,6 +330,7 @@ if __name__=="__main__":
   cmdline.add_argument('--where', metavar='SQL', type=str, help='add where clause to sql term\n')
   cmdline.add_argument('--dump', metavar='FILE', type=str, help='dump created database to SQL text format\n')
   cmdline.add_argument('--load', metavar='FILE', type=str, nargs='*', help='load database from SQL dump\n')
+  cmdline.add_argument('--sqlitefunctions', metavar='FILE', type=str, default='./libsqlitefunctions', help='SQL extension functions; path to shared object file\n')
   cmdline.add_argument('--special', help='special function; see code; for advanced usage\n', action='store_true')
 
   cmdline_table_group = cmdline.add_argument_group('table arguments')
@@ -376,9 +379,16 @@ if __name__=="__main__":
     sys.exit(-1)
 
   db = sqlite3.connect(':memory:')
-  db.enable_load_extension(True)
-  db.load_extension('./sqlite/libsqlitefunctions')
-  db.enable_load_extension(False)
+  # need some aggregating functions
+  if args.aggregate:
+    db.enable_load_extension(True)
+    try:
+      db.load_extension(args.sqlitefunctions)
+      extensions = True
+    except sqlite3.OperationalError as ex:
+      sys.stderr.write('Error loading sqlite extension ' + args.sqlitefunctions + '\nsee extension-functions.c for instructions, compile into shared object and set via --sqlitefunctions\n')
+      sys.stderr.write(str(ex) + '\ncontinuing without aggregates: var, stdev\n\n')
+    db.enable_load_extension(False)
   cursor = db.cursor()
 
   if not args.load:
