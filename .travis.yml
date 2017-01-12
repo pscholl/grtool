@@ -19,7 +19,9 @@ before_script:
   - git submodule update --init --remote dlib
 install:
   - if [ "$CXX" = "g++" ]; then export CXX="g++-6" CC="gcc-6"; fi
-  - pip install numpy scipy scikit-learn tabulate
+  - pip -V
+  - pip3 -V
+  - pip3 install numpy scipy scikit-learn tabulate
 addons:
   apt:
     sources:
