@@ -433,7 +433,7 @@ if __name__=="__main__":
         tl.print_hyst()
         quit()
 
-    tl.timeline_check(args.unsupervised)
+    tl.transition_check(args.unsupervised)
 
     tl.print_trc(not args.non_binary)
 
