@@ -47,6 +47,12 @@ and install the documentation (needs pandoc) with
 
 http://kevinboone.net/android_native.html
 
+## scikit-learn
+
+The scikit-learn modules (train-skl/predict-skl) are written in python3 and depend on several additional python packages. The easiest way to install them is to use pip:
+
+    pip3 install numpy scipy scikit-learn matplotlib
+
 ## Dlib
 
 If you want to use the Dlib part of the tool, **before** installing grtool as described in the [Building](#building) section:

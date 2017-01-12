@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys, os
+import argparse, fileinput
+
+
+
+class timeline:
+    def __init__(self, args):
+        self.gt = list() # full list with all labels
+        self.pred = list() # full list with all predictions
+
+        self.hyst = list() # full list with all predictions after hysteresis
+        self.hyst_th = args.threshold # hysteresis parameter for predictions; after this many equal predictions switch to that label
+        self.default = args.default # NULL
+        self.transition = args.transition # label
+
+        self.hyst_gt_th = args.groundtruth_hyst # hysteresis parameter for groundtruth
+
+        # transition check
+        self.trc_insert = args.insert # insert string
+        self.trc_delete = args.delete # delete string
+        self.trc_margin = args.margin # margin around transition where it is still counted as hit
+        self.trc_gt = list() # gt list after trc
+        self.trc_pred = list() # pred list after trc
+
+        # unique lists
+        self.u_gt_labels = list() # unique labels
+        self.u_gt_samples_num = list() # number of samples for a unique label, same order as [self.u_labels]
+
+        self.u_pred_labels = list() # unique labels
+        self.u_pred_samples_num = list() # number of samples for a unique label, same order as [self.u_labels]
+
+        self.u_hyst_labels = list() # unique labels
+        self.u_hyst_samples_num = list() # number of samples for a unique label, same order as [self.u_labels]
+
+        # timeline lists
+        self.tl_gt_labels = list() # timeline labels
+        self.tl_gt_samples_num = list() # number of samples for a timeline label, same order as [self.tl_labels]
+
+        self.tl_pred_labels = list() # timeline labels
+        self.tl_pred_samples_num = list() # number of samples for a timeline label, same order as [self.tl_labels]
+
+        self.tl_hyst_labels = list() # timeline labels
+        self.tl_hyst_samples_num = list() # number of samples for a timeline label, same order as [self.tl_labels]
+
+
+
+    # get the number of samples from a percentage of a set, if the number is between 0 and 1
+    def get_percentage_of_set(self, percentage, base_set):
+        if percentage <= 0:
+            return 0
+        elif percentage > 0 and percentage < 1:
+            return int(len(base_set) * percentage)
+        elif percentage >= 1:
+            return int(percentage)
+        else:
+            sys.stderr.write("score-tr: percentage error: " + str(percentage) + '\n')
+            sys.exit(-1)
+
+
+    # do some sanity checks on the loaded sets
+    def check(self):
+        if len(self.gt) != len(self.pred) or len(self.gt) != len(self.hyst):
+            return False
+
+        if len(self.gt) == 0:
+            #print("No samples provided!")
+            return False
+
+        if len(self.u_gt_labels) != len(self.u_gt_samples_num):
+            return False
+        if len(self.u_pred_labels) != len(self.u_pred_samples_num):
+            return False
+        if len(self.u_hyst_labels) != len(self.u_hyst_samples_num):
+            return False
+
+        if len(self.tl_gt_labels) != len(self.tl_gt_samples_num):
+            return False
+        if len(self.tl_pred_labels) != len(self.tl_pred_samples_num):
+            return False
+        if len(self.tl_hyst_labels) != len(self.tl_hyst_samples_num):
+            return False
+
+        return True
+
+
+    # load samples from a file stream, with the format per line:
+    # [groundtruth prediction]
+    def load_samples(self, stream):
+        # load stream
+        for line in fileinput.input(stream, bufsize=1000):
+            line = line.strip()
+            line = line.strip('\n')
+
+            # skip empty and comment lines
+            if line == "":
+                continue
+            if line[0] == '#':
+                print(line)
+                continue
+
+            self.add_sample(line.split()) # add sample to lists
+
+        # reset threshold and margin
+        self.hyst_th = self.get_percentage_of_set(self.hyst_th, self.gt)
+        self.trc_margin = self.get_percentage_of_set(self.trc_margin, self.gt)
+        self.hyst_gt_th = self.get_percentage_of_set(self.hyst_gt_th, self.gt)
+
+        # do hysteresis
+        if self.hyst_gt_th > 0:
+            self.gt = self.hysteresis(self.gt, self.hyst_gt_th, self.default)
+        self.hyst = self.hysteresis(self.pred, self.hyst_th, self.default)
+
+        # get unique sets
+        self.u_gt_labels, self.u_gt_samples_num = self.get_tl(self.gt, True)
+        self.u_pred_labels, self.u_pred_samples_num = self.get_tl(self.pred, True)
+        self.u_hyst_labels, self.u_hyst_samples_num = self.get_tl(self.hyst, True)
+
+        # get timeline sets
+        self.tl_gt_labels, self.tl_gt_samples_num = self.get_tl(self.gt)
+        self.tl_pred_labels, self.tl_pred_samples_num = self.get_tl(self.pred)
+        self.tl_hyst_labels, self.tl_hyst_samples_num = self.get_tl(self.hyst)
+
+        # sanity check
+        if not self.check():
+            self.print_info(True)
+            quit()
+
+
+    # add single sample to lists
+    def add_sample(self, sample):
+        if len(sample) != 2:
+            sys.stderr.write("score-tr: Wrong sample format! Should be: [groundtruth prediction]\n")
+            sys.exit(-1)
+
+        self.gt.append(sample[0])
+        self.pred.append(sample[1])
+
+
+    # do hysteresis on prediction set
+    def hysteresis(self, pred, threshold, default):
+        hyst = list(pred)
+
+        try:
+            current = pred[0]
+        except IndexError as ex:
+            sys.stderr.write("score-tr: IndexError during hysteresis, no predictions given!\n")
+            sys.stderr.write(str(ex) + '\n')
+            sys.exit(-1)
+
+        last = None
+        num = 0
+        for i in range(0, len(hyst)):
+            # increment counter if same label, reset if not
+            if hyst[i] == last:
+                num += 1
+            else:
+                num = 1
+            # if counter above threshold, reset it and set current label
+            if num >= threshold:
+                num = 1
+                current = hyst[i]
+                # may have overwritten some labels before, make sure everything is correct
+                for j in range(1, threshold):
+                    hyst[i-j] = current
+
+            last = hyst[i]
+            hyst[i] = current
+
+        return hyst
+
+
+    # get an ordered timeline of a sample set, i.e. merge concurrent same-label samples into one and note number of samples (RLE)
+    # optionally get only unique labels and their count
+    def get_tl(self, samples, unique=False):
+        last = None
+        ret_labels = list()
+        ret_num = list()
+
+        for item in samples:
+            # if new label append to lists, otherwise increment current labels counter
+            if item != last and (not unique or ret_labels.count(item) == 0):
+                ret_labels.append(item)
+                ret_num.append(1)
+            else:
+                if unique:
+                    ret_num[ret_labels.index(item)] += 1
+                else:
+                    ret_num[len(ret_num) - 1] += 1
+            last = item
+
+        return ret_labels, ret_num
+
+
+    # analyze hysteresis timeline for transitions and save resulting stream of [gt pred] with added insertion and deletion labels
+    def transition_check(self, unsupervised=False):
+        gt = self.gt
+        pred = self.hyst
+        margin = self.trc_margin
+
+        # currently probably better to restrict margin, so that no weird edge cases may happen TODO: maybe this can be avoided?
+        if margin > self.hyst_th:
+            sys.stderr.write("score-tr: margin " + str(margin) + " greater than threshold " + str(self.hyst_th) + '\n')
+            sys.exit(-1)
+
+        # set indices
+        ix_gt = -1
+        ix_pred = -1
+        # last considered label and last output label
+        last_gt = None
+        last_pred = None
+        last_out_gt = None
+        last_out_pred = None
+        while True:
+            # increment indices
+            ix_gt += 1
+            ix_pred += 1
+            if ix_gt >= len(gt) and ix_pred >= len(pred): # break condition, both set indices at max
+                break
+            if ix_gt >= len(gt):
+                ix_gt = len(gt) - 1
+            if ix_pred >= len(pred):
+                ix_pred = len(pred) - 1
+
+            t_gt = False # transition
+            t_pred = False # transition
+            l_gt = gt[ix_gt] # label
+            l_pred = pred[ix_pred] # label
+
+            # find transition
+            if l_gt != last_gt:
+                t_gt = True
+            if l_pred != last_pred:
+                t_pred = True
+
+            # if only gt transition, check on pred set within margin if a correct transition exists
+            if t_gt and not t_pred:
+                for i in range(-margin,margin+1):
+                    if ix_pred+i-1 < 0 or ix_pred+i >= len(pred):
+                        continue
+                    if pred[ix_pred+i-1] != pred[ix_pred+i] and (pred[ix_pred+i] == l_gt or unsupervised):
+                        t_pred = True
+                        l_pred = pred[ix_pred+i]
+                        break
+
+            # if only pred transition, check on gt set within margin if a correct transition exists
+            if t_pred and not t_gt:
+                for i in range(-margin,margin+1):
+                    if ix_gt+i-1 < 0 or ix_gt+i >= len(gt):
+                        continue
+                    if gt[ix_gt+i-1] != gt[ix_gt+i] and (gt[ix_gt+i] == l_pred or unsupervised):
+                        t_gt = True
+                        l_gt = gt[ix_gt+i]
+                        break
+
+            # pass if both labels were already output in last loop
+            # this may intuitively never happen, and makes sure a transition isn't counted twice because of a margin
+            # output corresponding result otherwise
+            if l_gt == last_out_gt and l_pred == last_out_pred:
+                pass
+            else:
+                if t_gt and t_pred:
+                    if l_gt == l_pred:
+                        self.hit(l_gt, l_pred)
+                    elif unsupervised:
+                        self.hit(l_gt, l_gt)
+                    else:
+                        # insert and delete if both transition but to different labels
+                        self.insert(l_pred)
+                        self.delete(l_gt)
+                elif t_gt:
+                    self.delete(l_gt)
+                elif t_pred:
+                    self.insert(l_pred)
+
+            if t_gt or t_pred:
+                last_out_gt = l_gt
+                last_out_pred = l_pred
+            last_gt = gt[ix_gt]
+            last_pred = pred[ix_pred]
+
+    # helper for insertion (pred transition without gt match), deletion (gt transition without pred match), or hit (both transition to same label)
+    def insert(self, label):
+        self.trc_gt.append(self.trc_insert)
+        self.trc_pred.append(label)
+    def delete(self, label):
+        self.trc_gt.append(label)
+        self.trc_pred.append(self.trc_delete)
+    def hit(self, label_1, label_2):
+        self.trc_gt.append(label_1)
+        self.trc_pred.append(label_2)
+
+    # print transition check results as binary or non-binary
+    def print_trc(self, binary=True):
+        if len(self.trc_gt) != len(self.trc_pred):
+            sys.stderr.write("score-tr: trc error!\n")
+            sys.exit(-1)
+
+        print("# samples:", len(self.gt), "threshold:", self.hyst_th, "margin:", self.trc_margin)
+
+        if not binary:
+            for i in range(0, len(self.trc_gt)):
+                print(self.trc_gt[i], self.trc_pred[i], sep='\t')
+        else:
+            for i in range(0, len(self.trc_gt)):
+                if self.trc_gt[i] == self.trc_pred[i]:                                              # LABEL LABEL
+                    print(self.transition, self.transition, sep='\t')                               #   -> trans trans
+                    print(self.default, self.default, sep='\t')                                     #   -> NULL NULL
+                else:
+                    if self.trc_gt[i] == self.trc_insert and self.trc_pred[i] == self.default:      # INSERT NULL
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    elif self.trc_gt[i] == self.trc_insert and self.trc_pred[i] != self.default:    # INSERT LABEL
+                        print(self.default, self.transition, sep='\t')                              #   -> NULL trans
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] == self.default:    # NULL DELETE
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    elif self.trc_pred[i] == self.trc_delete and self.trc_gt[i] != self.default:    # LABEL DELETE
+                        print(self.transition, self.default, sep='\t')                              #   -> trans NULL
+                        print(self.default, self.default, sep='\t')                                 #   -> NULL NULL
+                    else:
+                        print("# this never happened", self.trc_gt[i], self.trc_pred[i])
+
+
+    # print groundtruth and prediction set after hysteresis
+    def print_hyst(self):
+        for i in range(0, len(self.gt)):
+            print(self.gt[i], self.hyst[i], sep='\t')
+
+
+    # print some info on the loaded sets
+    def print_info(self, unique=False, timeline=False, hyst=False):
+        if self.check():
+            print("sample set is valid")
+        else:
+            print("sample set is invalid")
+
+        print("groundtruth samples:", len(self.gt))
+        print("prediction samples:", len(self.pred))
+        print("hysteresis samples:", len(self.hyst))
+
+        if not hyst:
+            if unique:
+                self.print_helper("Unique:", self.u_gt_labels, self.u_gt_samples_num, self.u_pred_labels, self.u_pred_samples_num)
+            if timeline:
+                self.print_helper("Timeline:", self.tl_gt_labels, self.tl_gt_samples_num, self.tl_pred_labels, self.tl_pred_samples_num)
+        else:
+            print("\nAfter Hysteresis (", self.hyst_th, "):", sep='')
+            if unique:
+                self.print_helper("Unique:", self.u_gt_labels, self.u_gt_samples_num, self.u_hyst_labels, self.u_hyst_samples_num)
+            if timeline:
+                self.print_helper("Timeline:", self.tl_gt_labels, self.tl_gt_samples_num, self.tl_hyst_labels, self.tl_hyst_samples_num)
+
+        print()
+        sys.stdout.flush()
+
+    # proper formatting for timeline lists with gt and pred next to each other
+    def print_helper(self, heading, labels_1, num_1, labels_2, num_2):
+        pad_num = max(len(str(sum(num_1))), len(str(sum(num_2)))) + 1 # longest number
+        pad_text = max(len(max(max(labels_1, key=len), max(labels_2, key=len), key=len)), len("groundtruth"), len("prediction")) # longest string
+        print()
+        print(heading)
+        print("\t", '{:<{}}'.format('', pad_num), " ", '{:<{}}'.format('groundtruth', pad_text), sep='', end='')
+        print("\t\t", '{:<{}}'.format('', pad_num), " ", '{:<{}}'.format('prediction', pad_text), sep='', end='')
+        print()
+        print("\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print("\t\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print()
+        for i in range(0, max(len(labels_1), len(labels_2))):
+            if i < len(labels_1):
+                print("\t", '{0:{pad_num}d}'.format(num_1[i], pad_num=pad_num), " ", '{:<{}}'.format(labels_1[i], pad_text), sep='', end='')
+            else:
+                print("\t", '{:>{}}'.format('', pad_num), " ", '{:<{}}'.format('', pad_text), sep='', end='')
+            if i < len(labels_2):
+                print("\t\t", '{0:{pad_num}d}'.format(num_2[i], pad_num=pad_num), " ", '{:<{}}'.format(labels_2[i], pad_text), sep='', end='')
+            else:
+                print("\t\t", '{:>{}}'.format('', pad_num), " ", '{:<{}}'.format('', pad_text), sep='', end='')
+            print()
+        print("\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print("\t\t", '{:->{}}'.format('', pad_num), " ", '{:<{}}'.format('{:-<{}}'.format('', pad_num), pad_text), sep='', end='')
+        print()
+        print("\t", '{0:{pad_num}d}'.format(sum(num_1), pad_num=pad_num), " ", '{:<{}}'.format(len(labels_1), pad_text), sep='', end='')
+        print("\t\t", '{0:{pad_num}d}'.format(sum(num_2), pad_num=pad_num), " ", '{:<{}}'.format(len(labels_2), pad_text), sep='', end='')
+        print()
+
+
+
+
+
+if __name__=="__main__":
+    class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
+    cmdline = argparse.ArgumentParser(description="Scoring for transitions in a timeline of activities\nApply hysteresis on predictions\nPrint various infos on sample sets", epilog="Default output: binary transition check", formatter_class=Formatter)
+    #cmdline.add_argument('-v', '--verbose', help='increase output verbosity', action='store_true')
+    cmdline.add_argument('pred', metavar='PRED', type=str, nargs='?', default='-', help="predictions sample stream\n")
+    cmdline.add_argument('-d', '--default', type=str, default="NULL", help="default class label\n") # TODO: need this?
+
+    cmdline_trc_group = cmdline.add_argument_group('transition check arguments')
+    cmdline_trc_group.add_argument('-m', '--margin', metavar='N', type=float, default=0, help="margin around transition\n- 0-1: percentage of whole set\n- int: num samples\n")
+    cmdline_trc_group.add_argument('--transition', metavar='STR', type=str, default='trans', help="transition label string\n")
+    cmdline_trc_group_ex1 = cmdline_trc_group.add_mutually_exclusive_group() # non-binary and unsupervised should be mutually exclusive
+    cmdline_trc_group_ex1.add_argument('--non-binary', help='non-binary mode:\n- print actual label instead of transition label\n- print insert / delete string where applicable\n', action='store_true')
+    cmdline_trc_group_ex1.add_argument('-u', '--unsupervised', help='ignore labels and just look for transitions\n', action='store_true')
+    cmdline_trc_group.add_argument('--insert', metavar='STR', type=str, default='INSERT', help="output for predicted label transition without groundtruth match (non-binary mode)\n")
+    cmdline_trc_group.add_argument('--delete', metavar='STR', type=str, default='DELETE', help="output for groundtruth label transition without prediction match (non-binary mode)\n")
+
+    cmdline_hyst_group = cmdline.add_argument_group('hysteresis arguments')
+    cmdline_hyst_group.add_argument('-t', '--threshold', metavar='N', type=float, default=0, help="number of equal-label samples indicating a hysteresis label change\n- 0-1: percentage of whole set\n- int: num samples\n")
+    cmdline_hyst_group.add_argument('--groundtruth-hyst', metavar='N', type=float, default=0, help="hystresis parameter on groundtruth, same as -t\n")
+    cmdline_hyst_group.add_argument('-ph', '--print-hyst', help='print predictions stream after hysteresis and quit\n', action='store_true')
+
+    cmdline_info_group = cmdline.add_argument_group('info arguments')
+    cmdline_info_group.add_argument('-i', '--info', help='(= -iu -it -ih)\n', action='store_true')
+    cmdline_info_group.add_argument('-iu', '--info-unique', help='print info on the unique labels in the loaded set and quit\n', action='store_true')
+    cmdline_info_group.add_argument('-it', '--info-timeline', help='print info on the timeline labels in the loaded set and quit\n', action='store_true')
+    cmdline_info_group.add_argument('-ih', '--info-hyst', help='use hysteresis set instead of original predictions for info\n', action='store_true')
+
+
+    args = cmdline.parse_args()
+
+    tl = timeline(args)
+    tl.load_samples(args.pred)
+
+    print()
+
+    if args.info:
+        tl.print_info(True, True, True)
+        quit()
+    if args.info_unique or args.info_timeline or args.info_hyst:
+        tl.print_info(args.info_unique, args.info_timeline, args.info_hyst)
+        quit()
+
+    if args.print_hyst:
+        tl.print_hyst()
+        quit()
+
+    tl.transition_check(args.unsupervised)
+
+    tl.print_trc(not args.non_binary)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,8 +1,8 @@
 % grt-train
-% 
-% 
+%
+%
 
-# NANE
+# NAME
 
  grt-train - train a machine learning algorithm
 
@@ -22,7 +22,7 @@
 # OPTIONS
 -h, --help
 :   Print a help message.
- 
+
 -v, --verbose [level 0-4]
 :   Print a lot of details about the current execution.
 
@@ -116,7 +116,7 @@ A classifier that just stores all samples during training. For classification th
 
     echo "abc 1
     > abc 1
-    > 
+    >
     > cde 2
     >
     > abc 1
@@ -144,4 +144,3 @@ A classifier that just stores all samples during training. For classification th
     >
     > abc 1
     > abc 1" | grt train DTW -o test.crf -n <(echo -n "abc 1\nabc 1")
-

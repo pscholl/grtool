@@ -151,7 +151,7 @@ class LabelMedia(Media):
         n = [x['codec_type'] for x in self.streams].index('subtitle')
         return ("-map %d:%d"%(i,n)).split()
 
-def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**rest):
+def pack(ins,labels,rate=[],name=[],media=[],verbose=False,veryverbose=False,output="-",seek=[],**rest):
     """ ffmpeg is used to pack everything into one .mkv file, to do this we need a
         pipe for each input file (that gets converted into binary) and a pipe for
         each label stream. There is special input file format (called grt), which
@@ -187,7 +187,7 @@ def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**
         filters.append( Media(infile) )
 
     # read all input filter so far
-    if verbose:
+    if verbose or veryverbose:
         sys.stdout.write("reading input files...")
         sys.stdout.flush()
 
@@ -198,7 +198,8 @@ def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**
     # now build the ffmpeg command line
     cmd,i = ['ffmpeg'],0
     cmd += ["-nostdin"]
-    cmd += [] if verbose else '-hide_banner -loglevel quiet'.split()
+    cmd += [] if not veryverbose else '-loglevel debug'.split()
+    cmd += [] if verbose or veryverbose else '-hide_banner -loglevel quiet'.split()
     for f in filters: cmd += f.ffmpeg()
     cmd += "-c:a wavpack -c:v copy -c:s srt".split()
     for f in filters:
@@ -209,7 +210,7 @@ def pack(ins,labels,rate=[],name=[],media=[],verbose=False,output="-",seek=[],**
     cmd += ["-f", "matroska"]
     cmd += ["-y", output]
 
-    if verbose:
+    if verbose or veryverbose:
         sys.stdout.write("done\n")
         sys.stdout.write(" ".join(cmd)+"\n")
         sys.stdout.flush()
@@ -228,6 +229,7 @@ if __name__ == "__main__":
     cmdline.add_argument('-m', '--media', type=str,   default=[], action="append", help="additional file to add, multiple can be given, may contain subtitles")
     cmdline.add_argument('-ss', '--seek', type=str,   default=[], action="append", help="provide an offset for media files to align them with subtitle timebase in (hh:mm:ss.ms) format")
     cmdline.add_argument('-v', '--verbose', action="store_true", help="more verbose output")
+    cmdline.add_argument('-vv', '--veryverbose', action="store_true", help="even more verbose output")
     cmdline.add_argument('output', nargs='?', type=str, default='-', help="file to pack into")
     args = cmdline.parse_args()
 
