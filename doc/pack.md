@@ -2,7 +2,7 @@
 % 
 % 
 
-# NANE
+# NAME
 
  grt-pack - pack video, audio, sensor signals and labels as tracks into .mkv files
 

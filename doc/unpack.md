@@ -2,7 +2,7 @@
 % 
 % 
 
-# NANE
+# NAME
 
  grt-unpack - merge an audio stream and subtitle file into a csv stream for classification
 

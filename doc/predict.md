@@ -1,8 +1,8 @@
 % grt-predict
-% 
-% 
+%
+%
 
-# NANE
+# NAME
 
  grt-predict - predict the class of a data sequence
 
@@ -19,7 +19,7 @@
 
 -h, --help
 :   Print a help message.
- 
+
 -v, --verbose [level 0-4]
 :   Tell the command to be more verbose about its execution.
 
@@ -30,6 +30,3 @@
 :   additionally print the likelihood of each prediction.
 
 # EXAMPLES
-
-    
-    

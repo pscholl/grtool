@@ -2,7 +2,7 @@
 % 
 % 
 
-# NANE
+# NAME
 
  grt-extract - extract features from a data sequence
 

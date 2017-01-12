@@ -2,7 +2,7 @@
 % 
 % 
 
-# NANE
+# NAME
 
  grt-score - score the output of a prediction
 
