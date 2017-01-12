@@ -51,7 +51,7 @@ http://kevinboone.net/android_native.html
 
 The scikit-learn modules (train-skl/predict-skl) are written in python3 and depend on several additional python packages. The easiest way to install them is to use pip:
 
-   pip3 install numpy scipy scikit-learn matplotlib
+    pip3 install numpy scipy scikit-learn matplotlib
 
 ## Dlib
 
