@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import numpy as np
 from scipy.signal import butter, lfilter, freqz, medfilt
-from optparse import OptionParser
+#from optparse import OptionParser
+import argparse
 import sys
 import signal
 
@@ -28,60 +29,77 @@ def butter_highpass_filter(data, cutoff, fs, order=5):
   return y
 
 
-parser = OptionParser()
-parser.add_option("-c", "--cutoff", dest="cutoff",
-                  help="cutoff frequency", metavar="CUTOFF")
-parser.add_option("-f", "--frequency", dest="fs",
-                  help="The rate of incoming data", metavar="RATE")
-parser.add_option("-n", "--size", dest="vectorSize",
-                  help="The vector size of the incoming data", metavar="VECTOR_SIZE")
-parser.add_option("-o", "--order", dest="order", default=5,
-                  help="The filter's order", metavar="ORDER")
-parser.add_option("-t", "--type", dest="filterType", default="HPF",
-                  help="The type of filter to use, HPF (High-Pass Filter), or LPF (Low-Pass Filter).", metavar="FILTER_TYPE")
+parser = argparse.ArgumentParser()
+parser.add_argument("-c", "--cutoff", dest="cutoff",
+                  help="cutoff frequency", metavar="CUTOFF", type=float)
+parser.add_argument("-f", "--frequency", dest="fs",
+                  help="The rate of incoming data", metavar="RATE", type=float)
+#comment the next block for now and compute it straight from input
+#parser.add_argument("-n", "--size", dest="vectorSize",
+#                  help="The vector size of the incoming data", metavar="VECTOR_SIZE", type=int)
+parser.add_argument("-o", "--order", dest="order", default=5,
+                  help="The filter's order (optional)", metavar="ORDER", type=int)
+parser.add_argument("-t", "--type", dest="filterType", default="LPF",
+                  help="The type of filter to use, HPF (High-Pass Filter), or LPF (Low-Pass Filter). The default is set to LPF.", metavar="FILTER_TYPE")
 
 
-(options, args) = parser.parse_args()
+args = parser.parse_args()
 
 try: 
-  order = int(float(options.order))
+  order = int(args.order)
 except ValueError:
   print("Wrong value for order entered.")
-  sys.exit()
+  sys.exit(1)
+
+#comment the next block for now and compute it straight from input
+#try: 
+#  vectorSize = args.vectorSize
+#except ValueError:
+#  print("Wrong value for VECTOR_SIZE entered.")
+#  sys.exit()
 
 try: 
-  vectorSize = int(float(options.vectorSize))
-except ValueError:
-  print("Wrong value for VECTOR_SIZE entered.")
-  sys.exit()
-
-try: 
-  cutoff = float(options.cutoff)
+  cutoff = args.cutoff
 except ValueError:
   print("Wrong value for cutoff frequency entered.")
   sys.exit()
 
 try: 
-  fs = float(options.fs)
+  fs = args.fs
 except ValueError:
   print("Wrong value for RATE entered.")
-  sys.exit()
+  sys.exit(1)
 
-filterType = options.filterType
+filterType = args.filterType
 filterType = filterType.upper()
 
 #if condition to check on the data entered, exit if soemthing is wrong or missing
 if filterType not in ["LPF","HPF"]:
   print("Wrong type of filter selected.")
-  sys.exit()
+  sys.exit(1)
 
 if order < 1:
   print("Invalid value for filter's order.")
-  sys.exit() 
+  sys.exit(1) 
 
+if fs <= 0:
+  print("Invalid value for data frequency.")
+  sys.exit(1)
+
+if cutoff <= 0:
+  print("Invalid value for cutoff frequency.")
+  sys.exit(1)
 
 #load data from stdin as string
-data = np.loadtxt(sys.stdin, dtype=str)
+try:
+  data = np.loadtxt(sys.stdin, dtype=str)
+ #loadtxt will throw an exception if the rows are not consistent.
+except ValueError:
+  print("Invalid input data.")
+  sys.exit(1)
+
+#compute the vector size from the first line
+vectorSize = len(data[0]) - 1 
 
 for i in range(0,vectorSize):
   
