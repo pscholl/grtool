@@ -104,7 +104,7 @@ except ValueError:
 #take the label column and place it in the final array
 finalData = data[:,0]
 #take the remainder in a 2d float array
-floats = np.delete(data, 0, 1).astype(np.float)
+floats = data[:,1:].astype(np.float)
 
 #compute the vector size from the first line
 vectorSize = len(floats[0])
