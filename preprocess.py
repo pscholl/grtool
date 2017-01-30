@@ -6,24 +6,24 @@ import argparse
 import sys
 import signal
 
-def butter_lowpass(cutoff, fs, order=5):
+def butter_lowpass(cutoff, fs, order):
   nyq = 0.5 * fs
   normal_cutoff = cutoff / nyq
   b, a = butter(order, normal_cutoff, btype='low', analog=False)
   return b, a
 
-def butter_highpass(cutoff, fs, order=5):
+def butter_highpass(cutoff, fs, order):
   nyq = 0.5 * fs
   normal_cutoff = cutoff / nyq
   b, a = butter(order, normal_cutoff, btype='high', analog=False)
   return b, a
 
-def butter_lowpass_filter(data, cutoff, fs, order=5):
+def butter_lowpass_filter(data, cutoff, fs, order):
   b, a = butter_lowpass(cutoff, fs, order=order)
   y = lfilter(b, a, data)
   return y
 
-def butter_highpass_filter(data, cutoff, fs, order=5):
+def butter_highpass_filter(data, cutoff, fs, order):
   b, a = butter_highpass(cutoff, fs, order=order)
   y = lfilter(b, a, data)
   return y
@@ -45,6 +45,8 @@ parser.add_argument("-t", "--type", dest="filterType", default="LPF",
 
 args = parser.parse_args()
 
+#this is a default value in case the user doesn't provide it.
+order=5
 try: 
   order = int(args.order)
 except ValueError:
@@ -92,25 +94,31 @@ if cutoff <= 0:
 
 #load data from stdin as string
 try:
-  data = np.loadtxt(sys.stdin, dtype=str)
+#  data = np.loadtxt(sys.stdin, dtype=str)
+  data = np.loadtxt(sys.stdin, dtype=bytes).astype(str)
  #loadtxt will throw an exception if the rows are not consistent.
 except ValueError:
   print("Invalid input data.")
   sys.exit(1)
 
+#take the label column and place it in the final array
+finalData = data[:,0]
+#take the remainder in a 2d float array
+floats = np.delete(data, 0, 1).astype(np.float)
+
 #compute the vector size from the first line
-vectorSize = len(data[0]) - 1 
+vectorSize = len(floats[0])
 
 for i in range(0,vectorSize):
   
-  #filter a column while skipping 1 (because of the preceding label) after converting it to float
+  #filter a column
   if filterType == "HPF":
-    filteredData = butter_highpass_filter(data[:, i + 1].astype(np.float), cutoff, fs, order)
+    filteredData = butter_highpass_filter(floats[:, i], cutoff, fs, order)
   elif filterType == "LPF":
-    filteredData = butter_lowpass_filter(data[:, i + 1].astype(np.float), cutoff, fs, order)
-  
-  #replace the column used as input to the filter with the filtered values
-  data[:, i + 1] = filteredData 
+    filteredData = butter_lowpass_filter(floats[:, i], cutoff, fs, order)
+
+  #stack each newly filtered array to the final array
+  finalData = np.column_stack((finalData, filteredData))
 
 #print to stdout
-print('\n'.join(['\t'.join([item for item in row]) for row in data]))
+print('\n'.join(['\t'.join([item for item in row]) for row in finalData]))
