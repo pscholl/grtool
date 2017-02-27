@@ -19,7 +19,6 @@
      predict-dlib[pd] - predict from unseen data, processes trainers created from train-dlib
      predict-skl[ps] - predict from unseen data, processes models created from train-skl
      score[s] - calculate classifcation score for prediction
-     score-tr[str] - transition scoring tools: hysteresis, transition check
      score-tool[st] - scoring tool for analyzing multiple [grt score] results
      extract[e] - extract features from a data sequence
      preprocess[pp] - preprocess data sequence
