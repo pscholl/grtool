@@ -23,6 +23,7 @@ vector<vector<const char*>> cmds = {
   {"segment",     "sg",  "segments a list of samples into multiple timeseries"},
   {"pack",        "pa",  "pack multiple streams into an .mkv file (using ffmpeg)"},
   {"unpack",      "u",   "unpack first audio and subtitle stream from .mkv file (using ffmpeg)"},
+  {"mkvscore",    "ms",  "score based on subtitle stream from a or multiple .mkv files (using ffmpeg)"},
 };
 
 int usage(int exit_code, string msg="") {

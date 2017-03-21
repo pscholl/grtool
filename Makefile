@@ -30,6 +30,7 @@ install: $(ALL) # install-doc
 	$(INSTALL_PROGRAM) -D -T pack "$(DESTDIR)$(BINDIR)/grt-pack"
 	$(INSTALL_PROGRAM) -D -T unpack "$(DESTDIR)$(BINDIR)/grt-unpack"
 	$(INSTALL_PROGRAM) -D -T montage "$(DESTDIR)$(BINDIR)/grt-montage"
+	$(INSTALL_PROGRAM) -D -T mkvscore "$(DESTDIR)$(BINDIR)/grt-mkvscore"
 ifneq (,$(wildcard train-dlib))
 	$(INSTALL_PROGRAM) -D -T train-dlib "$(DESTDIR)$(BINDIR)/grt-train-dlib"
 endif

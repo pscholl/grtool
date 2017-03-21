@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+from ffmpipe import input
+import sys
+
+left,right = [], []
+
+def overlap(label, labelset):
+    if len(labelset) == 0:
+        return True
+
+    # assert ordered(labelset)
+    b = min(l.beg for l in labelset)
+    e = max(l.end for l in labelset)
+
+    return b <= label.beg < e or\
+           b <= label.end < e
+
+
+#
+# this is because input() just concatenates file, so when a new file is opened, the
+# timecode in the labels are reset and subsequently wrong overlap are calculated, i.e.
+# a label in file 1 might overlap a label in another file!
+#
+assert len(sys.argv) < 3, "maximum one input file, otherwise scores are incorrect!"
+
+labels = []
+subtitles = lambda s,_: s.codec_type == 'subtitle'
+for a,b,*_ in input(select=subtitles):
+    if a is not None and 'smoking' in a.label:
+        labels.append(a)
+        a.left = True
+
+    if b is not None and 'smoking' in b.label:
+        labels.append(b)
+        b.left = False
+
+labels = sorted(labels, key=lambda x: x.beg)
+
+cmpset = []
+for label in labels:
+    if not overlap(label, cmpset):
+        n = len([x for x in cmpset if x.left])
+        m = len(cmpset) - n
+
+        print( 'smoking smoking' if n>0 and m>0 else \
+               'NULL smoking'    if n>0 else \
+               'smoking NULL'    if m>0 else \
+               '' )
+        print( 'NULL NULL' )
+
+        cmpset = []
+
+    cmpset.append(label)
