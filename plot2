@@ -9,8 +9,8 @@ from pyqtgraph.widgets.RemoteGraphicsView import RemoteGraphicsView
 from threading import Thread, Event
 from collections import deque
 
-# import pyqtgraph.examples
-# pyqtgraph.examples.run()
+import pyqtgraph.examples
+pyqtgraph.examples.run()
 
 from math import pi
 import numpy as np
@@ -142,16 +142,16 @@ def cmap(start=0.5, rot=-1.5, gamma=1.0, reverse=False, nlev=256.,
         col.append((float(k) / (nlev - 1.), grn[k], grn[k]))
 
     #cdict = {'red': rr, 'blue': bb, 'green': gg}
-    return  [(a*255,b*255,c*255) for (a,b,c) in col]
+    return  [[a*255,b*255,c*255] for (a,b,c) in col]
 
 class MyColorMap():
     def __init__(self, maxval, cm=cmap(reverse=True)):
         self.m  = maxval
         self.cm = cm
 
-    def __call__(self, val):
+    def __call__(self, val, alpha=255):
         i = (len(self.cm)-1) * val/self.m
-        c = self.cm[int(i)]
+        c = self.cm[int(i)] + [alpha]
         return c
 
 class LabelRegion():
@@ -217,7 +217,7 @@ class LinePlot():
 
         cm = MyColorMap(len(data.data))
         for i in range(len(data.data)):
-            p = self.canvas.plot(pen=cm(i))
+            p = self.canvas.plot(pen=cm(i), fillBrush=cm(i))
             self.curves.append(p)
 
         r = pg.LinearRegionItem(movable=False)
@@ -226,7 +226,7 @@ class LinePlot():
 
     def __call__(self):
         for (p,d) in zip(self.curves,self.data.data):
-            p.setData(d)
+            p.setData(d, fillLevel=.3)
             if self.limit:
                 p.setPos(self.data.consumed-self.limit,0)
 

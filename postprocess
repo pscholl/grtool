@@ -90,6 +90,7 @@ if __name__=="__main__":
         'confidence' : confidence_print_window,
         'score'      : score_print_window,
         'change'     : change_print_window
+        'hls'        : hierachical_lazy_window,
     }
 
     cmdline = argparse.ArgumentParser('postprocess label outputs')
@@ -126,6 +127,10 @@ if __name__=="__main__":
         help="input files or - for stdin")
     evt.add_argument("-d", "--debug", nargs='*',
         help="create a file for tracing the postprocessing execution", type=str)
+
+    hls = subpars.add_parse("hls", help="hierachical lazy detector")
+    hls.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
+    hls.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 
     args = cmdline.parse_args()
     args.strategy = overlap_strategies[args.strategy]

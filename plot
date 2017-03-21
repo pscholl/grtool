@@ -192,7 +192,7 @@ class LabelPlot:
 class LinePlot:
     def __init__(self, labels, data):
         self.vspans = [] # for drawing labels
-        self.arts = plt.plot(data)
+        self.arts = plt.plot(data, '+')
         plt.tight_layout()
 
     def __call__(self,frameno,labels,data):

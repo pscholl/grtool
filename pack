@@ -80,7 +80,7 @@ class Label():
 
     def totc(self, n):
         tc = n/self.rate
-        return "%02d:%02d:%02d,%03d"%\
+        return "%d:%02d:%02d,%03d"%\
                (tc/3600, (tc%3600)/60, tc%60, (tc*1000)%1000)
 
     def __call__(self, fields=None):
