@@ -2,7 +2,7 @@
 % 
 % 
 
-# NANE
+# NAME
 
  grt-score - score the output of a prediction
 
@@ -74,11 +74,11 @@ These are a few example on the input and output data of the scoring. Let's start
     left_swipe         1            2      
     ------------ ------------- ------------ 
     
-    None               recall          precision           Fbeta              NPV               TNR        
+    None              accuracy           recall          precision           Fbeta              NPV               TNR        
     ------------ ----------------- ----------------- ----------------- ----------------- -----------------
-    right_swipe       0.500000          1.000000          0.666667          0.666667          1.000000     
-    left_swipe        1.000000          0.666667          0.800000          1.000000          0.500000     
-                     0.75/0.25     0.833333/0.166667 0.733333/0.066666 0.833333/0.166667     0.75/0.25     
+    right_swipe       0.750000          0.500000          1.000000          0.666667          0.666667          1.000000     
+    left_swipe        0.750000          1.000000          0.666667          0.800000          1.000000          0.500000     
+                      0.75/0           0.75/0.25     0.833333/0.166667 0.733333/0.066666 0.833333/0.166667     0.75/0.25     
 
 We have four lines of input, i.e. four predictions in total that need to be scored. They are made of a left_swipe, right_swipe label. The left hand side of the input is the ground truth label, which is gathered by a wizard-of-oz like system, and the right hand side is the prediction of the model. You can see that we have one misclassification on line two, which is reflected in the recall, precision and F-score, as well as in the confusion matrix. Reporting of the overall scores (and leaving only the confusion matrix) can be turned off.
 
@@ -104,17 +104,18 @@ Most often you want to test your machine learning model on multiple parameter an
     > (participant 1) right_swipe right_swipe
     > (participant 0) left_swipe  left_swipe
     > (participant 0) left_swipe  left_swipe" | grt score -g -c -e
-    participant 1        recall          precision           Fbeta              NPV               TNR        
+    participant 1       accuracy           recall          precision           Fbeta              NPV               TNR        
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
-    left_swipe                            0.000000                            1.000000          0.666667     
-    right_swipe         0.666667          1.000000          0.800000          0.000000                       
-                   0.333333/0.333333      0.5/0.5           0.4/0.4           0.5/0.5      0.333333/0.333333 
+    left_swipe          0.666667                            0.000000                            1.000000          0.666667     
+    right_swipe         0.666667          0.666667          1.000000          0.800000          0.000000                       
+                      0.666667/0     0.333333/0.333333      0.5/0.5           0.4/0.4           0.5/0.5      0.333333/0.333333 
     
-    participant 0        recall          precision           Fbeta              NPV               TNR        
+    participant 0       accuracy           recall          precision           Fbeta              NPV               TNR        
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
-    right_swipe         1.000000          1.000000          1.000000          1.000000          1.000000     
-    left_swipe          1.000000          1.000000          1.000000          1.000000          1.000000     
-                          1/0               1/0               1/0               1/0               1/0        
+    right_swipe         1.000000          1.000000          1.000000          1.000000          1.000000          1.000000     
+    left_swipe          1.000000          1.000000          1.000000          1.000000          1.000000          1.000000     
+                          1/0               1/0               1/0               1/0               1/0               1/0        
+
 
 As you can see, results are now reported for each input tag after the complete input has been read. Also notice that the class-mean and standard deviation is reported at the bottom of each table.
 
@@ -128,17 +129,18 @@ As you can see, results are now reported for each input tag after the complete i
     > (participant 1) right_swipe right_swipe
     > (participant 0) left_swipe  left_swipe
     > (participant 0) left_swipe  left_swipe" | grt score -g -s Fbeta -c -e
-    participant 1        recall          precision           Fbeta              NPV               TNR        
+    participant 1       accuracy           recall          precision           Fbeta              NPV               TNR        
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
-    left_swipe                            0.000000                            1.000000          0.666667     
-    right_swipe         0.666667          1.000000          0.800000          0.000000                       
-                   0.333333/0.333333      0.5/0.5           0.4/0.4           0.5/0.5      0.333333/0.333333 
+    left_swipe          0.666667                            0.000000                            1.000000          0.666667     
+    right_swipe         0.666667          0.666667          1.000000          0.800000          0.000000                       
+                      0.666667/0     0.333333/0.333333      0.5/0.5           0.4/0.4           0.5/0.5      0.333333/0.333333 
     
-    participant 0        recall          precision           Fbeta              NPV               TNR        
+    participant 0       accuracy           recall          precision           Fbeta              NPV               TNR        
     -------------- ----------------- ----------------- ----------------- ----------------- -----------------
-    right_swipe         1.000000          1.000000          1.000000          1.000000          1.000000     
-    left_swipe          1.000000          1.000000          1.000000          1.000000          1.000000     
-                          1/0               1/0               1/0               1/0               1/0        
+    right_swipe         1.000000          1.000000          1.000000          1.000000          1.000000          1.000000     
+    left_swipe          1.000000          1.000000          1.000000          1.000000          1.000000          1.000000     
+                          1/0               1/0               1/0               1/0               1/0               1/0        
+
 
 When reading input from a pipe, intermediate scores will also be reported, i.e. whenever the order changes it will be reported. When reading input from a file no intermediate scores will be reported.
 

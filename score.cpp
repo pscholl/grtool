@@ -4,8 +4,8 @@
 #include <math.h>
 #include <unordered_map>
 #include <regex>
-#include <algorithm> 
-#include <functional> 
+#include <algorithm>
+#include <functional>
 #include <cctype>
 #include <locale>
 
@@ -21,7 +21,7 @@ class Group {
   double get_meanscore(string, double);
 
   vector< uint64_t > TP,TN,FP,FN;
-  vector< double >   Fbeta,recall,precision,TNR,NPV;
+  vector< double >   Fbeta,recall,precision,TNR,NPV,accuracy;
 
   string to_string(cmdline::parser&, string tag);
   string to_flat_string(cmdline::parser&, string tag, bool first);
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
   c.add<double> ("F-score",       'F', "beta value for F-score, default: 1", false, 1);
   c.add         ("group",         'g', "aggregate input lines by tags, a tag is a string enclosed in paranthesis");
   c.add         ("quiet",         'q', "print no warnings");
-  c.add<string> ("sort",          's', "prints results in ascending mean [Fbeta,recall,precision,disabled] order", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","disabled"));
+  c.add<string> ("sort",          's', "prints results in ascending mean [Fbeta,recall,precision,accuracy,disabled] order", false, "disabled", cmdline::oneof<string>("Fbeta","recall","precision","accuracy","disabled"));
   c.add         ("intermediate",  'i', "do not report intermediate scores");
   c.footer      ("[filename] ...");
 
@@ -237,7 +237,7 @@ void Group::add_prediction(string label, string prediction)
   /* and then we also calculate the more in-depth analysis of Ward et.al.
    * - Performance Metrics for Activity Recognition.
    *
-   * For this we need to keep track of the next and last label to score, 
+   * For this we need to keep track of the next and last label to score,
    * one call before this one. */
   groundtruth_changed += label!=last_label;
   prediction_changed  += prediction!=last_prediction;
@@ -293,8 +293,9 @@ void Group::calculate_score(double beta)
   vector<uint64_t> TN = sum(*confusion) - colsum(*confusion) - rowsum(*confusion) + TP;
   vector<uint64_t> FN = colsum(*confusion) - TP;
 
-  recall.clear(); precision.clear(); Fbeta.clear();
+  recall.clear(); precision.clear(); Fbeta.clear(); accuracy.clear();
   for (size_t i=0; i<labelset.size(); i++) {
+    accuracy.push_back( (TP[i] + TN[i]) / (double) (TP[i] + FP[i] + TN[i] + FN[i]) );
     recall.push_back( TP[i] / (double) (TP[i] + FN[i]) );
     precision.push_back( TP[i] / (double) (TP[i] + FP[i]) );
     NPV.push_back( TN[i] / (double) (FN[i] + TN[i]) );
@@ -318,6 +319,7 @@ double Group::get_meanscore(string which, double beta)
   else if (which.find("precision") != string::npos) score = &precision;
   else if (which.find("NPV") != string::npos)       score = &NPV;
   else if (which.find("TNR") != string::npos)       score = &TNR;
+  else if (which.find("accuracy") != string::npos)    score = &accuracy;
   else return 0;
 
   for (auto val : *score)
@@ -347,12 +349,14 @@ string Group::to_flat_string(cmdline::parser &c, string tag, bool printheader) {
   if (printheader) {
     ss << "# ";
     ss << " groupname ";
+    ss << "total_accuracy ";
     ss << "total_recall ";
     ss << "total_precision ";
     ss << "total_Fbeta ";
     ss << "total_NPV ";
     ss << "total_TNR ";
     for (auto label : labelset) {
+      ss << label << "_accuracy ";
       ss << label << "_recall ";
       ss << label << "_precision ";
       ss << label << "_Fbeta ";
@@ -363,6 +367,7 @@ string Group::to_flat_string(cmdline::parser &c, string tag, bool printheader) {
 
   /* print out the total scores first */
   ss << tag << " ";
+  ss << mean(accuracy) << " ";
   ss << mean(recall) << " ";
   ss << mean(precision) << " ";
   ss << mean(Fbeta) << " ";
@@ -370,12 +375,13 @@ string Group::to_flat_string(cmdline::parser &c, string tag, bool printheader) {
   ss << mean(TNR) << " ";
 
   for (size_t i=0; i<labelset.size(); i++) {
+    ss << (std::isnan(accuracy[i])     ? "0" : std::to_string(accuracy[i])) << " ";
     ss << (std::isnan(recall[i])     ? "0" : std::to_string(recall[i])) << " ";
     ss << (std::isnan(precision[i])  ? "0" : std::to_string(precision[i])) << " ";
     ss << (std::isnan(Fbeta[i])      ? "0" : std::to_string(Fbeta[i])) << " ";
     ss << (std::isnan(NPV[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
     ss << (std::isnan(TNR[i])        ? "0" : std::to_string(Fbeta[i])) << " ";
-  }
+  } ss << endl;
 
   return ss.str();
 
@@ -452,6 +458,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
     uint64_t TAB_SIZE = 18;
 
     cout << tag << string(tab_size - tag.size(), ' ') << " ";
+    cout << centered(TAB_SIZE,"  accuracy  ");
     cout << centered(TAB_SIZE,"  recall  ");
     cout << centered(TAB_SIZE,"  precision  ");
     cout << centered(TAB_SIZE,"  Fbeta  ");
@@ -469,6 +476,7 @@ string Group::to_string(cmdline::parser &c, string tag) {
 
     for (size_t i=0; i<labelset.size(); i++) {
       cout << labelset[i] << string(tab_size - labelset[i].size() + 1,' ');
+      cout << centered(TAB_SIZE, std::isnan(accuracy[i])    ? "" : std::to_string(accuracy[i]));
       cout << centered(TAB_SIZE, std::isnan(recall[i])    ? "" : std::to_string(recall[i]));
       cout << centered(TAB_SIZE, std::isnan(precision[i]) ? "" : std::to_string(precision[i]));
       cout << centered(TAB_SIZE, std::isnan(Fbeta[i])     ? "" : std::to_string(Fbeta[i]));
@@ -478,7 +486,8 @@ string Group::to_string(cmdline::parser &c, string tag) {
     }
 
     cout << string(tab_size+1, ' ');
-    cout << centered(TAB_SIZE-1, meanstd(recall)) << " "
+    cout << centered(TAB_SIZE-1, meanstd(accuracy)) << " "
+         << centered(TAB_SIZE-1, meanstd(recall)) << " "
          << centered(TAB_SIZE-1, meanstd(precision)) << " "
          << centered(TAB_SIZE-1, meanstd(Fbeta)) << " "
          << centered(TAB_SIZE-1, meanstd(NPV)) << " "

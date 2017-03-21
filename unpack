@@ -116,7 +116,7 @@ def duration2ticks(s, rate):
     return None
 
 
-def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None):
+def unpack_to_str(streams,sub,default,style,verbose=False,veryverbose=False,ss=0,sd=None,rate=None,sub_only=False):
     # use -af aresample=resampler=soxr -ar 100 to switch to a common output rate
     # and merge all stream. The amerge complex filter can't be used since it can
     # not be taught to use the soxr resampler (the default one does not work)
@@ -144,18 +144,19 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None
 
     # build the command line
     cmd  = 'ffmpeg'
-    cmd += '' if verbose else ' -hide_banner -loglevel quiet'
+    cmd += '' if not veryverbose else ' -loglevel debug'
+    cmd += '' if verbose or veryverbose else ' -hide_banner -loglevel quiet'
     cmd += ''.join(' -i pipe:%d'%r for r,_ in ins)
     cmd += '' if not sub else ' -map %d:%d -f ass %s pipe:%d'%(sub[0]['file_index'],sub[0]['index'],ssd,subp[1])
 
     for (d,f),(_,w) in zip(streams,outs):
         cmd += ' -map %d:%d'%(d['file_index'],d['index'])
         cmd += ' -f f32le -ar %f'%rate
-        cmd += '' if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
+        cmd += '' #if len(outs)==1 else ' -af aresample=resampler=soxr:linear_interp=1'
         cmd += ssd
         cmd += ' pipe:%d'%w
 
-    if verbose:
+    if verbose or veryverbose:
         sys.stderr.write(cmd+"\n")
 
     # cmdline built, now copy all files to their respective w parts of in,
@@ -210,7 +211,10 @@ def unpack_to_str(streams,sub,default,style,verbose=False,ss=0,sd=None,rate=None
             n = min(len(v) for v in ibuf.values())
             for i in range(n):
                 bufs = [ y for x in ibuf.values() for y in x.pop()]
-                print(fmt(subr.label(t) or default if sub is not None else default, *bufs))
+                if sub_only:
+                    print(subr.label(t) or default if sub is not None else default)
+                else:
+                    print(fmt(subr.label(t) or default if sub is not None else default, *bufs))
                 t += 1
 
 def py3k(tup):
@@ -272,10 +276,12 @@ if __name__ == '__main__':
     cmdline.add_argument('-r', '--rate', type=float, default=None,          help="resample stream to given rate in Hz")
     cmdline.add_argument('-d', '--default', type=str, default="NULL",       help="default class label for unlabelled data")
     cmdline.add_argument('-s', '--style', type=str, default=None,           help="the class label style to select")
-    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given ")
+    cmdline.add_argument('-t', '--stream', type=str, nargs='*', default=[], help="select streams to consider by their meta-tag *language* or *name*, multiple can be given, can be comma-seperated ")
     cmdline.add_argument('-ss', type=str, default="0",                      help="seeks to a start position, format is documented in ffmpeg-utils(1)")
     cmdline.add_argument('-sd', type=str, default=None,                     help="duration of the playback, format is documented in ffmpeg-utils(1)")
+    cmdline.add_argument('-so', '--sub-only', action="store_true"         , help="output only subtitle labels, no numerical data")
     cmdline.add_argument('-v', '--verbose', action="store_true"           , help="more verbose output")
+    cmdline.add_argument('-vv', '--veryverbose', action="store_true"      , help="even more verbose output")
     args = cmdline.parse_args()
 
     #
@@ -290,9 +296,14 @@ if __name__ == '__main__':
     # ffmpeg in order to not have to read something twice
     iopen = lambda f: open(f,'rb',buffering=2**21)
     sopen = lambda f: os.fdopen(sys.stdin.fileno(),'rb',buffering=2**21)
+    args.files = [ item for sublist in [ x.split(',') for x in args.files ] for item in sublist ]
     files = (iopen(f) if f != '-' else sopen(f) for f in args.files )
     files = [ (probe(f),f) for f in files ]
     sids  = [ sid(s) for (ss,f) in files for s in ss if s['codec_type']=='audio' ]
+
+    args.stream = [ item for sublist in [ x.split(',') for x in args.stream ] for item in sublist ]
+    #for i in args.stream: sys.stderr.write(i + " ")
+    #sys.stderr.write('\n')
 
     # selector audio and subtitle stream
     okay = lambda d: d['codec_type']=='subtitle' or\
@@ -311,7 +322,7 @@ if __name__ == '__main__':
             sys.exit(-1)
 
         try:
-            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.ss,args.sd,args.rate)
+            unpack_to_str(audio,sub,args.default,args.style,args.verbose,args.veryverbose,args.ss,args.sd,args.rate,args.sub_only)
         except struct.error:
             raise
             sys.exit(0)
