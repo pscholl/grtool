@@ -13,10 +13,36 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn import cluster
 from sklearn import mixture
+from sklearn import ensemble
+from sklearn import svm
+
 import pickle
 
 from scipy import sparse
 
+
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
+
+# general help text
+general_help = """
+Training various supervised and unsupervised algorithms from scikit-learn
+
+SVM : http://scikit-learn.org/stable/modules/svm.html
+Ensemble : http://scikit-learn.org/stable/modules/ensemble.html
+Clustering : http://scikit-learn.org/stable/modules/clustering.html
+Mixture : http://scikit-learn.org/stable/modules/mixture.html
+"""
 
 # estimator help text, estimator objects constructed from the keys
 estimators_help = {
@@ -31,7 +57,38 @@ estimators_help = {
             'SpectralClustering': 'Apply clustering to a projection to the normalized laplacian.',
             'GaussianMixture': 'Gaussian Mixture Model',
             'BayesianGaussianMixture': 'Variational Bayesian estimation of a Gaussian mixture.',
+            'RandomForestClassifier': 'A random forest classifier.',
+            'LinearSVC': 'Linear Support Vector Classification.',
+            'NuSVC': 'Nu-Support Vector Classification.',
+            'SVC': 'C-Support Vector Classification.',
             }
+
+# estimator groups
+cluster_estimators = ['AffinityPropagation','AgglomerativeClustering','Birch','DBSCAN','FeatureAgglomeration','KMeans','MiniBatchKMeans','MeanShift','SpectralClustering']
+mixture_estimators = ['GaussianMixture','BayesianGaussianMixture']
+ensemble_estimators = ['RandomForestClassifier']
+svm_estimators = ['LinearSVC','NuSVC','SVC']
+
+
+# constructing an estimator list help text
+estimator_help_list = "These are the available estimators. Try [train-skl ESTIMATOR -h] for optional arguments and a parameter listing per estimator.\n"
+
+estimator_help_list += "\nCLUSTERING\n"
+for e in cluster_estimators:
+    estimator_help_list += '\t' + color.BOLD + e + color.END + ": " + estimators_help[e] + '\n'
+
+estimator_help_list += "\nMIXTURE MODELS\n"
+for e in mixture_estimators:
+    estimator_help_list += '\t' + color.BOLD + e + color.END + ": " + estimators_help[e] + '\n'
+
+estimator_help_list += "\nSUPPORT VECTOR MACHINES\n"
+for e in svm_estimators:
+    estimator_help_list += '\t' + color.BOLD + e + color.END + ": " + estimators_help[e] + '\n'
+
+estimator_help_list += "\nENSEMBLE METHODS\n"
+for e in ensemble_estimators:
+    estimator_help_list += '\t' + color.BOLD + e + color.END + ": " + estimators_help[e] + '\n'
+
 
 estimators_params = dict() # estimator parameters
 estimators = dict() # estimator classes
@@ -42,17 +99,24 @@ def get_estimators():
         tmp = None
         module = None
 
-        # GMM is in a different module
-        if e == 'GaussianMixture' or e == 'BayesianGaussianMixture':
-            module = mixture
-        else:
+        # get correct sklearn module for estimator type
+        if e in cluster_estimators:
             module = cluster
+        elif e in mixture_estimators:
+            module = mixture
+        elif e in ensemble_estimators:
+            module = ensemble
+        elif e in svm_estimators:
+            module = svm
+        else:
+            sys.stderr.write("Estimator " + e + " not implemented!\n")
+            sys.exit(-1)
 
         try:
             tmp = getattr(module, e)
         except AttributeError:
             #raise NotImplementedError("Class `{}` does not implement `{}`".format(module.__name__, e))
-            sys.stderr.write("train-skl: " + module.__name__ + ' does not implement estimator ' + e + '\n')
+            sys.stderr.write("train-skl: " + module.__name__ + " does not implement estimator " + e + '\n')
             sys.exit(-1)
 
         estimators[e] = tmp()
@@ -298,13 +362,13 @@ if __name__=="__main__":
     get_estimators()
 
     class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter): pass
-    cmdline = argparse.ArgumentParser(description="Unsupervised clustering algorithms from scikit-learn\n[train module]", epilog="Default output: estimator dump", formatter_class=Formatter)
+    cmdline = argparse.ArgumentParser(description=general_help, epilog="Default output: estimator dump", formatter_class=Formatter)
 
     # create subparsers for each estimator
-    est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description='used to fit model to sample features\nSee http://scikit-learn.org/stable/modules/clustering.html for more info.', metavar='ESTIMATOR')
+    est_cmdline = cmdline.add_subparsers(title='estimator', dest='estimator', description=estimator_help_list, metavar='')
     est_cmdline_subs = dict()
     for e in sorted(estimators_help.keys()):
-        est_cmdline_subs[e] = est_cmdline.add_parser(e, help=estimators_help[e], description=estimators_help[e]+'\n\nSee http://scikit-learn.org/stable/modules/clustering.html for more info.', formatter_class=Formatter)
+        est_cmdline_subs[e] = est_cmdline.add_parser(e, description=estimators_help[e], formatter_class=Formatter)
         general_args(est_cmdline_subs[e])
         # fill arguments with available parameters
         group = est_cmdline_subs[e].add_argument_group('estimator parameters')
@@ -323,6 +387,7 @@ if __name__=="__main__":
 
     # get the estimator class
     estimator = estimators[args.estimator]
+    supervised = args.estimator in ensemble_estimators or args.estimator in svm_estimators
 
     # set the estimators parameters from cli
     params = dict(args.__dict__)
@@ -355,7 +420,8 @@ if __name__=="__main__":
     # fit model
     try:
         if args.benchmark: start = datetime.now()
-        estimator.fit(train_features)
+        if supervised: estimator.fit(train_features, train_labels)
+        else: estimator.fit(train_features)
         if args.benchmark: print("fit::{}".format(datetime.now() - start), file=bench_file)
     except ValueError as ex:
         sys.stderr.write("train-skl: ValueError when fitting estimator! (NAN in the data?)\n")
@@ -367,10 +433,10 @@ if __name__=="__main__":
         graph_result(estimator, train_labels, train_features)
         quit()
 
-    # immediately print cluster predictions, don't dump model
+    # immediately print predictions, don't dump model
     if args.prediction:
         if args.benchmark: start = datetime.now()
-        # if no test samples, cluster on all train samples
+        # if no test samples, predict on all train samples
         if len(test_labels) == 0:
             # there are two predict functions in skl :/
             try:
@@ -380,7 +446,7 @@ if __name__=="__main__":
                 pred = estimator.predict(train_features)
                 if args.benchmark: print("predict::{}".format(datetime.now() - start), file=bench_file)
             for i in range(0, len(train_labels)): print(train_labels[i], pred[i], sep='\t')
-        # if test set, cluster on test samples only
+        # if test set, predict on test samples only
         else:
             pred = estimator.predict(test_features)
             if args.benchmark: print("predict::{}".format(datetime.now() - start), file=bench_file)
