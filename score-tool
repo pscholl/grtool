@@ -67,7 +67,7 @@ def db_add_row(cursor, values, args):
     elif ncol > nval:
       values.extend([ None for x in range(ncol-nval) ])
       if args.verbose: sys.stderr.write('extended ' + str(nval) + ' --> ' + str(ncol) + '\n')
-      db_add_row(cursor, values, args.verbose)
+      db_add_row(cursor, values, args)
 
 
 # prints some short info on the specified table

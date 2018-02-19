@@ -5,6 +5,8 @@ import argparse, json, fileinput
 import math, random
 import numpy as np
 
+from datetime import datetime
+
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -288,6 +290,7 @@ def general_args(parser):
     parser.add_argument('-p', '--prediction', help='output the prediction for the test set, or if no test set specified, the train set\n', action='store_true')
     parser.add_argument('-f', '--file', type=argparse.FileType('wb'), help='save the estimator model to the file\n')
     parser.add_argument('-n', '--trainset', type=str, default='0', help='training/test set customization:\n- <= 0: no split\n- < 1: random stratified split, rest is test set\n- > 1: k-fold split, selected fold is test set (k.x, [folds].[select])\n- file: use this file as sample source, no split\n')
+    parser.add_argument('-b', '--benchmark', type=str, help='benchmark the fit/predict process, and output result to specified file\n')
     parser.add_argument('--custom-args', metavar='dict', type=str, help='custom trainer arguments\n')
     parser.add_argument('--custom-args-compat', help='compatibility mode for --custom-args, e.g. when used with GNU parallel\nkeys and values are strings only! format: {key1:value1:key2...}\n', action='store_true')
 
@@ -327,6 +330,7 @@ if __name__=="__main__":
     del params['estimator'], params['samples'], \
         params['graph'], params['prediction'], \
         params['file'], params['trainset'], \
+        params['benchmark'], \
         params['custom_args'], params['custom_args_compat']
 
     # set custom estimator args if any
@@ -346,9 +350,13 @@ if __name__=="__main__":
 
     #print(estimator.get_params())
 
+    if args.benchmark: bench_file = open(args.benchmark, "w")
+
     # fit model
     try:
+        if args.benchmark: start = datetime.now()
         estimator.fit(train_features)
+        if args.benchmark: print("fit::{}".format(datetime.now() - start), file=bench_file)
     except ValueError as ex:
         sys.stderr.write("train-skl: ValueError when fitting estimator! (NAN in the data?)\n")
         sys.stderr.write(str(ex) + '\n')
@@ -361,19 +369,26 @@ if __name__=="__main__":
 
     # immediately print cluster predictions, don't dump model
     if args.prediction:
+        if args.benchmark: start = datetime.now()
         # if no test samples, cluster on all train samples
         if len(test_labels) == 0:
             # there are two predict functions in skl :/
             try:
                 pred = estimator.fit_predict(train_features)
+                if args.benchmark: print("fit_predict::{}".format(datetime.now() - start), file=bench_file)
             except AttributeError:
                 pred = estimator.predict(train_features)
+                if args.benchmark: print("predict::{}".format(datetime.now() - start), file=bench_file)
             for i in range(0, len(train_labels)): print(train_labels[i], pred[i], sep='\t')
         # if test set, cluster on test samples only
         else:
             pred = estimator.predict(test_features)
+            if args.benchmark: print("predict::{}".format(datetime.now() - start), file=bench_file)
             for i in range(0, len(test_labels)): print(test_labels[i], pred[i], sep='\t')
+        if args.benchmark: bench_file.close()
         quit()
+
+    if args.benchmark: bench_file.close()
 
     if args.file:
         # dump into file
