@@ -41,6 +41,10 @@ def change_print_window(window, args):
         print("\t".join(args.lastline))
         args.lastline = window[0]
 
+def hierarchical_lazy_window(window, args):
+    sys.stderr.write("hierarchical_lazy_window not implemented\n")
+    sys.exit(-1)
+
 def main_loop(print_window, args):
     # sanity check for supplied arguments
     if args.overlap < 0 or args.overlap >=1:
@@ -48,7 +52,7 @@ def main_loop(print_window, args):
         sys.exit(-1)
 
     if args.window <= 0:
-        sys.stderr.write("-W|--window must be larger than 0")
+        sys.stderr.write("-W|--window must be larger than 0\n")
         sys.exit(-1)
 
     window = []
@@ -89,8 +93,8 @@ if __name__=="__main__":
         'majority'   : major_print_window,
         'confidence' : confidence_print_window,
         'score'      : score_print_window,
-        'change'     : change_print_window
-        'hls'        : hierachical_lazy_window,
+        'change'     : change_print_window,
+        'hls'        : hierarchical_lazy_window,
     }
 
     cmdline = argparse.ArgumentParser('postprocess label outputs')
@@ -128,7 +132,7 @@ if __name__=="__main__":
     evt.add_argument("-d", "--debug", nargs='*',
         help="create a file for tracing the postprocessing execution", type=str)
 
-    hls = subpars.add_parse("hls", help="hierachical lazy detector")
+    hls = subpars.add_parser("hls", help="hierachical lazy detector")
     hls.add_argument("-W","--window", type=int, default=10, help="window size in frames to consider")
     hls.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 
