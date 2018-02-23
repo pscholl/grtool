@@ -381,7 +381,7 @@ if __name__=="__main__":
   cmdline.add_argument('-v', '--verbose', help='be verbose\n', action='store_true')
   cmdline.add_argument('--recursive', help='enable recursive file glob\n', action='store_true')
   cmdline.add_argument('-i', '--info', help='print info on loaded table\n', action='store_true')
-  cmdline.add_argument('-r', '--raw', help='raw output, no tabulate\n', action='store_true')
+  cmdline.add_argument('--raw', help='raw output, no tabulate\n', action='store_true')
   cmdline.add_argument('-t', '--total', help='only load total scores, no per-class scores\n', action='store_true')
   cmdline.add_argument('--sql', metavar='SQL', type=str, help='perform SQL term on loaded table\n')
   cmdline.add_argument('--where', metavar='SQL', type=str, help='add where clause to sql term\n')
@@ -392,9 +392,9 @@ if __name__=="__main__":
 
   cmdline_table_group = cmdline.add_argument_group('table arguments')
   cmdline_table_group.add_argument('--table', metavar='NAME', type=str, default='scores', help='specify the table name\n')
-  cmdline_table_group.add_argument('--limit-columns', metavar='N', type=int, default=0, help='limit table printing to first N columns\n')
-  cmdline_table_group.add_argument('--limit-rows', metavar='N', type=int, default=0, help='limit table printing to first N rows\n')
-  cmdline_table_group.add_argument('--select-columns', metavar='COLS', type=str, help='limit table printing to selected columns, format:\n- 1,2,4,6,...\n- [column1],[column2],...\noverrides --limit-columns\n')
+  cmdline_table_group.add_argument('-c','--limit-columns', metavar='N', type=int, default=0, help='limit table printing to first N columns\n')
+  cmdline_table_group.add_argument('-r','--limit-rows', metavar='N', type=int, default=0, help='limit table printing to first N rows\n')
+  cmdline_table_group.add_argument('-sc','--select-columns', metavar='COLS', type=str, help='limit table printing to selected columns, format:\n- 1,2,4,6,...\n- [column1],[column2],...\noverrides --limit-columns\n')
   cmdline_table_group.add_argument('-a', '--aggregate', help='aggregate on selected columns\n', action='store_true')
   cmdline_table_group.add_argument('-d', '--distinct', help='get distinct values from selected columns\n', action='store_true')
   cmdline_table_group.add_argument('--order-by', metavar='COL', type=str, help='order table by COL\n')
@@ -408,7 +408,7 @@ if __name__=="__main__":
 
   # input checks
   if not len(args.files) and not args.load:
-    sys.stderr.write('specify at least one file or the --load option\n')
+    sys.stderr.write('specify "-", at least one file, or the --load option\n')
     sys.exit(-1)
   if len(args.files) and args.load:
     print('warning! if --load is set other specified files will be ignored')
