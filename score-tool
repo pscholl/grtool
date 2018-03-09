@@ -33,7 +33,7 @@ def aggregate_sql(c, sel_as=False):
 def db_create_table(cursor, table, fields):
   # build SQL term
   create_str = 'CREATE TABLE '+table+' ('
-  for i in fields: create_str += i.replace('\"','') + ',' # remove "
+  for i in fields: create_str += i.replace('\"','').replace('-','_') + ',' # remove " and -
   create_str = create_str[:-1]
   create_str += ');'
   try:
@@ -312,65 +312,10 @@ def load_scores(files, cursor, args):
       db_add_row(cursor, values, args)
 
 
-# this function can be used to execute complex custom sql queries and calculations, e.g. if they are not supported via sqlite syntax
-# currently gets the intersection of multiple columns over multiple tables, then retrives scores for each intersection result, order by primaryset, get special value from primaryset
-def db_special(cursor, args):
-  from operator import itemgetter
+# this function can be used to execute complex custom sql queries and calculations on the loaded tables, e.g. if they are not supported via sqlite syntax
+def db_sandbox(cursor, args):
+  pass
 
-  datasets = ['hs','ubi','cmu']
-  methods_unsup = ['KMeans','Agglomerative','GMM']
-  methods_sup = ['RF','SVM']
-  methods_all = methods_unsup + methods_sup
-
-  primaryset = 2 # hs=1 ubi=2 cmu=3
-
-  for m in methods_all:
-    intersect_sql = 'SELECT window, feature, hyst FROM hs_{0} WHERE total_recall>=0.85 AND total_recall<1 INTERSECT SELECT window, feature, hyst FROM ubi_{0} WHERE total_recall>=0.85 AND total_recall<1 INTERSECT SELECT window, feature, hyst FROM cmu_{0} WHERE total_recall>=0.85 AND total_recall<1'.format(m)
-    print(m)
-    all_top_columns = list() # result columns
-    all_top_rows = list() # result rows
-
-    if args.verbose: sys.stderr.write(intersect_sql + '\n')
-    cursor.execute(intersect_sql)
-    intersect_columns = [ d[0] for d in cursor.description ]
-    intersect_rows = cursor.fetchall()
-
-    if not len(intersect_rows):
-      sys.stderr.write('No intersections, skipping...\n\n')
-      continue
-
-    for r in intersect_rows:
-      row = list(r)
-      top_columns = list()
-      top_rows = list()
-
-      for ds in datasets:
-        if m in methods_unsup:
-          top_sql = 'SELECT class,window,feature,cluster,hyst,total_recall'
-        elif m == 'SVM':
-          top_sql = 'SELECT class,window,feature,kernel,hyst,total_recall'
-        else:
-          top_sql = 'SELECT class,window,feature,hyst,total_recall'
-
-        top_sql +=  ' FROM {1}_{0} WHERE total_recall>=0.85 AND total_recall<1 AND {2}={3} AND {4}="{5}" AND {6}={7} ORDER BY total_recall DESC LIMIT 1'.format(m,ds,intersect_columns[0],row[0],intersect_columns[1],row[1],intersect_columns[2],row[2])
-        if args.verbose: sys.stderr.write(top_sql + '\n')
-        cursor.execute(top_sql)
-        top_columns = [ d[0] for d in cursor.description ]
-        top_rows.append(list(cursor.fetchall()[0]))
-
-      new_top_row = top_rows[primaryset-1][:-1]
-      for i in range(len(datasets)):
-        new_top_row.append(top_rows[i][-1])
-      all_top_rows.append(new_top_row)
-
-    all_top_columns = top_columns[:-1]
-    all_top_columns.append('top recall 1')
-    all_top_columns.append('top recall 2')
-    all_top_columns.append('top recall 3')
-
-    all_top_rows = reversed(sorted(all_top_rows, key=itemgetter(len(all_top_columns)-(4-primaryset))))
-    print(tabulate(all_top_rows, headers=all_top_columns, tablefmt=args.format))
-    print()
 
 
 
@@ -388,7 +333,7 @@ if __name__=="__main__":
   cmdline.add_argument('--dump', metavar='FILE', type=str, help='dump created database to SQL text format\n')
   cmdline.add_argument('--load', metavar='FILE', type=str, nargs='*', help='load database from SQL dump\n')
   cmdline.add_argument('--sqlitefunctions', metavar='FILE', type=str, default='./libsqlitefunctions', help='SQL extension functions; path to shared object file\n')
-  cmdline.add_argument('--special', help='special function; see code; for advanced usage\n', action='store_true')
+  cmdline.add_argument('--sandbox', help='execute sandbox code; see code/comments; for advanced usage\n', action='store_true')
 
   cmdline_table_group = cmdline.add_argument_group('table arguments')
   cmdline_table_group.add_argument('--table', metavar='NAME', type=str, default='scores', help='specify the table name\n')
@@ -397,7 +342,7 @@ if __name__=="__main__":
   cmdline_table_group.add_argument('-sc','--select-columns', metavar='COLS', type=str, help='limit table printing to selected columns, format:\n- 1,2,4,6,...\n- [column1],[column2],...\noverrides --limit-columns\n')
   cmdline_table_group.add_argument('-a', '--aggregate', help='aggregate on selected columns\n', action='store_true')
   cmdline_table_group.add_argument('-d', '--distinct', help='get distinct values from selected columns\n', action='store_true')
-  cmdline_table_group.add_argument('--order-by', metavar='COL', type=str, help='order table by COL\n')
+  cmdline_table_group.add_argument('-o', '--order-by', metavar='COL', type=str, help='order table by COL\n')
   cmdline_table_group.add_argument('-asc', '--ascending', help='ascending order instead of descending\n', action='store_true')
   cmdline_table_group.add_argument('-lt', '--lessthan', metavar='N', type=float, help='only print rows with [--order-by] value less than N\n')
   cmdline_table_group.add_argument('-get', '--greaterequalthan', metavar='N', type=float, help='only print rows with [--order-by] value greater or equal than N\n')
@@ -491,8 +436,8 @@ if __name__=="__main__":
     db_print_aggregate(cursor, args)
   elif args.distinct:
     db_print_distinct(cursor, args)
-  elif args.special:
-    db_special(cursor, args)
+  elif args.sandbox:
+    db_sandbox(cursor, args)
   else:
     db_print_table(cursor, args)
 
