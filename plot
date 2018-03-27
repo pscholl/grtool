@@ -288,6 +288,9 @@ cmdline.add_argument('--num-samples', '-n', type=int, default=0,     help="plot 
 cmdline.add_argument('--frame-rate',  '-f', type=float, default=60., help="limit the frame-rate, 0 is unlimited")
 cmdline.add_argument('--quiet',       '-q', action="store_true",     help="if given does not copy input to stdout")
 cmdline.add_argument('--title',       '-t', type=str, default=None,  help="plot window title")
+cmdline.add_argument('--plot-font-size', '-pf', type=int, default=None,  help="plot font size")
+cmdline.add_argument('--plot-x-label', '-pxl', type=str, default=None,  help="plot xaxis label")
+cmdline.add_argument('--plot-y-label', '-pyl', type=str, default=None,  help="plot yaxis label")
 cmdline.add_argument('--output',      '-o', type=str, default=None,  help="if given plot into movie file instead of screen")
 cmdline.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 args = cmdline.parse_args()
@@ -416,8 +419,13 @@ if __name__=="__main__":
     if args.title: fig.canvas.set_window_title(args.title)
     elif len(args.files) > 0: fig.canvas.set_window_title(" ".join(args.files))
 
+    if args.plot_font_size: mp.rcParams.update({'font.size': args.plot_font_size})
+
     anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet,plotter=plotters[args.plot_type])
     afun = MyFuncAnimation(fig,anim,interval=1000./args.frame_rate)
+
+    if args.plot_x_label: plt.xlabel(args.plot_x_label)
+    if args.plot_y_label: plt.ylabel(args.plot_y_label)
 
     if args.output is not None:
         writer = animation.writers['ffmpeg']
