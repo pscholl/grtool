@@ -10,7 +10,8 @@ from queue import Queue
 from inspect import isclass
 from math import ceil
 import sys
-mp.style.use("ggplot")
+from pprint import pprint
+mp.style.use("seaborn-dark")
 
 class ScatterPlot:
     def __init__(self,labels,data):
@@ -220,7 +221,7 @@ class LinePlot:
                 plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
                 for x1,x2,c in zip(spans[:-1],spans[1:],self.cm(li)) ]
         self.vspans += [\
-                plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
+                plt.annotate(label, (offset+x1,0), xycoords=("data", "axes fraction"), rotation=30, rotation_mode="anchor")\
                 for label,x1 in zip(mylabels,spans) ]
         labels.pop()
         return self.arts
@@ -348,7 +349,7 @@ class TextLineAnimator(Thread):
 
         if arts is not None and len(arts) > 0:
             # rescale
-            ax = arts[0].get_axes()
+            ax = arts[0].axes
             ax.relim()
             ax.autoscale_view(True,True,True)
 
