@@ -10,7 +10,8 @@ from queue import Queue
 from inspect import isclass
 from math import ceil
 import sys
-mp.style.use("ggplot")
+from pprint import pprint
+mp.style.use("seaborn-dark")
 
 class ScatterPlot:
     def __init__(self,labels,data):
@@ -192,7 +193,8 @@ class LabelPlot:
 class LinePlot:
     def __init__(self, labels, data):
         self.vspans = [] # for drawing labels
-        self.arts = plt.plot(data, '+')
+        #self.arts = plt.plot(data, '+')
+        self.arts = plt.plot(data)
         plt.tight_layout()
 
     def __call__(self,frameno,labels,data):
@@ -216,11 +218,14 @@ class LinePlot:
         spans  = [0] + [x+1 for x in range(len(labels)-1) if labels[x]!=labels[x+1]] + [len(labels)-1]
         mylabels = [l1 for l1,l2 in zip(labels,labels[1:]) if l1!=l2]
         li=[self.labels.index(l) for l in mylabels]
+        for idx, itm in enumerate(mylabels):
+            if itm == "pour_catalysator": mylabels[idx] = ""
+            if "sample" in itm: mylabels[idx] = mylabels[idx].replace("sample","foil")
         self.vspans = [\
                 plt.axvspan(offset+x1,offset+x2, alpha=.2, zorder=-1, color=c)\
                 for x1,x2,c in zip(spans[:-1],spans[1:],self.cm(li)) ]
         self.vspans += [\
-                plt.annotate(label, (offset+x1,0.1), xycoords=("data", "axes fraction"), rotation=30)\
+                plt.annotate(label, (offset+x1,0), xycoords=("data", "axes fraction"), rotation=30, rotation_mode="anchor")\
                 for label,x1 in zip(mylabels,spans) ]
         labels.pop()
         return self.arts
@@ -287,7 +292,11 @@ cmdline.add_argument('--num-samples', '-n', type=int, default=0,     help="plot 
 cmdline.add_argument('--frame-rate',  '-f', type=float, default=60., help="limit the frame-rate, 0 is unlimited")
 cmdline.add_argument('--quiet',       '-q', action="store_true",     help="if given does not copy input to stdout")
 cmdline.add_argument('--title',       '-t', type=str, default=None,  help="plot window title")
+cmdline.add_argument('--plot-font-size', '-pf', type=int, default=None,  help="plot font size")
+cmdline.add_argument('--plot-x-label', '-pxl', type=str, default=None,  help="plot xaxis label")
+cmdline.add_argument('--plot-y-label', '-pyl', type=str, default=None,  help="plot yaxis label")
 cmdline.add_argument('--output',      '-o', type=str, default=None,  help="if given plot into movie file instead of screen")
+cmdline.add_argument('--cluster', '-c', type=str, default=None,  help="cluster file")
 cmdline.add_argument('files', metavar='FILES', type=str, nargs='*',  help="input files or - for stdin")
 args = cmdline.parse_args()
 
@@ -348,7 +357,7 @@ class TextLineAnimator(Thread):
 
         if arts is not None and len(arts) > 0:
             # rescale
-            ax = arts[0].get_axes()
+            ax = arts[0].axes
             ax.relim()
             ax.autoscale_view(True,True,True)
 
@@ -415,8 +424,28 @@ if __name__=="__main__":
     if args.title: fig.canvas.set_window_title(args.title)
     elif len(args.files) > 0: fig.canvas.set_window_title(" ".join(args.files))
 
+    if args.plot_font_size: mp.rcParams.update({'font.size': args.plot_font_size})
+
+    if args.cluster:
+        cluster = []
+        for line in fileinput.input(args.cluster, bufsize=1000):
+            line = line.strip()
+            line = line.strip('\n')
+            if line == '': continue
+            newsample = int(line.split('\t')[1])
+            cluster.extend([ newsample for x in range(80) ])
+        cluster_trans = [ x0-x1 for x0,x1 in zip(cluster[:],cluster[1:]) ]
+        transitions = []
+        for ix,ct in enumerate(cluster_trans):
+            if ct != 0: transitions.append(ix)
+        for t in transitions:
+            plt.axvline(x=t, color='r', lw=3)
+
     anim = TextLineAnimator(fileinput.input(args.files,bufsize=1),framelimit=args.num_samples,quiet=args.quiet,plotter=plotters[args.plot_type])
     afun = MyFuncAnimation(fig,anim,interval=1000./args.frame_rate)
+
+    if args.plot_x_label: plt.xlabel(args.plot_x_label)
+    if args.plot_y_label: plt.ylabel(args.plot_y_label)
 
     if args.output is not None:
         writer = animation.writers['ffmpeg']
